@@ -2,7 +2,13 @@ name: Deck site checks
 
 on:
   push:
+    paths:
+      - "apps/deck-site/**"
+      - ".github/workflows/deck-site.yml"
   pull_request:
+    paths:
+      - "apps/deck-site/**"
+      - ".github/workflows/deck-site.yml"
 
 jobs:
   deck-site:
