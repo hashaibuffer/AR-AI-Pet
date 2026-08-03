@@ -302,7 +302,7 @@ function SlideContent({ slide }: { slide: Slide }) {
               </article>
             ))}
           </div>
-          <p className="takeaway">宠物既是主持人，也是每位用户在共同世界中的社交代理。</p>
+          <p className="takeaway">宠物是用户的游戏伙伴，也是共同世界中的社交代理。</p>
         </SlideFrame>
       );
     case "privacy":
