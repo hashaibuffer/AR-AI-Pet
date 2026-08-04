@@ -1,0 +1,25 @@
+diff --git a/firmware/main/stackchan/modifiers/breath.h b/firmware/main/stackchan/modifiers/breath.h
+index 84e3c8c..24ef11d 100644
+--- a/firmware/main/stackchan/modifiers/breath.h
++++ b/firmware/main/stackchan/modifiers/breath.h
+@@ -10,0 +11 @@
++#include <numbers>
+@@ -58 +59 @@ public:
+-        float sin_val = sinf(phase * 2.0f * M_PI);
++        float sin_val = sinf(phase * 2.0f * std::numbers::pi_v<float>);
+diff --git a/firmware/main/stackchan/motion/motion_math.cpp b/firmware/main/stackchan/motion/motion_math.cpp
+index f384371..5f3f12f 100644
+--- a/firmware/main/stackchan/motion/motion_math.cpp
++++ b/firmware/main/stackchan/motion/motion_math.cpp
+@@ -8,0 +9 @@
++#include <numbers>
+@@ -14 +15 @@ namespace {
+-constexpr float kRadiansToDegrees = 180.0f / static_cast<float>(M_PI);
++constexpr float kRadiansToDegrees = 180.0f / std::numbers::pi_v<float>;
+diff --git a/firmware/tests/CMakeLists.txt b/firmware/tests/CMakeLists.txt
+index df2ecb5..b07df53 100644
+--- a/firmware/tests/CMakeLists.txt
++++ b/firmware/tests/CMakeLists.txt
+@@ -16 +16 @@ target_include_directories(motion_math_test PRIVATE
+-target_compile_features(motion_math_test PRIVATE cxx_std_17)
++target_compile_features(motion_math_test PRIVATE cxx_std_20)

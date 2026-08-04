@@ -49,6 +49,9 @@ pnpm-debug.log*
 **/.arduinoIDE/
 **/build_opt.h
 
+# Locally checked out upstream firmware baselines; exact revisions are recorded in module READMEs.
+/firmware/stackchan/upstream/
+
 # Existing local output
 /outputs/
 /work/
