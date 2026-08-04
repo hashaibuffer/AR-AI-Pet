@@ -10,7 +10,7 @@
 
 ## 当前状态
 
-页面、测试和构建可运行。
+已归档，仅保留展示和历史参考；不承载正式 XR 客户端或 Day 1—Day 10 开发任务。
 
 ## 安装或运行方式
 
@@ -38,4 +38,4 @@ npm run build
 
 ## 已知问题
 
-Deck 仅用于展示；正式 Unity/XREAL 开发位于 [`apps/xr-client/`](../xr-client/)。
+Deck 后续仅修复展示故障，不扩展产品功能。正式 Unity/XREAL 开发位于 [`apps/xr-client/`](../xr-client/)。
