@@ -12,3 +12,21 @@
 | NanoDrive 基础移动与保护          | B     | 完成基础移动、停止、指令超时停止和断连保护             |     |       |
 | 服务或设备重启后的状态恢复              | A、B   | 重启后恢复约定的宠物、游戏、虚拟生活和设备状态，不产生重复事件   |     |       |
 | 完整 Demo 连续运行三次             | B     | 按冻结脚本连续完成三次，不出现阻塞演示的问题            |     |       |
+
+## StackChan 实机子项
+
+以下只记录 StackChan 自身及其当前语音链路的实机结果，不代表完整 AR、Agent 或底座闭环通过。
+
+| 子项 | 状态 | 证据或边界 |
+| --- | --- | --- |
+| ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 本地源码构建目录为 `D:\sc\firmware`；上游固定提交 `b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e`。 |
+| COM7 烧录与串口启动 | 通过 | `idf.py -p COM7 flash` 和串口监控已完成。 |
+| 屏幕、摄像头、触摸、IMU、RTC、三麦、双舵机初始化 | 通过 | 启动日志中完成对应外设初始化。 |
+| 中文离线唤醒/命令识别 | 通过（配置依赖） | 已知可用基线：`CONFIG_LANGUAGE_ZH_CN=y`、`CONFIG_SR_MN_CN_MULTINET6_QUANT=y`；取消中文配置后实机识别退化。 |
+| 联网、语音上传和服务器回答 | 通过（StackChan 子项） | 已从实机串口日志观察到联网、语音上传和服务器回答；不等于项目 Agent 集成或完整端到端闭环。 |
+| 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
+| 项目 Robot Adapter | 待验证 | 当前仓库尚未建立 `firmware/stackchan/adapter/`。 |
+| Beam Pro—StackChan 控制 | 待验证 | 尚无局域网控制命令、回报和断线恢复实测证据。 |
+| StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |
+| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
+| 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |

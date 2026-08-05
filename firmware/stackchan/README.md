@@ -10,7 +10,20 @@ B。
 
 ## 当前状态
 
-已在本机检出官方 StackChan 上游工作副本。2026-08-04 已拉取上游依赖，并在 Windows/MSVC 下通过 `motion_math_test` 主机测试（1/1）；尚未完成 ESP-IDF 全量构建、烧录或真实设备接口验证。
+已在本机检出官方 StackChan 上游工作副本。2026-08-05 已完成 Windows/MSVC 主机测试、ESP-IDF 5.5.4 + ESP32-S3 全量构建、COM7 烧录和串口启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网、语音上传和服务器回答已在实机日志中观察到。项目控制接口、`adapter/` 与 NanoDrive 仍待验证。
+
+当前实机已知可用的中文配置基线为：
+
+```ini
+CONFIG_LANGUAGE_ZH_CN=y
+CONFIG_SR_MN_CN_MULTINET6_QUANT=y
+```
+
+这里的 `SR_MN_CN_MULTINET6_QUANT` 表示 ESP-SR 的中文离线命令识别配置，不是云端 STT 模型。实机 A/B 验证显示，取消该配置后中文识别会明显退化，因此当前保留它。`sdkconfig.old` 中的 `CONFIG_SR_MN_CN_NONE=y` 只是旧配置，不作为可用基线。
+
+实际源码构建目录为 `D:\sc\firmware`。`D:\sc` 不是 Git 工作区，而是来源于本仓库记录的固定上游提交的 Windows 短路径构建副本；构建产物和本地配置不属于本仓库交付物。
+
+本地源码构建版本为 `1.4.3`。串口日志还观察到设备自动 OTA 到官方 `1.4.4` 并从 `ota_1` 启动；这属于当前运行环境行为，复现时必须同时记录本地构建版本和最终设备版本。
 
 ## 上游基线
 
@@ -26,6 +39,7 @@ B。
 ### 可复现补丁与一键主机测试
 
 - 补丁：`patches/0001-host-tests-cxx20-pi.patch`
+- Windows UTF-8 补丁：`patches/0002-xiaozhi-sdkconfig-utf8.patch`（应用于 `upstream/firmware/xiaozhi-esp32/`）
 - 验证脚本：`scripts/test-upstream-host.ps1`
 - 一键运行（在仓库根目录执行）：
 
@@ -53,7 +67,14 @@ git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3
 1. 从 [Espressif 官方 Windows Installer 下载页](https://dl.espressif.com/dl/esp-idf/) 下载并安装 ESP-IDF `v5.5.4`。Windows 安装步骤见 [官方 v5.5.4 指南](https://docs.espressif.com/projects/esp-idf/en/v5.5.4/esp32/get-started/windows-setup.html)。安装完成后打开其创建的 ESP-IDF PowerShell 或 Command Prompt，并执行 `idf.py --version` 确认版本。
 2. 进入 `firmware/stackchan/upstream/firmware/`。
 3. 拉取上游依赖：`python3 ./fetch_repos.py`。
-4. 使用本模块的一键脚本执行主机测试；它会自动完成版本检查、补丁应用、构建和 CTest。手动命令仅用于排查脚本失败：
+4. 使用本模块的一键脚本执行主机测试；它会自动完成版本检查、主机补丁应用、构建和 CTest。拉取依赖后，另行应用 Windows UTF-8 补丁：
+
+   ```powershell
+   git -C upstream/firmware/xiaozhi-esp32 apply --check ..\..\..\patches\0002-xiaozhi-sdkconfig-utf8.patch
+   git -C upstream/firmware/xiaozhi-esp32 apply ..\..\..\patches\0002-xiaozhi-sdkconfig-utf8.patch
+   ```
+
+   手动主机测试命令仅用于排查脚本失败：
 
    ```powershell
    cmake -S tests -B build-host-tests
@@ -107,10 +128,27 @@ git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3
 | 上游主机测试（原始命令） | 不通过 | 固定基线在 Windows/MSVC 编译时，`M_PI` 未定义，且源文件使用的指定初始化需要 C++20。 |
 | 上游主机测试（历史临时兼容命令） | 通过但已废弃 | 曾添加 `CMAKE_CXX_STANDARD=20` 和 `/D_USE_MATH_DEFINES`，`motion_math_test` 通过 1/1；现已由可复现补丁和一键脚本替代。 |
 | 可复现补丁与一键脚本 | 通过 | `test-upstream-host.ps1` 两次连续运行均检测到补丁已存在，使用标准 CMake/CTest 完成构建，`motion_math_test` 通过 1/1（第二次 0.01 秒）。 |
-| ESP-IDF 全量构建 | 待验证 | 本机尚无可用的 ESP-IDF 5.5.4 工具链；未产生 `idf.py build` 的结果。 |
+| ESP-IDF 全量构建 | 通过 | ESP-IDF 5.5.4 + ESP32-S3 全量构建成功；实机烧录和启动也已在 2026-08-05 完成。 |
+
+### 2026-08-05 实机验证记录
+
+| 项目 | 结果 | 证据或边界 |
+| --- | --- | --- |
+| ESP-IDF / 芯片 | 通过 | ESP-IDF 5.5.4 + ESP32-S3 全量构建成功。 |
+| 烧录与启动 | 通过 | 使用 COM7 烧录成功，串口启动成功。 |
+| 核心外设初始化 | 通过 | 屏幕、摄像头、触摸、IMU、RTC、三麦和两个舵机完成初始化。 |
+| 历史中文自定义唤醒词 | 通过（历史配置） | 自定义唤醒词“你好，小陈”识别成功；当前基线使用固定中文 WakeNet 唤醒词。 |
+| 中文命令识别配置 | 通过（基线） | `CONFIG_LANGUAGE_ZH_CN=y` 与 `CONFIG_SR_MN_CN_MULTINET6_QUANT=y`；取消中文模型配置后实机中文识别退化。 |
+| 当前 4 MB assets 配置 | 通过 | 当前使用默认 `partitions.csv`；`generated_assets.bin` 为 2,298,138 B，assets 分区约 45% 空闲。早期 8 MB assets 方案仅作历史记录。 |
+| 应用固件资源 | 已记录 | `stack-chan.bin` 3,782,784 B；应用分区约 27% 空闲；DIRAM 已用 61.43%，剩余 131,801 B；Bootloader 剩余 27%。 |
+| `stack-chan.bin` SHA256（当前构建） | 已记录 | `601BAA3983685EBF776E6F0579376AD42109707D23D558DDADF4E38160A35B35` |
+| `generated_assets.bin` SHA256（当前构建） | 已记录 | `7D7A983EEBCB4C06522ED6C582687F79C1A2F99FE4ECAA192CCA0E73ED813A05` |
+
+以上证明固件已能在真实 ESP32-S3 上启动并完成本地外设初始化，且已观察到联网语音上传和服务器回答；这不等于项目 Adapter、外部控制接口或完整端到端闭环通过。
 
 ## 已知问题
 
 - `cmake` 已通过用户级 Python 包安装；若普通终端仍找不到 `ctest`，将用户 Python 的 `Scripts/` 目录加入 `PATH`，或使用 ESP-IDF 自带的 CMake。
-- ESP-IDF 5.5.4 全量构建、烧录和 StackChan 实机接口均待验证。
+- Beam Pro—StackChan 局域网控制、项目 `adapter/` 和 NanoDrive 仍待验证。
 - NanoDrive 串口转发待验证，不阻塞 StackChan 主体能力验证。
+- 构建脚本在未启用 `USE_CUSTOM_WAKE_WORD` 时会提示跳过 MultiNet 资源；中文配置仍因实机 A/B 结果保留，具体 ESP-SR 配置耦合待单独定位。
