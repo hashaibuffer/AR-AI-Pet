@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Farming Events",
+  "description": "AR-AI-Pet 种菜事件协议定义",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["plant", "water", "harvest", "grow", "ripe"]
+    },
+    "x": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "网格 X 坐标"
+    },
+    "y": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "网格 Y 坐标"
+    },
+    "cropId": {
+      "type": "string",
+      "description": "作物 ID，如 tomato / carrot / potato"
+    },
+    "stage": {
+      "type": "string",
+      "enum": ["seed", "sprout", "growing", "ripe"],
+      "description": "当前成长阶段"
+    }
+  },
+  "required": ["action", "x", "y"]
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pet State",
+  "description": "AR-AI-Pet 宠物状态协议定义",
+  "definitions": {
+    "PetExpression": {
+      "type": "object",
+      "properties": {
+        "emotion": {
+          "type": "string",
+          "enum": ["neutral", "happy", "sad", "angry", "surprised"]
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        }
+      },
+      "required": ["emotion"]
+    },
+    "PetSpeak": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "voice": {
+          "type": "string",
+          "enum": ["tts", "predefined"]
+        },
+        "lang": {
+          "type": "string",
+          "default": "zh-CN"
+        }
+      },
+      "required": ["text"]
+    },
+    "PetStateSnapshot": {
+      "type": "object",
+      "properties": {
+        "mood": {
+          "type": "string",
+          "enum": ["neutral", "happy", "sad", "angry", "surprised"]
+        },
+        "energy": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "intimacy": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "lastInteraction": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["mood", "energy", "intimacy"]
+    }
+  }
+}

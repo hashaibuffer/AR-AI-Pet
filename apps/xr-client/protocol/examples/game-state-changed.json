@@ -1,0 +1,14 @@
+{
+  "version": "0.1",
+  "messageId": "evt-c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8",
+  "timestamp": "2026-08-04T09:00:08Z",
+  "source": "xr-client",
+  "type": "game.state.changed",
+  "payload": {
+    "game": "yahtzee",
+    "round": 1,
+    "dice": [3, 5, 2, 6, 1],
+    "rollsLeft": 2,
+    "isUserTurn": true
+  }
+}

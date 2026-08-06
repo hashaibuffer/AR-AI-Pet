@@ -1,0 +1,11 @@
+{
+  "version": "0.1",
+  "messageId": "evt-b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7",
+  "timestamp": "2026-08-04T09:00:05Z",
+  "source": "agent-service",
+  "type": "pet.expression",
+  "payload": {
+    "emotion": "happy",
+    "intensity": 1.0
+  }
+}
