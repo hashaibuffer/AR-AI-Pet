@@ -41,8 +41,8 @@ namespace ARAIPet.UI
                     break;
 
                 default:
-                    Debug.LogWarning("[GameSceneInit] 未指定游戏类型，默认进农场");
-                    ActivateFarming();
+                    Debug.LogWarning("[GameSceneInit] 未指定游戏类型，默认进骰子（临时测试，等 HomeScene 做完改回 ActivateFarming）");
+                    ActivateYahtzee();
                     break;
             }
 

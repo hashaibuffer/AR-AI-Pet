@@ -51,7 +51,7 @@ namespace ARAIPet.Tests
             EventBus.Publish(new PetSpeakEvent { text = "你好！我们一起来玩吧！" });
             yield return new WaitForSeconds(StepDelay);
 
-            // 2. 开始快艇骰子
+            // 2. 开始六面星河（轻松档）
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.StartYahtzee();

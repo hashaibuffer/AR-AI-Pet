@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using ARAIPet.Core;
 using ARAIPet.Game;
+using ARAIPet.Game.Farming;
 
 namespace ARAIPet.UI
 {
@@ -14,7 +15,7 @@ namespace ARAIPet.UI
         [Header("UI 引用")]
         [SerializeField] private Text farmText;
 
-        private Farming.FarmingGame _farm;
+        private FarmingGame _farm;
         private int _cursorX, _cursorY;
 
         void OnEnable()
@@ -95,7 +96,7 @@ namespace ARAIPet.UI
             {
                 var cp = _farm.Plots[_cursorX, _cursorY];
                 s += $"\n光标({_cursorX},{_cursorY}): {cp.stage}";
-                if (cp.stage != Farming.FarmingGame.CropStage.Empty)
+                if (cp.stage != FarmingGame.CropStage.Empty)
                 {
                     s += $" | {cp.cropId} | 浇水:{cp.waterCount}";
                 }

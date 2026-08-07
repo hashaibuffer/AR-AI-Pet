@@ -118,7 +118,7 @@ namespace ARAIPet.Save
         // ════════════════════════════════════════
 
         [System.Serializable]
-        private class PetSaveData
+        public class PetSaveData
         {
             public string name = "Pet";
             public int mood = 50;

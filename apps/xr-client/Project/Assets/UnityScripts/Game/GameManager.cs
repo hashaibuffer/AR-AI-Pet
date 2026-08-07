@@ -1,5 +1,7 @@
 using UnityEngine;
 using ARAIPet.Core;
+// 字段名 Yahtzee 会遮蔽命名空间 Yahtzee，用别名避免歧义
+using DiceGame = ARAIPet.Game.Yahtzee.YahtzeeGame;
 
 namespace ARAIPet.Game
 {
@@ -12,7 +14,7 @@ namespace ARAIPet.Game
         public static GameManager Instance { get; private set; }
 
         [Header("子游戏引用")]
-        public Yahtzee.YahtzeeGame Yahtzee;
+        public DiceGame Yahtzee;
         public Farming.FarmingGame Farming;
 
         [Header("当前状态")]
@@ -33,10 +35,10 @@ namespace ARAIPet.Game
 
         void Start()
         {
-            Yahtzee = GetComponentInChildren<Yahtzee.YahtzeeGame>(true);
-            Farming = GetComponentInChildren<Farming.FarmingGame>(true);
+            if (Yahtzee == null) Yahtzee = GetComponentInChildren<DiceGame>(true);
+            if (Farming == null) Farming = GetComponentInChildren<Farming.FarmingGame>(true);
 
-            if (Yahtzee == null) Yahtzee = FindFirstObjectByType<Yahtzee.YahtzeeGame>();
+            if (Yahtzee == null) Yahtzee = FindFirstObjectByType<DiceGame>();
             if (Farming == null) Farming = FindFirstObjectByType<Farming.FarmingGame>();
         }
 
@@ -51,13 +53,19 @@ namespace ARAIPet.Game
 
         // ── 游戏控制 ──
 
-        /// <summary>开始快艇骰子</summary>
+        /// <summary>开始六面星河（骰子对战，默认轻松档）</summary>
         public void StartYahtzee()
         {
+            StartYahtzee(DiceGame.AIDifficulty.Easy);
+        }
+
+        /// <summary>开始六面星河，指定 AI 难度</summary>
+        public void StartYahtzee(DiceGame.AIDifficulty difficulty)
+        {
             CurrentGame = GameType.Yahtzee;
-            if (Yahtzee != null) Yahtzee.StartNewGame();
+            if (Yahtzee != null) Yahtzee.StartNewGame(difficulty);
             EventBus.Publish(new GameStartedEvent { gameType = GameType.Yahtzee });
-            Debug.Log("[GameManager] 开始快艇骰子");
+            Debug.Log($"[GameManager] 开始六面星河，难度={difficulty}");
         }
 
         /// <summary>开始种菜</summary>

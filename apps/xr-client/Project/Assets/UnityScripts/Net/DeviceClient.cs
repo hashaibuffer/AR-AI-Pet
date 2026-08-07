@@ -44,6 +44,8 @@ namespace ARAIPet.Net
                 if (ModeConfig == null)
                     Debug.LogError("[DeviceClient] 未找到 ModeConfig！请创建 Resources/ModeConfig");
             }
+            // 跨场景持久化：避免 HomeScene → GameScene 切换时断 WebSocket
+            DontDestroyOnLoad(gameObject);
         }
 
         void Start()

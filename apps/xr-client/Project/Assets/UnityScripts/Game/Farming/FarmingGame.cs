@@ -190,7 +190,7 @@ namespace ARAIPet.Game.Farming
         //  辅助方法
         // ════════════════════════════════════════
 
-        bool IsValid(int x, int y)
+        public bool IsValid(int x, int y)
         {
             return x >= 0 && x < GridWidth && y >= 0 && y < GridHeight;
         }
