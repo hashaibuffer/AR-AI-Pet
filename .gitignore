@@ -55,3 +55,6 @@ pnpm-debug.log*
 # Existing local output
 /outputs/
 /work/
+
+# Agent service local deployment state and secrets
+/services/agent-service/runtime/
