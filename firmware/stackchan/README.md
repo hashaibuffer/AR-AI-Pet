@@ -10,7 +10,7 @@ B。
 
 ## 当前状态
 
-已在本机检出官方 StackChan 上游工作副本。2026-08-05 已完成 Windows/MSVC 主机测试、ESP-IDF 5.5.4 + ESP32-S3 全量构建、COM7 烧录和串口启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网、语音上传和服务器回答已在实机日志中观察到。项目控制接口、`adapter/` 与 NanoDrive 仍待验证。
+已在本机检出官方 StackChan 上游工作副本。2026-08-07 已完成 ESP-IDF 5.5.4 + ESP32-S3 全量构建、COM7 烧录和串口启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网、语音上传和服务器回答已在实机日志中观察到。项目 MCP 动作适配器和电脑 → 官方 WebSocket → StackChan 控制子链路已完成实机复测；Beam Pro、NanoDrive 与完整端到端闭环仍待验证。
 
 当前实机已知可用的中文配置基线为：
 
@@ -23,7 +23,7 @@ CONFIG_SR_MN_CN_MULTINET6_QUANT=y
 
 实际源码构建目录为 `D:\sc\firmware`。`D:\sc` 不是 Git 工作区，而是来源于本仓库记录的固定上游提交的 Windows 短路径构建副本；构建产物和本地配置不属于本仓库交付物。
 
-本地源码构建版本为 `1.4.3`。串口日志还观察到设备自动 OTA 到官方 `1.4.4` 并从 `ota_1` 启动；这属于当前运行环境行为，复现时必须同时记录本地构建版本和最终设备版本。
+本次实机烧录固件版本为 `1.4.5`；构建产物来自短路径副本 `D:\sc\firmware`。复现时仍需同时记录本地构建版本和最终设备版本。
 
 ## 上游基线
 
@@ -149,6 +149,6 @@ git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3
 ## 已知问题
 
 - `cmake` 已通过用户级 Python 包安装；若普通终端仍找不到 `ctest`，将用户 Python 的 `Scripts/` 目录加入 `PATH`，或使用 ESP-IDF 自带的 CMake。
-- Beam Pro—StackChan 局域网控制、项目 `adapter/` 和 NanoDrive 仍待验证。
+- Beam Pro—StackChan 局域网控制尚未实测；项目 `adapter/` 的电脑控制子链路已通过，NanoDrive 串口转发仍待验证。
 - NanoDrive 串口转发待验证，不阻塞 StackChan 主体能力验证。
 - 构建脚本在未启用 `USE_CUSTOM_WAKE_WORD` 时会提示跳过 MultiNet 资源；中文配置仍因实机 A/B 结果保留，具体 ESP-SR 配置耦合待单独定位。
