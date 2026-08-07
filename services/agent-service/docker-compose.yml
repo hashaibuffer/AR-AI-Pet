@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-araipet}
+      POSTGRES_USER: ${POSTGRES_USER:-araipet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-araipet}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - araipet-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U araipet -d araipet"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  data-service:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
+      WS_HOST: 0.0.0.0
+      WS_PORT: 8080
+      FARM_TICK_SECONDS: ${FARM_TICK_SECONDS:-30}
+    ports:
+      - "${WS_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  araipet-postgres:
