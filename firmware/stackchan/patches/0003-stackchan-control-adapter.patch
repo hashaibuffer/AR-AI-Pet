@@ -1,0 +1,56 @@
+diff --git a/firmware/CMakeLists.txt b/firmware/CMakeLists.txt
+index 5ad5f86..84083f7 100644
+--- a/firmware/CMakeLists.txt
++++ b/firmware/CMakeLists.txt
+@@ -5,2 +5,2 @@ cmake_minimum_required(VERSION 3.16)
+-set(PROJECT_VER "1.4.3")
++set(PROJECT_VER "1.4.5")
+ add_definitions(-DFIRMWARE_VERSION=\"${PROJECT_VER}\")
+
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+index 22cfebb..e2ec2bc 100644
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -20,0 +21,8 @@ set(STACK_CHAN_INCLUDE_DIRS
++# Project actions live outside the pinned upstream tree.
++set(PROJECT_ADAPTER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../adapter")
++if(NOT EXISTS "${PROJECT_ADAPTER_DIR}")
++    set(PROJECT_ADAPTER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../project-adapter")
++endif()
++file(GLOB PROJECT_ADAPTER_SOURCES "${PROJECT_ADAPTER_DIR}/*.cpp")
++list(APPEND STACK_CHAN_SOURCES ${PROJECT_ADAPTER_SOURCES})
++list(APPEND STACK_CHAN_INCLUDE_DIRS "${PROJECT_ADAPTER_DIR}")
+@@ -89,0 +98,2 @@ list(APPEND SOURCES
++    # Reuse the official OttoRobot WebSocket-to-MCP transport.
++    "${XIAOZHI_MAIN_DIR}/boards/otto-robot/websocket_control_server.cc"
+
+diff --git a/firmware/main/hal/hal.cpp b/firmware/main/hal/hal.cpp
+index 3ca8a14..1bbb545 100644
+--- a/firmware/main/hal/hal.cpp
++++ b/firmware/main/hal/hal.cpp
+@@ -133,0 +134 @@ void Hal::updateHeapStatusLog()
++#include <boards/otto-robot/websocket_control_server.h>
+@@ -137,0 +139,4 @@ void Hal::updateHeapStatusLog()
++namespace {
++WebSocketControlServer g_control_server;
++bool g_control_server_started = false;
++}
+@@ -153,0 +160,5 @@ static void _stackchan_update_task(void* param)
++        // The TCP/IP task is created by the Xiaozhi application. Start the
++        // HTTP server only after the bridge reports that the app is ready.
++        if (!g_control_server_started && hal_bridge::is_xiaozhi_ready()) {
++            g_control_server_started = g_control_server.Start(8080);
++        }
+
+diff --git a/firmware/main/hal/hal_mcp.cpp b/firmware/main/hal/hal_mcp.cpp
+index 0d73851..4b313cc 100644
+--- a/firmware/main/hal/hal_mcp.cpp
++++ b/firmware/main/hal/hal_mcp.cpp
+@@ -10,0 +11 @@
++#include <robot_action_adapter.h>
+@@ -20,4 +20,4 @@ void Hal::xiaozhi_mcp_init()
+     // https://github.com/78/xiaozhi-esp32/blob/main/docs/mcp-usage.md
+     auto& mcp_server = McpServer::GetInstance();
+-
++    ar_aipet::GetRobotActionAdapter().registerMcpTools(mcp_server);
+     // System Prompt：

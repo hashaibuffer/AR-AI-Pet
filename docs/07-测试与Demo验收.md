@@ -25,8 +25,8 @@
 | 中文离线唤醒/命令识别 | 通过（配置依赖） | 已知可用基线：`CONFIG_LANGUAGE_ZH_CN=y`、`CONFIG_SR_MN_CN_MULTINET6_QUANT=y`；取消中文配置后实机识别退化。 |
 | 联网、语音上传和服务器回答 | 通过（StackChan 子项） | 已从实机串口日志观察到联网、语音上传和服务器回答；不等于项目 Agent 集成或完整端到端闭环。 |
 | 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
-| 项目 Robot Adapter | 待验证 | 当前仓库尚未建立 `firmware/stackchan/adapter/`。 |
-| Beam Pro—StackChan 控制 | 待验证 | 尚无局域网控制命令、回报和断线恢复实测证据。 |
+| 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
+| 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
 | StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |
 | 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |
