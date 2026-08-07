@@ -1,0 +1,21 @@
+{
+  "status": "trial-not-frozen",
+  "requests": [
+    { "requestId": "req-001", "type": "ping", "payload": {} },
+    { "requestId": "req-002", "type": "bootstrap.get", "payload": {} },
+    { "requestId": "req-003", "type": "state.get", "payload": { "domain": "farm" } },
+    { "requestId": "req-004", "type": "state.put", "payload": { "domain": "farm", "expectedRevision": 1, "data": { "plots": [], "inventory": {}, "currentActivity": "resting", "lastTickAt": "2026-08-07T00:00:00Z" } } },
+    { "requestId": "req-005", "type": "schedule.upsert", "payload": { "title": "Demo reminder", "startsAt": "2026-08-07T10:00:00Z", "remindAt": "2026-08-07T09:55:00Z", "repeatType": "none", "status": "active" } },
+    { "requestId": "req-006", "type": "game-session.save", "payload": { "gameType": "yahtzee", "status": "playing", "schemaVersion": 1, "state": { "round": 1, "isUserTurn": true, "dice": [1, 2, 3, 4, 5], "keep": [false, false, false, false, false], "rollsThisTurn": 1, "userScores": {}, "petScores": {} } } }
+  ],
+  "responses": [
+    { "requestId": "req-001", "type": "pong", "status": "ok", "payload": {} },
+    { "requestId": "req-004", "type": "state.put.result", "status": "ok", "payload": {} },
+    { "requestId": "req-004", "type": "state.put.result", "status": "conflict", "payload": { "latestRevision": 4, "latestState": {} } },
+    { "requestId": "req-006", "type": "game-session.save.result", "status": "error", "payload": { "code": "invalid_request" } }
+  ],
+  "events": [
+    { "type": "farm.state.changed", "status": "ok", "payload": { "domain": "farm", "revision": 2, "data": {} } },
+    { "type": "schedule.reminder", "status": "ok", "payload": { "scheduleId": "schedule-001", "title": "Demo reminder", "remindAt": "2026-08-07T09:55:00Z", "triggeredAt": "2026-08-07T09:55:01Z", "repeatType": "none" } }
+  ]
+}
