@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d096a0699950ff049b222f8065cfdb4f, type: 3}
+  m_Name: ModeConfig
+  m_EditorClassIdentifier: 
+  UseMock: 1
+  MockAgentUrl: ws://localhost:8080/mock-agent
+  MockDeviceUrl: ws://localhost:8080/mock-device
+  RealAgentUrl: ws://192.168.1.100:8080/agent
+  RealDeviceUrl: ws://192.168.1.100:8080/device

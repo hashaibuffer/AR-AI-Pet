@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Samples/XREAL XR Plugin/3.1.0/Interaction Basics/HelloMR/HelloMR.unity
+    guid: 0c611a2881614c644b9df39be7bf8fe6
+  - enabled: 1
+    path: Assets/Scenes/GameScene.unity
+    guid: a363ee966d4ded64da55ab8c06abf218
+  - enabled: 1
+    path: Assets/Scenes/AppScene.unity
+    guid: 642326c2256227c4eb63f2809320defc
+  m_configObjects:
+    com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 91d1474634cb7444d85ee7affa7f0eab, type: 2}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 401fbfea7a1a89246bcc309193642d25, type: 2}
+    com.unity.xr.management.xrealsettings: {fileID: 11400000, guid: 0bbaab2a81a9bca4e8dbab8ae8244e5b, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 483c21cec07d7b64daaa9326aeda9608, type: 2}

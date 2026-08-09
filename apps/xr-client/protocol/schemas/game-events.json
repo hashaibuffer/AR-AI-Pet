@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Game Events",
+  "description": "AR-AI-Pet 游戏事件协议定义",
+  "definitions": {
+    "GameActionRequested": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["roll", "keep", "unkeep", "submit", "start", "end"]
+        },
+        "target": { "type": "string", "description": "操作目标（如骰子索引、计分类别）" },
+        "value": { "type": "integer", "description": "操作值" }
+      },
+      "required": ["action"]
+    },
+    "GameStateChanged": {
+      "type": "object",
+      "properties": {
+        "game": { "type": "string", "enum": ["yahtzee", "farming"] },
+        "round": { "type": "integer", "minimum": 1 },
+        "dice": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 6 }
+        },
+        "rollsLeft": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "isUserTurn": { "type": "boolean" }
+      },
+      "required": ["game"]
+    },
+    "GameResult": {
+      "type": "object",
+      "properties": {
+        "game": { "type": "string" },
+        "userScore": { "type": "integer" },
+        "petScore": { "type": "integer" },
+        "winner": { "type": "string", "enum": ["user", "pet", "tie"] }
+      },
+      "required": ["game", "winner"]
+    }
+  }
+}

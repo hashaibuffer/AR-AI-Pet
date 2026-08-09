@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "messageId": "evt-d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9",
+  "timestamp": "2026-08-04T10:00:00Z",
+  "source": "xr-client",
+  "type": "farming.plant",
+  "payload": {
+    "action": "plant",
+    "x": 0,
+    "y": 0,
+    "cropId": "tomato"
+  }
+}

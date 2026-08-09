@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\AR-AI-Pet\\apps\\xr-client\\project\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{7CA597AC-799E-2D81-E8A0-0EA9A568434E}|Assembly-CSharp.csproj|d:\\ar-ai-pet\\apps\\xr-client\\project\\assets\\scripts\\game\\farming\\farmdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{7CA597AC-799E-2D81-E8A0-0EA9A568434E}|Assembly-CSharp.csproj|solutionrelative:assets\\scripts\\game\\farming\\farmdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "FarmData.cs",
+              "DocumentMoniker": "D:\\AR-AI-Pet\\apps\\xr-client\\project\\Assets\\Scripts\\Game\\Farming\\FarmData.cs",
+              "RelativeDocumentMoniker": "Assets\\Scripts\\Game\\Farming\\FarmData.cs",
+              "ToolTip": "D:\\AR-AI-Pet\\apps\\xr-client\\project\\Assets\\Scripts\\Game\\Farming\\FarmData.cs",
+              "RelativeToolTip": "Assets\\Scripts\\Game\\Farming\\FarmData.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-08-05T06:06:33.821Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
