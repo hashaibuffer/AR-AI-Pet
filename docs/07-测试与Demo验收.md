@@ -22,11 +22,14 @@
 | ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 本地源码构建目录为 `D:\sc\firmware`；上游固定提交 `b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e`。 |
 | COM7 烧录与串口启动 | 通过 | `idf.py -p COM7 flash` 和串口监控已完成。 |
 | 屏幕、摄像头、触摸、IMU、RTC、三麦、双舵机初始化 | 通过 | 启动日志中完成对应外设初始化。 |
-| 中文离线唤醒/命令识别 | 通过（配置依赖） | 已知可用基线：`CONFIG_LANGUAGE_ZH_CN=y`、`CONFIG_SR_MN_CN_MULTINET6_QUANT=y`；取消中文配置后实机识别退化。 |
-| 联网、语音上传和服务器回答 | 通过（StackChan 子项） | 已从实机串口日志观察到联网、语音上传和服务器回答；不等于项目 Agent 集成或完整端到端闭环。 |
+| 中文唤醒与 Xiaozhi 云端对话 | 通过（当前产品基线） | 普通 WakeNet `wn9_nihaoxiaozhi_tts`、固件 `zh-cn`、绑定 Agent `language=zh`；真机无需英文前导即可直接中文提问，并能继续中文追问。 |
+| MultiNet / AEC 比较 | 不进入当前烧录门槛 | 普通 WakeNet A 已满足用户体验底线；MultiNet 和显式 AEC 配置保留为出现明确回归时的诊断变体。启动日志已观察到默认 AFE `AEC(SR_HIGH_PERF)` 路径。 |
+| Xiaozhi 联网、语音上传和服务器回答 | 通过（StackChan × Xiaozhi 子项） | 主语音 WebSocket 负责 ASR、会话和自动轮次；该结果仍不等于 AR、Unity、底座完整端到端闭环。 |
 | 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
 | 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
 | 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
+| Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
+| 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |
 | 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |
