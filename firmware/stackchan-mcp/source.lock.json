@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "https://github.com/lingxin2316/stackchan-mcp.git",
+  "sourceCommit": "21ab663644d3cc3e24492ec11fd8ef222dc8e24a",
+  "upstreamRepository": "https://github.com/kisaragi-mochi/stackchan-mcp.git",
+  "upstreamBaseCommit": "23792aa3ec00d23a3a86146aafe60f949bb2c4d3",
+  "upstreamPullRequest": "https://github.com/kisaragi-mochi/stackchan-mcp/pull/370",
+  "espIdfVersion": "v5.5.4",
+  "target": "esp32s3",
+  "board": "stackchan",
+  "acceptedProfiles": {
+    "voice": "xiaozhi-conversational",
+    "audio": "wakenet",
+    "transport": "xiaozhi-plus-action",
+    "firmwareLanguage": "zh-cn",
+    "agentLanguage": "zh"
+  }
+}

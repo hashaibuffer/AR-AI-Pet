@@ -1,0 +1,29 @@
+name: StackChan MCP reproducibility
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/stackchan-mcp-repro.yml"
+      - "firmware/stackchan-mcp/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/stackchan-mcp-repro.yml"
+      - "firmware/stackchan-mcp/**"
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-source-host-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch pinned source and run host tests
+        shell: powershell
+        run: .\firmware\stackchan-mcp\scripts\bootstrap.ps1
