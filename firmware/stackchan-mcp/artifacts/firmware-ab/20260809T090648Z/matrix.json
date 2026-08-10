@@ -1,0 +1,85 @@
+{
+  "generated_at": "2026-08-09T09:23:10.062764+00:00",
+  "idf_version": "ESP-IDF v5.5.4",
+  "flash_invoked": false,
+  "variants": [
+    {
+      "variant": "a-wakenet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "a560cb5430ed91833078a6f44dda5460b5c613da318013e77259499bd7693c1d",
+      "firmware_size": 3091808,
+      "full_flash_sha256": "e2b87fc98fc2304f3496987915c70f23b2733f26cccf432fc21bd12744a6f311",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "b-wakenet-mn6-flag",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-mn6-flag",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "cfd5ab811431b11eeeda29de490a27989f316bcfb76fd5b85caa37c95a591f8c",
+      "firmware_size": 3091808,
+      "full_flash_sha256": "70c90aa125e36577a58276ee8cb69d5ea8db793831e7373d37244f813fba24f8",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "c-custom-multinet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "custom-multinet",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "26c9a9f692d97fbf4fdc264473c976035c1b281a7800d268bf375dbc5f54261b",
+      "firmware_size": 3092096,
+      "full_flash_sha256": "ef3039df130cc4914013e5bcb72743e1f4ebfa168a87751079878295a7f1ecb3",
+      "full_flash_size": 13394056,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "d-wakenet-device-aec",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-device-aec",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "cc32bf1b7329e41c57c5b2f97d9d659ab39bfab1468194f02be2f1cccb0bb3b6",
+      "firmware_size": 3091760,
+      "full_flash_sha256": "e0f8b6b309d5b7854e46cd319ddce73a212b15908be46b25dccae1b2f79e5c1e",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "e-wakenet-server-aec",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-server-aec",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "8c9c0d237148728fa8be1e226671c44db4926e1e1fd7d8393f56471c9d294704",
+      "firmware_size": 3092192,
+      "full_flash_sha256": "6139f9a4978cb33cb4e8ddf1f56e6985cd3b84a7e540af6aa15f28c9698dbf1b",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "f-mcp-single-shot",
+      "voice_profile": "mcp-single-shot",
+      "audio_profile": "wakenet",
+      "transport_profile": "local-mcp",
+      "firmware_sha256": "53d1b60f8d0e94bb58fe1030527b2ce4b249d109f1fe42767fd5c30c69b383df",
+      "firmware_size": 3051568,
+      "full_flash_sha256": "f558fa35d510a352a75f2c88d68926022259dfc9d855541dc67d4d169d76075a",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    }
+  ]
+}

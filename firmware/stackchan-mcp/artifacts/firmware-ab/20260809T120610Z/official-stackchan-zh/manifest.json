@@ -1,0 +1,37 @@
+{
+  "variant": "official-stackchan-zh",
+  "project_name": "stack-chan",
+  "project_version": "1.4.5",
+  "source_root": "D:\\sc\\firmware",
+  "source_strategy": "official project preserved as a whole; no voice-path code transplant",
+  "voice_profile": "official-xiaozhi-conversational",
+  "audio_profile": "official-wakenet",
+  "language_profile": "zh-CN",
+  "packaged_wakenet_models": [
+    "wn9_histackchan_tts3",
+    "wn9_xiaoluxiaolu_tts2"
+  ],
+  "transport_profile": "official-stackchan",
+  "firmware_sha256": "d385fb7a2786b6a23eaed3b1df5db4fcca46756fcd677b8a92a98346b6821a87",
+  "firmware_size": 3797904,
+  "app_elf_sha256": "9004b1e9b04993a4da2ed8ca7cb2129db800135b991cf1ff3346691336b9594f",
+  "assets_sha256": "386193a4ab06e3eb5ebb2c58499f017f24a0d2bb200b02a8382a3586ae6b3575",
+  "assets_size": 2589204,
+  "layout_partition_table_sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5",
+  "official_source_partition_table_sha256": "48da0866f56d9d8eb1fe786412984d8f1a4a01b3f13f965621fcb916761e1a4b",
+  "compatibility_reason": "The live device layout differs from the official source layout. The official App and assets are unchanged; only the reviewed bundle metadata and layout partition-table evidence use the live layout.",
+  "flash_bundle": "flash-bundle",
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false,
+  "forbidden_writes": [
+    "bootloader",
+    "partition-table",
+    "nvs",
+    "active-ota-partition"
+  ],
+  "requires_new_explicit_authorization": [
+    "inactive-ota-partition",
+    "shared-assets",
+    "otadata"
+  ]
+}

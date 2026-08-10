@@ -1,0 +1,9 @@
+{
+  "variant": "c-custom-multinet",
+  "voice_profile": "xiaozhi-conversational",
+  "audio_profile": "custom-multinet",
+  "firmware_sha256": "79b859aaf9f756a9f80e5a53f2f2b8cb260942e60b0b45d08777f3bc4587f69d",
+  "firmware_size": 3051840,
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false
+}

@@ -1,0 +1,9 @@
+{
+  "variant": "b-wakenet-mn6-flag",
+  "voice_profile": "xiaozhi-conversational",
+  "audio_profile": "wakenet-mn6-flag",
+  "firmware_sha256": "d7a5745803e84b4b91539657e64029978824c906a4733d05c6aa46b9ff2b718b",
+  "firmware_size": 3051568,
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false
+}

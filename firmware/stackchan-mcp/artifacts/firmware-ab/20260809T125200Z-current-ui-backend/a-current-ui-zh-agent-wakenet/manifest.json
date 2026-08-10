@@ -1,0 +1,14 @@
+{
+  "variant": "a-current-ui-zh-agent-wakenet",
+  "voice_profile": "xiaozhi-conversational",
+  "audio_profile": "wakenet",
+  "transport_profile": "xiaozhi-plus-action",
+  "firmware_sha256": "2424d7b4904816cc7719d92f5e7bbae7d206488f0403adfaabc7a9440cd37b1e",
+  "firmware_size": 3095744,
+  "app_elf_sha256": "3643c0351eb4820bc074cb4d15d92b8733c955d1024b8e54c660ea46c22a3d88",
+  "full_flash_sha256": "01cad7f25efb8008b7d0ca91428d238ad5370100df79f61b8b6f64c17f01d988",
+  "full_flash_size": 9981139,
+  "flash_bundle": "flash-bundle",
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false
+}

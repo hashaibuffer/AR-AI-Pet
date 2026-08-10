@@ -52,7 +52,7 @@ pnpm-debug.log*
 # Locally checked out upstream firmware baselines; exact revisions are recorded in module READMEs.
 /firmware/stackchan/upstream/
 /firmware/stackchan-mcp/upstream/
-/firmware/stackchan-mcp/artifacts/
+# StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
 /firmware/kimito-stackchan/upstream/
 
 # Existing local output

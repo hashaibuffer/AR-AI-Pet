@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-08-09T12:27:58.417309+00:00",
+  "idf_version": "ESP-IDF v5.5.4",
+  "port": "COM7",
+  "path": "D:\\projects\\stackchan-b-evaluation\\artifacts\\device-ab\\20260809T121317Z\\current-full-16mb.bin",
+  "size": 16777216,
+  "sha256": "906aedfcadd9244d6701d462e152e44ebc92b69afac280c23d8d80d12b14d3df",
+  "security": {
+    "secure_boot_enabled": false,
+    "flash_encryption_enabled": false
+  },
+  "partition_table_sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5",
+  "active_ota_slot": 1,
+  "active_ota_copy": 1,
+  "active_ota_sequence": 2,
+  "inactive_target_slot": 0,
+  "inactive_target_offset": 131072,
+  "current_app_partition_sha256": "db39967509c755d578e76b23b9e525b4832c14fa949ae0793aae8c7b4e2be5a8",
+  "current_app_identity": {
+    "project_name": "xiaozhi",
+    "version": "2.2.6",
+    "compile_time": "Aug  9 2026T18:42:45",
+    "idf_version": "v5.5.4",
+    "secure_version": 0,
+    "app_elf_sha256": "87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9",
+    "image_size": 3095744,
+    "image_sha256": "38913ccf93d3a0ec815197b91e633efaa56de2a837473292bdac14aba0038884",
+    "hash_appended": true,
+    "trailing_non_ff_bytes": 1015350
+  },
+  "original_assets_sha256": "04fb4df733c30f734f5eb308d757aaa09d0c46dfcaf89d6959487cda23509a5a",
+  "original_otadata_sha256": "a1ed149677f974e7b1fd3b926c817a1db72ce01ca26b31929937d4ab01f5be22",
+  "rollback_assets": "D:\\projects\\stackchan-b-evaluation\\artifacts\\device-ab\\20260809T122755Z\\rollback-assets.bin",
+  "rollback_otadata": "D:\\projects\\stackchan-b-evaluation\\artifacts\\device-ab\\20260809T122755Z\\rollback-otadata.bin"
+}

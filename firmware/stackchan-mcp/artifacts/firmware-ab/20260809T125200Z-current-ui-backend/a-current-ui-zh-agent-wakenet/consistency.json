@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-09T12:44:42.666236+00:00",
+  "repo": {
+    "sha": "23792aa3ec00d23a3a86146aafe60f949bb2c4d3",
+    "branch": "main",
+    "dirty": true,
+    "dirty_paths": [
+      "M firmware/host_test/CMakeLists.txt",
+      " M firmware/main/CMakeLists.txt",
+      " M firmware/main/Kconfig.projbuild",
+      " M firmware/main/application.cc",
+      " M firmware/main/application.h",
+      " M firmware/main/boards/common/board.h",
+      " M firmware/main/boards/stackchan/stackchan.cc",
+      " M firmware/main/mcp_server.cc",
+      " M firmware/main/mcp_server.h",
+      " M firmware/scripts/release.py",
+      " M gateway/.env.example",
+      " M gateway/stackchan_mcp/stdio_server.py",
+      " M gateway/stackchan_mcp/stt/__init__.py",
+      " M gateway/stackchan_mcp/stt/faster_whisper.py",
+      " M gateway/stackchan_mcp/stt/openai_whisper.py",
+      " M gateway/stackchan_mcp/stt/orchestrator.py",
+      " M gateway/stackchan_mcp/tts/orchestrator.py",
+      " M gateway/tests/test_ownership.py",
+      " M gateway/tests/test_stt_orchestrator.py",
+      "?? firmware/configs/",
+      "?? firmware/host_test/test_mcp_action_reconnect_policy.cc",
+      "?? firmware/host_test/test_voice_interaction.cc",
+      "?? firmware/main/protocols/mcp_action_client.cc",
+      "?? firmware/main/protocols/mcp_action_client.h",
+      "?? firmware/main/protocols/mcp_action_reconnect_policy.h",
+      "?? firmware/main/voice_interaction.cc",
+      "?? firmware/main/voice_interaction.h",
+      "?? firmware/scripts/build_consistency_report.py",
+      "?? firmware/scripts/build_stackchan_ab.py",
+      "?? firmware/scripts/configure_stackchan.py",
+      "?? firmware/scripts/device_ab_session.py",
+      "?? firmware/scripts/test_build_consistency_report.py",
+      "?? firmware/scripts/test_build_stackchan_ab.py",
+      "?? firmware/scripts/test_configure_stackchan.py",
+      "?? firmware/scripts/test_device_ab_session.py",
+      "?? firmware/scripts/test_release_local_config.py",
+      "?? firmware/xiaozhi-agent.local.json",
+      "?? gateway/beat_test.py",
+      "?? gateway/stackchan_mcp/stt/config.py",
+      "?? gateway/stt_test.py",
+      "?? gateway/tts_test.py"
+    ]
+  },
+  "inputs": {
+    "firmware_root": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware",
+    "sdkconfig": {
+      "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\sdkconfig",
+      "sha256": "3b333b9d7fe37cae4ea78dff4cb20bc6bb6ba4590f840608c0afe39d03b988e9",
+      "mtime": "2026-08-09T12:43:03.102979+00:00"
+    },
+    "build_sdkconfig_header": {
+      "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\build\\config\\sdkconfig.h",
+      "sha256": "df538a80eabb5a7671dddce7d866339c5cf3a5a0f21ef83bb365ed2a9fb2756a",
+      "mtime": "2026-08-09T12:43:02.996193+00:00"
+    },
+    "local_defaults": {
+      "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\sdkconfig.defaults.local",
+      "sha256": "8bb9cebddc46fde357461af76d520437ed9fa291d20d278a43dc58c30b930a6c",
+      "mtime": "2026-08-09T12:40:14.285884+00:00"
+    },
+    "xiaozhi_agent_config": {
+      "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\xiaozhi-agent.local.json",
+      "sha256": "343bb01788af97a967bfd61f71d3a50c26aab1df7851aa48ad8387159ab2035d",
+      "mtime": "2026-08-09T12:40:14.285884+00:00"
+    },
+    "build_log": {
+      "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\build\\log\\idf_py_stdout_output_9184",
+      "sha256": "b06ddeeb02ada189f6623d5b1b5560e7a933eefb56ada6262223e61c8237aedb",
+      "mtime": "2026-08-09T12:44:05.140378+00:00"
+    },
+    "serial_log": {
+      "path": null,
+      "sha256": null,
+      "mtime": null
+    }
+  },
+  "configuration": {
+    "effective_source": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\build\\config\\sdkconfig.h",
+    "effective": {
+      "CONFIG_BOARD_TYPE_STACKCHAN": "1",
+      "CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL": "1",
+      "CONFIG_STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT": null,
+      "CONFIG_STACKCHAN_TOUCH_PTT": "1",
+      "CONFIG_USE_AFE_WAKE_WORD": "1",
+      "CONFIG_USE_CUSTOM_WAKE_WORD": null,
+      "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS": "1",
+      "CONFIG_SR_MN_CN_NONE": "1",
+      "CONFIG_SR_MN_CN_MULTINET6_QUANT": null,
+      "CONFIG_USE_AUDIO_PROCESSOR": "1",
+      "CONFIG_USE_DEVICE_AEC": null,
+      "CONFIG_USE_SERVER_AEC": null,
+      "CONFIG_LANGUAGE_ZH_CN": "1",
+      "CONFIG_DEFAULT_WEBSOCKET_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_TOKEN": "<MASKED>",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL": "\"ws://192.168.50.133:8765\"",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN": "<MASKED>",
+      "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL": null,
+      "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG": null
+    },
+    "local_defaults": {
+      "CONFIG_BOARD_TYPE_STACKCHAN": "y",
+      "CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL": "y",
+      "CONFIG_STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT": null,
+      "CONFIG_STACKCHAN_TOUCH_PTT": "y",
+      "CONFIG_USE_AFE_WAKE_WORD": "y",
+      "CONFIG_USE_CUSTOM_WAKE_WORD": null,
+      "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS": "y",
+      "CONFIG_SR_MN_CN_NONE": "y",
+      "CONFIG_SR_MN_CN_MULTINET6_QUANT": null,
+      "CONFIG_USE_AUDIO_PROCESSOR": "y",
+      "CONFIG_USE_DEVICE_AEC": null,
+      "CONFIG_USE_SERVER_AEC": null,
+      "CONFIG_LANGUAGE_ZH_CN": "y",
+      "CONFIG_DEFAULT_WEBSOCKET_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_TOKEN": "<MASKED>",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL": "\"ws://192.168.50.133:8765\"",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN": "<MASKED>",
+      "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL": null,
+      "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG": null
+    },
+    "xiaozhi_agent": {
+      "schema_version": 1,
+      "firmware_language": "zh-cn",
+      "agent_language": "zh",
+      "owner": "AI.AGENT/Xiaozhi service",
+      "official_update_endpoint": "https://xiaozhi.me/api/agents/{agent_id}/config",
+      "must_match_bound_agent_before_device_scoring": true
+    }
+  },
+  "models": {
+    "build_log": {
+      "wakenet": [
+        "wn9_nihaoxiaozhi_tts"
+      ],
+      "multinet": [],
+      "skipped_multinet": []
+    },
+    "build_log_evidence": [
+      "wakenet models: wn9_nihaoxiaozhi_tts (will be packaged)",
+      "Copied directory: D:/projects/stackchan-b-evaluation/stackchan-mcp/firmware/managed_components/espressif__esp-sr/model\\wakenet_model\\wn9_nihaoxiaozhi_tts -> D:/projects/stackchan-b-evaluation/stackchan-mcp/firmware/build\\temp_build\\srmodels\\wn9_nihaoxiaozhi_tts",
+      "Added wakenet model: wn9_nihaoxiaozhi_tts"
+    ]
+  },
+  "firmware": {
+    "path": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\build\\xiaozhi.bin",
+    "sha256": "2424d7b4904816cc7719d92f5e7bbae7d206488f0403adfaabc7a9440cd37b1e",
+    "size": 3095744,
+    "mtime": "2026-08-09T12:44:04.967253+00:00",
+    "app_elf_sha256": "3643c0351eb4820bc074cb4d15d92b8733c955d1024b8e54c660ea46c22a3d88"
+  },
+  "serial": null,
+  "findings": [
+    {
+      "severity": "warning",
+      "code": "dirty_worktree",
+      "message": "The firmware binary cannot represent the current dirty source tree exactly."
+    }
+  ],
+  "gates": {
+    "technical_ready_for_flash_review": true,
+    "flash_authorized_by_user": false
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "flash_files": {
+    "0x8000": "partition_table/partition-table.bin"
+  },
+  "purpose": "partition-layout parsing only; device_ab_session.py never executes these entries"
+}

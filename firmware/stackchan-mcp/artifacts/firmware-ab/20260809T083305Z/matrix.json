@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-08-09T08:35:36.390632+00:00",
+  "idf_version": "ESP-IDF v5.5.4",
+  "flash_invoked": false,
+  "variants": [
+    {
+      "variant": "c-custom-multinet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "custom-multinet",
+      "firmware_sha256": "79b859aaf9f756a9f80e5a53f2f2b8cb260942e60b0b45d08777f3bc4587f69d",
+      "firmware_size": 3051840,
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    }
+  ]
+}

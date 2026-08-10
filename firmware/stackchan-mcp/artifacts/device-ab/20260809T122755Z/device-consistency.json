@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-09T12:34:09.126837+00:00",
+  "variant": "official-stackchan-zh",
+  "configuration": {
+    "language": "zh-CN",
+    "board": "M5STACK_STACK_CHAN",
+    "wake_pipeline": "AFE WakeNet",
+    "multinet": "disabled"
+  },
+  "models": {
+    "wakenet": [
+      "wn9_histackchan_tts3",
+      "wn9_xiaoluxiaolu_tts2"
+    ],
+    "multinet": []
+  },
+  "packaged_speech_assets": {
+    "version": 1,
+    "srmodels": "srmodels.bin",
+    "text_font": "font_puhui_common_20_4.bin",
+    "emoji_collection": [
+      {
+        "name": "angry",
+        "file": "angry.png"
+      },
+      {
+        "name": "confident",
+        "file": "confident.png"
+      },
+      {
+        "name": "confused",
+        "file": "confused.png"
+      },
+      {
+        "name": "cool",
+        "file": "cool.png"
+      },
+      {
+        "name": "crying",
+        "file": "crying.png"
+      },
+      {
+        "name": "delicious",
+        "file": "delicious.png"
+      },
+      {
+        "name": "embarrassed",
+        "file": "embarrassed.png"
+      },
+      {
+        "name": "funny",
+        "file": "funny.png"
+      },
+      {
+        "name": "happy",
+        "file": "happy.png"
+      },
+      {
+        "name": "kissy",
+        "file": "kissy.png"
+      },
+      {
+        "name": "laughing",
+        "file": "laughing.png"
+      },
+      {
+        "name": "loving",
+        "file": "loving.png"
+      },
+      {
+        "name": "neutral",
+        "file": "neutral.png"
+      },
+      {
+        "name": "relaxed",
+        "file": "relaxed.png"
+      },
+      {
+        "name": "sad",
+        "file": "sad.png"
+      },
+      {
+        "name": "shocked",
+        "file": "shocked.png"
+      },
+      {
+        "name": "silly",
+        "file": "silly.png"
+      },
+      {
+        "name": "sleepy",
+        "file": "sleepy.png"
+      },
+      {
+        "name": "surprised",
+        "file": "surprised.png"
+      },
+      {
+        "name": "thinking",
+        "file": "thinking.png"
+      },
+      {
+        "name": "winking",
+        "file": "winking.png"
+      }
+    ],
+    "extra_files": [
+      "app_center_bg.png",
+      "icon_ai_agent.bin",
+      "icon_app_center.bin",
+      "icon_bat_lightning.bin",
+      "icon_bell.bin",
+      "icon_controller.bin",
+      "icon_dance.bin",
+      "icon_ezdata.bin",
+      "icon_home.bin",
+      "icon_indicator_left.bin",
+      "icon_indicator_right.bin",
+      "icon_sentinel.bin",
+      "icon_setup.bin",
+      "icon_wifi_high.bin",
+      "icon_wifi_low.bin",
+      "icon_wifi_medium.bin",
+      "icon_wifi_slash.bin",
+      "setup_stackchan_front_view.bin"
+    ]
+  },
+  "firmware": {
+    "file": "D:\\projects\\stackchan-b-evaluation\\artifacts\\firmware-ab\\20260809T120610Z\\official-stackchan-zh\\flash-bundle\\xiaozhi.bin",
+    "sha256": "d385fb7a2786b6a23eaed3b1df5db4fcca46756fcd677b8a92a98346b6821a87",
+    "app_elf_sha256": "9004b1e9b04993a4da2ed8ca7cb2129db800135b991cf1ff3346691336b9594f",
+    "assets_sha256": "386193a4ab06e3eb5ebb2c58499f017f24a0d2bb200b02a8382a3586ae6b3575",
+    "partition_table_sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5",
+    "candidate_ota_slot": 0,
+    "preserved_original_ota_slot": 1
+  },
+  "serial": {
+    "path": "D:\\projects\\stackchan-b-evaluation\\artifacts\\device-ab\\20260809T122755Z\\official-stackchan-zh-serial.log",
+    "sha256": "a527963974b307e33c524d3ba2a1d1dc0ed6dde9e21d41ca6263db198b03c9f4",
+    "device_reported_elf_sha256": [],
+    "runtime_evidence": []
+  },
+  "rollback": {
+    "preflash_full_backup_sha256": "906aedfcadd9244d6701d462e152e44ebc92b69afac280c23d8d80d12b14d3df",
+    "original_assets_sha256": "04fb4df733c30f734f5eb308d757aaa09d0c46dfcaf89d6959487cda23509a5a",
+    "original_otadata_sha256": "a1ed149677f974e7b1fd3b926c817a1db72ce01ca26b31929937d4ab01f5be22"
+  },
+  "gates": {
+    "configuration_model_firmware_preflash": true,
+    "device_boot_identity_matches_firmware": false,
+    "configuration_model_firmware_serial_consistent": false
+  }
+}

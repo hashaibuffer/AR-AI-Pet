@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "run": "20260809T134117Z-current-ui-agent-zh",
+  "flash_invoked": false,
+  "variants": [
+    {
+      "variant": "a-wakenet",
+      "firmware_sha256": "ac22644043bd09d0724f813bedcdb3c3cbcbe349df1424e76680866277611984",
+      "app_elf_sha256": "2972178257309f8c18946d023697aaa3b20612b51cde74cc7f35bc29b7b6f1a4",
+      "assets_sha256": "96f804117e749d3bacd938a5039b4aab47629ebe5cd6010792497b0bfe8c9d98"
+    }
+  ]
+}

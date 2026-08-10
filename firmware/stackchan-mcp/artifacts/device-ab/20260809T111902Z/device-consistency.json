@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-09T11:25:05.641255+00:00",
+  "variant": "a-wakenet",
+  "configuration": {
+    "effective_source": "D:\\projects\\stackchan-b-evaluation\\stackchan-mcp\\firmware\\build\\config\\sdkconfig.h",
+    "effective": {
+      "CONFIG_BOARD_TYPE_STACKCHAN": "1",
+      "CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL": "1",
+      "CONFIG_STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT": null,
+      "CONFIG_STACKCHAN_TOUCH_PTT": "1",
+      "CONFIG_USE_AFE_WAKE_WORD": "1",
+      "CONFIG_USE_CUSTOM_WAKE_WORD": null,
+      "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS": "1",
+      "CONFIG_SR_MN_CN_NONE": "1",
+      "CONFIG_SR_MN_CN_MULTINET6_QUANT": null,
+      "CONFIG_USE_AUDIO_PROCESSOR": "1",
+      "CONFIG_USE_DEVICE_AEC": null,
+      "CONFIG_USE_SERVER_AEC": null,
+      "CONFIG_LANGUAGE_ZH_CN": "1",
+      "CONFIG_DEFAULT_WEBSOCKET_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_TOKEN": "<MASKED>",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL": "\"ws://192.168.50.133:8765\"",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN": "<MASKED>",
+      "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL": null,
+      "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG": null
+    },
+    "local_defaults": {
+      "CONFIG_BOARD_TYPE_STACKCHAN": "y",
+      "CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL": "y",
+      "CONFIG_STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT": null,
+      "CONFIG_STACKCHAN_TOUCH_PTT": "y",
+      "CONFIG_USE_AFE_WAKE_WORD": "y",
+      "CONFIG_USE_CUSTOM_WAKE_WORD": null,
+      "CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS": "y",
+      "CONFIG_SR_MN_CN_NONE": "y",
+      "CONFIG_SR_MN_CN_MULTINET6_QUANT": null,
+      "CONFIG_USE_AUDIO_PROCESSOR": "y",
+      "CONFIG_USE_DEVICE_AEC": null,
+      "CONFIG_USE_SERVER_AEC": null,
+      "CONFIG_LANGUAGE_ZH_CN": null,
+      "CONFIG_DEFAULT_WEBSOCKET_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL": "\"\"",
+      "CONFIG_DEFAULT_WEBSOCKET_TOKEN": "<MASKED>",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL": "\"ws://192.168.50.133:8765\"",
+      "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN": "<MASKED>",
+      "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL": null,
+      "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG": null
+    }
+  },
+  "models": {
+    "build_log": {
+      "wakenet": [
+        "wn9_nihaoxiaozhi_tts"
+      ],
+      "multinet": [],
+      "skipped_multinet": []
+    },
+    "build_log_evidence": [
+      "wakenet models: wn9_nihaoxiaozhi_tts (will be packaged)",
+      "Copied directory: D:/projects/stackchan-b-evaluation/stackchan-mcp/firmware/managed_components/espressif__esp-sr/model\\wakenet_model\\wn9_nihaoxiaozhi_tts -> D:/projects/stackchan-b-evaluation/stackchan-mcp/firmware/build\\temp_build\\srmodels\\wn9_nihaoxiaozhi_tts",
+      "Added wakenet model: wn9_nihaoxiaozhi_tts"
+    ]
+  },
+  "packaged_speech_assets": {
+    "version": 1,
+    "srmodels": "srmodels.bin",
+    "text_font": "font_puhui_common_20_4.bin",
+    "emoji_collection": [
+      {
+        "name": "angry",
+        "file": "angry.png"
+      },
+      {
+        "name": "confident",
+        "file": "confident.png"
+      },
+      {
+        "name": "confused",
+        "file": "confused.png"
+      },
+      {
+        "name": "cool",
+        "file": "cool.png"
+      },
+      {
+        "name": "crying",
+        "file": "crying.png"
+      },
+      {
+        "name": "delicious",
+        "file": "delicious.png"
+      },
+      {
+        "name": "embarrassed",
+        "file": "embarrassed.png"
+      },
+      {
+        "name": "funny",
+        "file": "funny.png"
+      },
+      {
+        "name": "happy",
+        "file": "happy.png"
+      },
+      {
+        "name": "kissy",
+        "file": "kissy.png"
+      },
+      {
+        "name": "laughing",
+        "file": "laughing.png"
+      },
+      {
+        "name": "loving",
+        "file": "loving.png"
+      },
+      {
+        "name": "neutral",
+        "file": "neutral.png"
+      },
+      {
+        "name": "relaxed",
+        "file": "relaxed.png"
+      },
+      {
+        "name": "sad",
+        "file": "sad.png"
+      },
+      {
+        "name": "shocked",
+        "file": "shocked.png"
+      },
+      {
+        "name": "silly",
+        "file": "silly.png"
+      },
+      {
+        "name": "sleepy",
+        "file": "sleepy.png"
+      },
+      {
+        "name": "surprised",
+        "file": "surprised.png"
+      },
+      {
+        "name": "thinking",
+        "file": "thinking.png"
+      },
+      {
+        "name": "winking",
+        "file": "winking.png"
+      }
+    ]
+  },
+  "firmware": {
+    "file": "D:\\projects\\stackchan-b-evaluation\\artifacts\\firmware-ab\\20260809T104116Z\\a-wakenet\\flash-bundle\\xiaozhi.bin",
+    "sha256": "38913ccf93d3a0ec815197b91e633efaa56de2a837473292bdac14aba0038884",
+    "app_elf_sha256": "87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9",
+    "assets_sha256": "96f804117e749d3bacd938a5039b4aab47629ebe5cd6010792497b0bfe8c9d98",
+    "partition_table_sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5",
+    "candidate_ota_slot": 1,
+    "preserved_original_ota_slot": 0
+  },
+  "serial": {
+    "path": "D:\\projects\\stackchan-b-evaluation\\artifacts\\device-ab\\20260809T111902Z\\a-wakenet-serial.log",
+    "sha256": "9a8eeeb09e993c5e5e7c8a6406f7602ebd568a4facec6dd2a7297264c89d8651",
+    "device_reported_elf_sha256": [
+      "87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9",
+      "87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9"
+    ],
+    "runtime_evidence": [
+      "I (165) Application: Voice interaction mode: XIAOZHI_CONVERSATIONAL; LCD touch PTT: enabled",
+      "I (4855) Application: App identity: project=xiaozhi version=2.2.6 ELF SHA256=87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9",
+      "I (10075) Application: App identity: project=xiaozhi version=2.2.6 ELF SHA256=87800cc56e41289b20dd205dac9ad1cf16d544172c0a395a892c77067ee2cbc9",
+      "I (10845) WS: Session ID: 9c125e2a",
+      "I (29265) AFE: AFE Pipeline: [input] -> |AEC(SR_HIGH_PERF)| ->  -> |VAD(WebRTC)| -> |WakeNet(wn9_nihaoxiaozhi_tts,)| -> [output]"
+    ]
+  },
+  "rollback": {
+    "preflash_full_backup_sha256": "91a1baf6db14852ca39dab48d4475c05b679ba590bb235f58a7911bbde2f1b63",
+    "original_assets_sha256": "04fb4df733c30f734f5eb308d757aaa09d0c46dfcaf89d6959487cda23509a5a",
+    "original_otadata_sha256": "8ba3b110139f45443d4f268d1a3373ef99a1718b71d51664531b83ee2d4b91a3"
+  },
+  "gates": {
+    "configuration_model_firmware_preflash": true,
+    "device_boot_identity_matches_firmware": true,
+    "configuration_model_firmware_serial_consistent": true
+  }
+}
