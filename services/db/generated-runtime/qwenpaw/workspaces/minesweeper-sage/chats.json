@@ -1,0 +1,35 @@
+{
+  "chats": [
+    {
+      "archived": false,
+      "archived_at": null,
+      "channel": "console",
+      "created_at": "2026-08-05T10:50:52.144020Z",
+      "id": "8799d370-70a1-4ab5-85c7-fafdee35a74a",
+      "meta": {},
+      "name": "翻开行8列0",
+      "pinned": false,
+      "session_id": "cloud-orchestrator:to:minesweeper-sage:1785927051901:eb4a6b8d",
+      "source": "chat",
+      "status": "idle",
+      "updated_at": "2026-08-05T10:50:55.307422Z",
+      "user_id": "cloud-orchestrator"
+    },
+    {
+      "archived": false,
+      "archived_at": null,
+      "channel": "console",
+      "created_at": "2026-08-05T10:51:22.601374Z",
+      "id": "4ab95851-7c99-4246-a480-9bff01b536c1",
+      "meta": {},
+      "name": "点击(4,4)周围格或基于(7,0)推理",
+      "pinned": false,
+      "session_id": "cloud-orchestrator:to:minesweeper-sage:1785927082361:42898503",
+      "source": "chat",
+      "status": "idle",
+      "updated_at": "2026-08-05T10:51:26.364294Z",
+      "user_id": "cloud-orchestrator"
+    }
+  ],
+  "version": 1
+}

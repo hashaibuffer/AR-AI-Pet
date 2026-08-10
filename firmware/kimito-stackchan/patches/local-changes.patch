@@ -1,0 +1,252 @@
+diff --git a/.env.example b/.env.example
+index add46ad..c6e84e6 100644
+--- a/.env.example
++++ b/.env.example
+@@ -22,6 +22,10 @@ VOICE_TURN_TOKEN=your-voice-turn-bearer-token
+ # ── device gateway / transport ───────────────────────────────────────
+ # MCP endpoint of the stackchan device gateway (stackchan-mcp).
+ #STACKCHAN_MCP_URL=http://127.0.0.1:8767/mcp
++# Bearer token accepted by that MCP endpoint. Set this when the device gateway
++# has STACKCHAN_TOKEN/BEARER_TOKEN configured; it is independent of the brain's
++# VOICE_TURN_TOKEN.
++#STACKCHAN_MCP_TOKEN=
+ # JSONL event stream the gateway writes (touch events are read from here).
+ # Must match the gateway's configured event log path.
+ #STACKCHAN_EVENTS_JSONL=~/.stackchan/events.jsonl
+@@ -51,7 +55,7 @@ VOICE_TURN_TOKEN=your-voice-turn-bearer-token
+ # (common for short noisy clips) retries forced to the FIRST entry.
+ # Empty = trust detection. (Long captures are exempt — third-party speech
+ # is transcribed in whatever language it detects.)
+-#COMPANION_STT_LANGUAGES=en
++COMPANION_STT_LANGUAGES=zh
+ # Discard transcripts containing any of these substrings — whisper's
+ # near-silence hallucinations are watermark-shaped (subtitle credits from
+ # training data). One gate, applied after both local and remote STT.
+diff --git a/README.en.md b/README.en.md
+index 077151b..1e47275 100644
+--- a/README.en.md
++++ b/README.en.md
+@@ -558,6 +558,7 @@ with longer commentary. Only `VOICE_TURN_URL` is required.
+ | `COMPANION_VIA` | `local` | transport label sent with each turn (network fingerprint) |
+ | **device gateway** | | |
+ | `STACKCHAN_MCP_URL` | `http://127.0.0.1:8767/mcp` | device gateway MCP endpoint |
++| `STACKCHAN_MCP_TOKEN` | empty | Bearer for the device gateway MCP endpoint; match its `STACKCHAN_TOKEN`, independently of the brain's `VOICE_TURN_TOKEN` |
+ | `STACKCHAN_EVENTS_JSONL` | `~/.stackchan/events.jsonl` | gateway's JSONL event stream (touch events) |
+ | `STACKCHAN_DEVICE_ID` | empty | free-form device id included in turns |
+ | **HTTP surface** | | |
+@@ -569,7 +570,7 @@ with longer commentary. Only `VOICE_TURN_URL` is required.
+ | `WHISPER_REMOTE_URL` | empty | remote STT tried first, silent fallback to local |
+ | `WHISPER_REMOTE_TOKEN` | empty | Bearer for remote STT |
+ | `WHISPER_REMOTE_TIMEOUT_S` | `4` | remote STT timeout |
+-| `COMPANION_STT_LANGUAGES` | empty | expected languages; off-list detection retries as the first (long captures exempt) |
++| `COMPANION_STT_LANGUAGES` | `zh` | expected languages; off-list detection retries as the first (long captures exempt) |
+ | `COMPANION_STT_HALLUCINATIONS` | watermark set | discard transcripts containing any of these substrings (whisper's near-silence watermarks) |
+ | **speech output** | | |
+ | `COMPANION_SAY_VOICE` | empty | voice name for the say tool (empty = device default) |
+diff --git a/README.md b/README.md
+index 365da3c..1afc72c 100644
+--- a/README.md
++++ b/README.md
+@@ -458,6 +458,7 @@ npm run tts-shim       # 可选 TTS shim 在 127.0.0.1:8769
+ | `COMPANION_VIA` | `local` | 随每轮发送的通道标签（网络指纹） |
+ | **设备 gateway** | | |
+ | `STACKCHAN_MCP_URL` | `http://127.0.0.1:8767/mcp` | 设备 gateway 的 MCP endpoint |
++| `STACKCHAN_MCP_TOKEN` | 空 | 设备 gateway MCP endpoint 的 Bearer；应与其 `STACKCHAN_TOKEN` 一致，不与大脑的 `VOICE_TURN_TOKEN` 混用 |
+ | `STACKCHAN_EVENTS_JSONL` | `~/.stackchan/events.jsonl` | gateway 的 JSONL 事件流（触摸事件来源） |
+ | `STACKCHAN_DEVICE_ID` | 空 | 随对话发送的自由格式设备 id |
+ | **HTTP 面** | | |
+@@ -469,7 +470,7 @@ npm run tts-shim       # 可选 TTS shim 在 127.0.0.1:8769
+ | `WHISPER_REMOTE_URL` | 空 | 远端 STT 优先，失败静默回退本地 |
+ | `WHISPER_REMOTE_TOKEN` | 空 | 远端 STT 的 Bearer |
+ | `WHISPER_REMOTE_TIMEOUT_S` | `4` | 远端 STT 超时 |
+-| `COMPANION_STT_LANGUAGES` | 空 | 预期语言表；检出表外语言按第一项强制重转（长录豁免） |
++| `COMPANION_STT_LANGUAGES` | `zh` | 预期语言表；检出表外语言按第一项强制重转（长录豁免） |
+ | `COMPANION_STT_HALLUCINATIONS` | 水印词表 | 含任一子串整条丢弃（whisper 近静音的字幕水印幻觉） |
+ | **语音输出** | | |
+ | `COMPANION_SAY_VOICE` | 空 | say 工具的音色名（空 = 设备默认） |
+diff --git a/companion/companion.py b/companion/companion.py
+index 843a4c1..e42e71b 100644
+--- a/companion/companion.py
++++ b/companion/companion.py
+@@ -72,6 +72,7 @@ def _on(name: str, default: str = "1") -> bool:
+ 
+ # transport / device
+ MCP_URL = os.getenv("STACKCHAN_MCP_URL", "http://127.0.0.1:8767/mcp")
++MCP_TOKEN = os.getenv("STACKCHAN_MCP_TOKEN", "")
+ EVENTS_PATH = Path(os.getenv("STACKCHAN_EVENTS_JSONL",
+                              str(Path.home() / ".stackchan/events.jsonl")))
+ DEVICE_ID = os.getenv("STACKCHAN_DEVICE_ID", "")
+@@ -96,7 +97,7 @@ WHISPER_REMOTE_TOKEN = os.getenv("WHISPER_REMOTE_TOKEN", "")
+ WHISPER_REMOTE_TIMEOUT_S = _f("WHISPER_REMOTE_TIMEOUT_S", 4)
+ # comma list of expected languages; a detection outside the list triggers one
+ # retranscription forced to the first entry. Empty = trust detection.
+-STT_LANGUAGES = [x.strip() for x in os.getenv("COMPANION_STT_LANGUAGES", "").split(",")
++STT_LANGUAGES = [x.strip() for x in os.getenv("COMPANION_STT_LANGUAGES", "zh").split(",")
+                  if x.strip()]
+ # Whisper's near-silence hallucinations are watermark-shaped: subtitle-credit
+ # lines from its training data surface verbatim on empty audio. A transcript
+@@ -307,6 +308,8 @@ def is_night(hour: int) -> bool:
+ def mcp_call(tool: str, args: dict | None = None, timeout: float = 60.0):
+     headers = {"Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream"}
++    if MCP_TOKEN:
++        headers["Authorization"] = "Bearer " + MCP_TOKEN
+ 
+     def post(payload, session=None):
+         h = dict(headers)
+@@ -2476,7 +2479,9 @@ def transcribe(ogg_bytes: bytes, allow_any_lang: bool = False) -> str:
+         # misread of a short, noisy clip — retranscribe forced to the primary.
+         # Long captures are exempt (allow_any_lang): what a waiter or an
+         # announcement says in a third language must reach the brain as-is.
+-        if not allow_any_lang and STT_LANGUAGES and info.language not in STT_LANGUAGES:
++        allowed = {value.lower().split("-", 1)[0] for value in STT_LANGUAGES}
++        detected = (info.language or "").lower().split("-", 1)[0]
++        if not allow_any_lang and allowed and detected not in allowed:
+             log.info("detected %s (p=%.2f) — retry as %s", info.language,
+                      info.language_probability, STT_LANGUAGES[0])
+             segments, info = model.transcribe(wav_path, language=STT_LANGUAGES[0],
+@@ -2505,6 +2510,14 @@ def transcribe_remote(ogg_bytes: bytes) -> str | None:
+         with urllib.request.urlopen(req, timeout=WHISPER_REMOTE_TIMEOUT_S) as r:
+             data = json.loads(r.read().decode())
+         text = (data.get("text") or "").strip()
++        detected = str(data.get("language") or "").lower().split("-", 1)[0]
++        allowed = {value.lower().split("-", 1)[0] for value in STT_LANGUAGES}
++        if detected and allowed and detected not in allowed:
++            # Reject an off-language remote result so the caller falls back
++            # to local Whisper, whose primary language is then forced.
++            log.info("stt remote language %s outside %s -> local retry",
++                     detected, sorted(allowed))
++            return None
+         log.info("stt remote hit: %r (%s)", text[:40], data.get("language"))
+         return text
+     except Exception as exc:
+diff --git a/gateway/package-lock.json b/gateway/package-lock.json
+index eaee6bc..463a229 100644
+--- a/gateway/package-lock.json
++++ b/gateway/package-lock.json
+@@ -179,6 +179,7 @@
+       "resolved": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz",
+       "integrity": "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=6.9.0"
+       }
+@@ -190,7 +191,6 @@
+       "dev": true,
+       "license": "MIT",
+       "optional": true,
+-      "peer": true,
+       "dependencies": {
+         "@emnapi/wasi-threads": "1.2.2",
+         "tslib": "^2.4.0"
+@@ -203,7 +203,6 @@
+       "dev": true,
+       "license": "MIT",
+       "optional": true,
+-      "peer": true,
+       "dependencies": {
+         "tslib": "^2.4.0"
+       }
+@@ -659,7 +658,6 @@
+       "resolved": "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.29.0.tgz",
+       "integrity": "sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "@hono/node-server": "^1.19.9",
+         "ajv": "^8.17.1",
+@@ -992,7 +990,8 @@
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/@stablelib/base64/-/base64-1.0.1.tgz",
+       "integrity": "sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==",
+-      "license": "MIT"
++      "license": "MIT",
++      "peer": true
+     },
+     "node_modules/@standard-schema/spec": {
+       "version": "1.1.0",
+@@ -1671,7 +1670,6 @@
+       "resolved": "https://registry.npmjs.org/express/-/express-5.2.1.tgz",
+       "integrity": "sha512-hIS4idWWai69NezIdRt2xFVofaF4j+6INOpJlVOLDO8zXGpUVEVzIYk12UUi2JzjEzWL3IOAxcTubgz9Po0yXw==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "accepts": "^2.0.0",
+         "body-parser": "^2.2.1",
+@@ -1738,7 +1736,8 @@
+       "version": "1.3.0",
+       "resolved": "https://registry.npmjs.org/fast-sha256/-/fast-sha256-1.3.0.tgz",
+       "integrity": "sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==",
+-      "license": "Unlicense"
++      "license": "Unlicense",
++      "peer": true
+     },
+     "node_modules/fast-uri": {
+       "version": "3.1.3",
+@@ -1914,7 +1913,6 @@
+       "resolved": "https://registry.npmjs.org/hono/-/hono-4.12.28.tgz",
+       "integrity": "sha512-YwUvVpSF7m1yOblFPrU3Hbo8XhPheBoiyfGuII6z19LnOr6JpDnyyp7LFNrfV56wS8tpvtBFGRISHN02pDdLOA==",
+       "license": "MIT",
+-      "peer": true,
+       "engines": {
+         "node": ">=16.9.0"
+       }
+@@ -2005,6 +2003,7 @@
+       "resolved": "https://registry.npmjs.org/json-schema-to-ts/-/json-schema-to-ts-3.1.1.tgz",
+       "integrity": "sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@babel/runtime": "^7.18.3",
+         "ts-algebra": "^2.0.0"
+@@ -2489,7 +2488,6 @@
+       "integrity": "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "engines": {
+         "node": ">=12"
+       },
+@@ -2830,6 +2828,7 @@
+       "resolved": "https://registry.npmjs.org/standardwebhooks/-/standardwebhooks-1.0.0.tgz",
+       "integrity": "sha512-BbHGOQK9olHPMvQNHWul6MYlrRTAOKn03rOe4A8O3CLWhNf4YHBqq2HJKKC+sfqpxiBY52pNeesD6jIiLDz8jg==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@stablelib/base64": "^1.0.0",
+         "fast-sha256": "^1.3.0"
+@@ -2908,7 +2907,8 @@
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/ts-algebra/-/ts-algebra-2.0.0.tgz",
+       "integrity": "sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==",
+-      "license": "MIT"
++      "license": "MIT",
++      "peer": true
+     },
+     "node_modules/tslib": {
+       "version": "2.8.1",
+@@ -2923,7 +2923,6 @@
+       "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.23.0.tgz",
+       "integrity": "sha512-eUdUIaCr963q2h5u3+QwvYp0+eqPvn+egeqZUm0hwERCqqx1E3kK5ehbGCvqSE5MQAULr67ww0cA3jKc3YkM1w==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "esbuild": "~0.28.0"
+       },
+@@ -3013,7 +3012,6 @@
+       "integrity": "sha512-bTT9PsdWO+MQMNG9ZXIP/qM9wGh37DFxTV/sPq9cFpHr3w4jkgef032PkAL9jAqhk3Nz8NQw3O8n6/xFkqO4QQ==",
+       "dev": true,
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+         "lightningcss": "^1.32.0",
+         "picomatch": "^4.0.5",
+@@ -3219,7 +3217,6 @@
+       "resolved": "https://registry.npmjs.org/zod/-/zod-4.4.3.tgz",
+       "integrity": "sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==",
+       "license": "MIT",
+-      "peer": true,
+       "funding": {
+         "url": "https://github.com/sponsors/colinhacks"
+       }
