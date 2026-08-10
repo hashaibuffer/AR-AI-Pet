@@ -1,0 +1,14 @@
+{
+  "variant": "d-wakenet-device-aec",
+  "voice_profile": "xiaozhi-conversational",
+  "audio_profile": "wakenet-device-aec",
+  "transport_profile": "xiaozhi-plus-action",
+  "firmware_sha256": "bdd315b22fe1b1866442bceac8969b8304393290117e9d8665ba1f16487d76a3",
+  "firmware_size": 3092128,
+  "app_elf_sha256": "a816cb6864424035c7d181c86820a2b3892f3e6fe1e36ebd34adafdde71af00e",
+  "full_flash_sha256": "ec5e326294bde8c1962f9aa1ecd69cd4822160c3a385ef6da24fab63435f12c9",
+  "full_flash_size": 9981139,
+  "flash_bundle": "flash-bundle",
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false
+}

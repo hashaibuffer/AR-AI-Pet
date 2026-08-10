@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-08-09T08:15:59.059894+00:00",
+  "idf_version": "ESP-IDF v5.5.4",
+  "flash_invoked": false,
+  "variants": [
+    {
+      "variant": "a-wakenet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet",
+      "firmware_sha256": "775eaa3299274b68e42abee25e6ee5599f8bfd8284a361f7872262fcccc982ee",
+      "firmware_size": 3051568,
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    }
+  ]
+}

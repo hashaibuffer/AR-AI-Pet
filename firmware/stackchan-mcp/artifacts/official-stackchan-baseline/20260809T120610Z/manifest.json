@@ -1,0 +1,53 @@
+{
+  "candidate": "official-stackchan-zh-baseline",
+  "source_root": "D:\\sc\\firmware",
+  "source_strategy": "preserve the complete StackChan project instead of reconstructing its voice behavior as isolated patches",
+  "project_version": "1.4.5",
+  "xiaozhi_upstream": "78/xiaozhi-esp32 v2.2.4 plus the source tree's existing patch",
+  "build": {
+    "environment": "ESP-IDF v5.5.4 PowerShell",
+    "directory": "D:\\sc\\firmware\\build-codex-official",
+    "clean_independent_build_directory": true,
+    "exit_code": 0
+  },
+  "configuration": {
+    "board": "M5STACK_STACK_CHAN",
+    "language": "zh-CN",
+    "wake_implementation": "AFE WakeNet",
+    "wake_models": [
+      "wn9_histackchan_tts3",
+      "wn9_xiaoluxiaolu_tts2"
+    ],
+    "multinet": "none"
+  },
+  "artifacts": {
+    "app": {
+      "file": "stack-chan.bin",
+      "size": 3797904,
+      "sha256": "d385fb7a2786b6a23eaed3b1df5db4fcca46756fcd677b8a92a98346b6821a87",
+      "esp_validation_hash": "f22eefdea2b51bcce95d5bd9dadee70827549f54facf883fbd6b8cfeaeac13d8"
+    },
+    "assets": {
+      "file": "generated_assets.bin",
+      "size": 2589204,
+      "sha256": "386193a4ab06e3eb5ebb2c58499f017f24a0d2bb200b02a8382a3586ae6b3575"
+    },
+    "source_partition_table": {
+      "file": "partition-table.bin",
+      "size": 3072,
+      "sha256": "48da0866f56d9d8eb1fe786412984d8f1a4a01b3f13f965621fcb916761e1a4b"
+    },
+    "sdkconfig_header": {
+      "file": "sdkconfig.h",
+      "sha256": "4bb176770ca907881b8d855764ce9de4f60f3dfe947d461b0c5534945c49c20a"
+    }
+  },
+  "host_tests": {
+    "suite": "motion_math_test",
+    "passed": 1,
+    "failed": 0
+  },
+  "device_write_authorized": false,
+  "flash_status": "not flashed",
+  "safety_note": "The source project's partition layout differs from the live device. Never use its full flash command. Any later test must place only the App in the verified inactive live OTA slot, place assets in the verified live assets partition, and update only otadata after a separate exact-hash authorization."
+}

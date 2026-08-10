@@ -52,7 +52,8 @@ pnpm-debug.log*
 # Locally checked out upstream firmware baselines; exact revisions are recorded in module READMEs.
 /firmware/stackchan/upstream/
 /firmware/stackchan-mcp/upstream/
-/firmware/stackchan-mcp/artifacts/
+# StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
+/firmware/kimito-stackchan/upstream/
 
 # Existing local output
 /outputs/
@@ -60,3 +61,12 @@ pnpm-debug.log*
 
 # Agent service local deployment state and secrets
 /services/agent-service/runtime/
+
+# DB service generated runtime — QwenPaw (deprecated)
+/services/db/generated-runtime/qwenpaw.secret/
+/services/db/generated-runtime/healthz.out
+/services/db/generated-runtime/qwenpaw/governance/audit.db*
+/services/db/generated-runtime/qwenpaw/.qwenpaw_restore.lock
+/services/db/generated-runtime/qwenpaw/.telemetry_collected
+/services/db/generated-runtime/qwenpaw/token_usage.json
+/services/db/generated-runtime/qwenpaw/skill_pool/.skill.json.lock

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "candidate": "A-current-ui-agent-zh-wakenet",
+  "audio_profile": "wakenet",
+  "firmware_sha256": "ac22644043bd09d0724f813bedcdb3c3cbcbe349df1424e76680866277611984",
+  "app_elf_sha256": "2972178257309f8c18946d023697aaa3b20612b51cde74cc7f35bc29b7b6f1a4",
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false,
+  "flash_bundle": "flash-bundle",
+  "created_at": "2026-08-09T13:41:17Z",
+  "build_environment": {
+    "esp_idf": "5.5.4",
+    "host": "Windows PowerShell",
+    "flash_invoked": false
+  },
+  "product_contract": {
+    "device_ui": "existing StackChan/Kimito-integrated UI",
+    "voice_owner": "AI.AGENT/Xiaozhi",
+    "behavior_owner": "Kimito/action MCP layer",
+    "voice_mode": "XIAOZHI_CONVERSATIONAL",
+    "touch_ptt": true,
+    "firmware_language": "zh-cn",
+    "agent_id": 2209363,
+    "agent_language": "zh",
+    "wakenet": "wn9_nihaoxiaozhi_tts",
+    "multinet": "none",
+    "aec": "none"
+  },
+  "files": {
+    "xiaozhi.bin": {
+      "sha256": "ac22644043bd09d0724f813bedcdb3c3cbcbe349df1424e76680866277611984",
+      "size": 3095744,
+      "app_elf_sha256": "2972178257309f8c18946d023697aaa3b20612b51cde74cc7f35bc29b7b6f1a4"
+    },
+    "generated_assets.bin": {
+      "sha256": "96f804117e749d3bacd938a5039b4aab47629ebe5cd6010792497b0bfe8c9d98"
+    },
+    "evidence/partition-table.bin": {
+      "sha256": "4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5",
+      "purpose": "read-only layout comparison; not authorized for flashing"
+    },
+    "evidence/agent-language-audit.json": {
+      "sha256": "b697b7e0de5dd80e9a7a75e7f32ac9b52c18abc4a76e07e989996b3818c49f9b"
+    },
+    "latest.json": {
+      "sha256": "4120a3e49c17941a70520742ab3dd072ab2e3ceda6bde0c3eed0844fc5136fd3"
+    },
+    "latest.md": {
+      "sha256": "dc6088fcf824e702b2a6e2f13aa946dcc2f408cfb3acccc40e4fe50394d577e1"
+    }
+  },
+  "host_tests": {
+    "firmware_scripts": "55/55 passed",
+    "firmware_cpp": "17/17 passed"
+  },
+  "gates": {
+    "technical_ready_for_flash_review": true,
+    "device_binary_identity_verified": false,
+    "flash_authorized_by_user": false
+  },
+  "write_policy": {
+    "requires_fresh_read_only_device_preflight": true,
+    "requires_exact_user_approval": true,
+    "allowed_after_approval": [
+      "inactive OTA application slot selected from fresh otadata",
+      "shared assets only when its exact SHA and rollback backup are verified",
+      "otadata last"
+    ],
+    "never_write": [
+      "active OTA application slot",
+      "NVS",
+      "bootloader",
+      "partition table"
+    ],
+    "rollback": "restore original assets and otadata on failure"
+  },
+  "intentional_exclusions": [
+    "bootloader image",
+    "otadata image",
+    "NVS image",
+    "merged full-flash image",
+    "automatic flash arguments"
+  ]
+}

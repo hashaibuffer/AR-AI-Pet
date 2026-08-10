@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "upstreamRepository": "https://github.com/marikagura/kimito-stackchan.git",
+  "upstreamBaseCommit": "bc1592912c6084416681783b88c4b282b2ef68e0",
+  "description": "Kimito behavior layer for StackChan: companion (Python) + gateway (Node.js)",
+  "components": {
+    "companion": {
+      "language": "Python",
+      "description": "表情、头部动作、陪伴反馈"
+    },
+    "gateway": {
+      "language": "Node.js",
+      "description": "动作 MCP WebSocket 网关"
+    }
+  }
+}

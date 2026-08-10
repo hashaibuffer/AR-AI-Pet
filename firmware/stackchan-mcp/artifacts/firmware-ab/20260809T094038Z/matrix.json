@@ -1,0 +1,91 @@
+{
+  "generated_at": "2026-08-09T09:54:46.788796+00:00",
+  "idf_version": "ESP-IDF v5.5.4",
+  "flash_invoked": false,
+  "variants": [
+    {
+      "variant": "a-wakenet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "1e38a7a4b86458939b2d74a2c0bbce0c5bf5eb1681148afb42a8b8b80e6278c3",
+      "firmware_size": 3092192,
+      "app_elf_sha256": "e61554887c4ae8b7332641acfd3d2789a4b9e0a7091965d97a4aa12e2c962014",
+      "full_flash_sha256": "7de66f4c822a85f3eb700c48049e483450913a1e8feb004a5b5cc0dc7ab903e1",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "b-wakenet-mn6-flag",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-mn6-flag",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "39252049e4cee5823b98d19aab67365014cfa20b58e527796c428b76712c4a89",
+      "firmware_size": 3092192,
+      "app_elf_sha256": "c5bd058d769bf21e86187d5d23177115f8f1f0194c415e84df74530ce6a678aa",
+      "full_flash_sha256": "6651e54f89e5e24f00611f13b31dd1de4eed55a80c729342a7c239420e091c8b",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "c-custom-multinet",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "custom-multinet",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "18e8e973d316a53b3a3c23eca88a80cd4002773cf9b47046fa7dabc092dcd73d",
+      "firmware_size": 3092448,
+      "app_elf_sha256": "e64d595ecbf27e9c600e4454128450ecf1625c10b1317dd958a6bd2b0758de61",
+      "full_flash_sha256": "f9ed6249f1b9d39b1545cea3714f13ad5a56b59598096b9e4b584b2519a9de91",
+      "full_flash_size": 13394056,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "d-wakenet-device-aec",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-device-aec",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "bdd315b22fe1b1866442bceac8969b8304393290117e9d8665ba1f16487d76a3",
+      "firmware_size": 3092128,
+      "app_elf_sha256": "a816cb6864424035c7d181c86820a2b3892f3e6fe1e36ebd34adafdde71af00e",
+      "full_flash_sha256": "ec5e326294bde8c1962f9aa1ecd69cd4822160c3a385ef6da24fab63435f12c9",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "e-wakenet-server-aec",
+      "voice_profile": "xiaozhi-conversational",
+      "audio_profile": "wakenet-server-aec",
+      "transport_profile": "xiaozhi-plus-action",
+      "firmware_sha256": "b21c10c5df28fb07abe1a9e9a99c03b0e1ab0c616a94bec1be6fc682a2769b6f",
+      "firmware_size": 3092560,
+      "app_elf_sha256": "56e884d5d49f469bfc291e1b3a1c5ca81f1e97667ad43737a483d9c2e65e3b07",
+      "full_flash_sha256": "fd72e002d543e82b420f537ff36874ab7aa1aabb4d151506531c3635414aedb5",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    },
+    {
+      "variant": "f-mcp-single-shot",
+      "voice_profile": "mcp-single-shot",
+      "audio_profile": "wakenet",
+      "transport_profile": "local-mcp",
+      "firmware_sha256": "9215c741bf9794e51a2c0abb8d2aee23c16d416dd61962216c66b150104b4807",
+      "firmware_size": 3051952,
+      "app_elf_sha256": "267c8ae58cfffc0143606fee66a526c7ffad51bda037fa93f5cfd1efaea073a6",
+      "full_flash_sha256": "be5d57fb2ce019aa7d6c0cae30811d4d6105b71ad9526ac5e2fa84a3a50cbb3b",
+      "full_flash_size": 9981139,
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    }
+  ]
+}

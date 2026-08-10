@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-08-09T12:06:10Z",
+  "idf_version": "ESP-IDF v5.5.4",
+  "flash_invoked": false,
+  "strategy": "official-source-minimal-compatibility-bundle",
+  "variants": [
+    {
+      "variant": "official-stackchan-zh",
+      "voice_profile": "official-xiaozhi-conversational",
+      "audio_profile": "official-wakenet",
+      "transport_profile": "official-stackchan",
+      "firmware_sha256": "d385fb7a2786b6a23eaed3b1df5db4fcca46756fcd677b8a92a98346b6821a87",
+      "firmware_size": 3797904,
+      "app_elf_sha256": "9004b1e9b04993a4da2ed8ca7cb2129db800135b991cf1ff3346691336b9594f",
+      "flash_bundle": "flash-bundle",
+      "technical_ready_for_flash_review": true,
+      "flash_authorized_by_user": false
+    }
+  ]
+}

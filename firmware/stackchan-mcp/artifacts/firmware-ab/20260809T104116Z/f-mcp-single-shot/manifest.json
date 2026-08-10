@@ -1,0 +1,14 @@
+{
+  "variant": "f-mcp-single-shot",
+  "voice_profile": "mcp-single-shot",
+  "audio_profile": "wakenet",
+  "transport_profile": "local-mcp",
+  "firmware_sha256": "e0a3eb610d5cb2bb5211bc7ae5f97b4516501a20213ab186537889131b78cbd3",
+  "firmware_size": 3053856,
+  "app_elf_sha256": "50394827b0644e95b9a34427112934efc88a6479830c53871da8c7ef6274173c",
+  "full_flash_sha256": "d8d55cec753da25b278017898baa6b8799bae2b9c34bab1af66d1db09596c0ad",
+  "full_flash_size": 9981139,
+  "flash_bundle": "flash-bundle",
+  "technical_ready_for_flash_review": true,
+  "flash_authorized_by_user": false
+}

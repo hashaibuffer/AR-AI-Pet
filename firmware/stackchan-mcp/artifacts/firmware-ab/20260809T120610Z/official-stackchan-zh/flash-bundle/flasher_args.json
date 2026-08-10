@@ -1,0 +1,12 @@
+{
+  "purpose": "plan-only OTA compatibility bundle; never use as a full-flash command",
+  "flash_files": {
+    "0x8000": "partition_table/partition-table.bin"
+  },
+  "payload_policy": "App target is determined only from freshly verified OTA metadata; assets target is determined by the verified live partition label.",
+  "forbidden_full_flash": true,
+  "device_write_authorized": false,
+  "extra_esptool_args": {
+    "chip": "esp32s3"
+  }
+}

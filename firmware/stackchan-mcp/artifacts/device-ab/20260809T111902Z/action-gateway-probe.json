@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-08-09T11:31:56.7290085Z",
+  "gateway": {
+    "url": "http://127.0.0.1:8767/mcp",
+    "websocket_listener": "0.0.0.0:8765",
+    "connected": true,
+    "device_id": "80:45:6b:54:7d:10",
+    "device_ip": "192.168.50.213",
+    "initialized": true,
+    "tools_count": 40
+  },
+  "device_info": {
+    "audio_speaker": {"volume": 70},
+    "screen": {"brightness": 75, "theme": "light"},
+    "battery": {"level": 100, "charging": false},
+    "network": {"type": "wifi", "ssid": "hashai", "signal": "strong"}
+  },
+  "read_only_body_state": {
+    "head_angles": {"yaw": 0, "pitch": 42},
+    "head_touch_enabled": true,
+    "head_touch": {
+      "available": true,
+      "zone0": false,
+      "zone1": false,
+      "zone2": false,
+      "raw": 0,
+      "last_event": "idle",
+      "last_event_age_ms": -1
+    }
+  },
+  "small_motion_probe": {
+    "requested": {"yaw": 8, "pitch": 42, "speed": 30},
+    "servo_init_ok": true,
+    "measured_at_target": {"yaw": 6, "pitch": 41},
+    "restored_request": {"yaw": 0, "pitch": 42, "speed": 30},
+    "measured_after_restore": {"yaw": 1, "pitch": 41}
+  },
+  "result": {
+    "late_gateway_start_reconnected_without_device_reset": true,
+    "authentication_and_hello_succeeded": true,
+    "read_only_device_tool_round_trip_succeeded": true,
+    "physical_motion_round_trip_succeeded": true,
+    "voice_channel_was_not_used_for_actions": true
+  }
+}
