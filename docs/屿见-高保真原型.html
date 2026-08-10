@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>屿见 YuJian — 高保真原型</title>
+<style>
+/* ===== Design Tokens ===== */
+:root {
+  --cream-blue: #B8E5F2;
+  --sakura-pink: #FFB7C9;
+  --peach-orange: #FFBE8A;
+  --lavender: #CFC7FF;
+  --white-mist: #FAFAF5;
+  --text-primary: #2D2D2D;
+  --text-secondary: #8E8E8E;
+  --text-tertiary: #BABABA;
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --shadow-card: 0 2px 16px rgba(0,0,0,0.04);
+  --shadow-float: 0 8px 32px rgba(0,0,0,0.06);
+  --phone-w: 390px;
+  --phone-h: 844px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Display", "Microsoft YaHei", sans-serif;
+  background: #E8E8E8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Phone shell */
+.phone-shell {
+  width: var(--phone-w);
+  height: var(--phone-h);
+  background: #1a1a2e;
+  border-radius: 44px;
+  padding: 12px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.12);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 34px;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--cream-blue) 0%, #FFF0F0 60%, #FFF5F5 100%);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Dynamic island */
+.dynamic-island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 34px;
+  background: #1a1a2e;
+  border-radius: 20px;
+  z-index: 200;
+}
+
+/* ===== Top Status Bar ===== */
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 6px;
+  position: relative;
+  z-index: 10;
+}
+
+.status-pills {
+  display: flex;
+  gap: 8px;
+}
+
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(10px);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-pill::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #81C784;
+  display: inline-block;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ===== Life Bar ===== */
+.life-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px 14px;
+  position: relative;
+  z-index: 10;
+}
+
+.life-heart-box {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #FF6B6B;
+  flex-shrink: 0;
+}
+
+.life-heart-box svg { width: 18px; height: 18px; }
+
+.life-track {
+  flex: 1;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #FF6B6B 0%, #FFB4B4 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.life-track::after {
+  content: '90 / 1000';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.life-mood {
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(129,199,132,0.2);
+  color: #388E3C;
+  flex-shrink: 0;
+}
+
+/* ===== Screen System ===== */
+.screen { display: none; flex-direction: column; height: 100%; position: relative; }
+.screen.active { display: flex; }
+
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 20px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-area::-webkit-scrollbar { width: 0; }
+
+/* ===== Back Navigation ===== */
+.nav-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 6px 6px;
+  gap: 4px;
+  position: relative;
+  z-index: 10;
+}
+
+.nav-back {
+  width: 40px; height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 22px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.nav-back:hover { background: rgba(0,0,0,0.04); }
+
+.nav-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+/* ===== Bottom Tab Bar ===== */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 12px 8px;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0,0,0,0.04);
+  position: relative;
+  z-index: 100;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 12px;
+  transition: all 0.25s;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.tab-item svg { width: 22px; height: 22px; display: block; }
+.tab-item .tab-icon { font-size: 18px; line-height: 1; }
+.tab-item.active { color: var(--sakura-pink); }
+
+/* ===== Home ===== */
+.home-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px 10px;
+  position: relative;
+}
+
+.robot-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.robot-shadow {
+  position: absolute;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.05);
+  filter: blur(4px);
+}
+
+.mode-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.6);
+  color: var(--text-secondary);
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.mode-tag:hover { background: rgba(255,255,255,0.85); }
+
+.hint-text {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+/* Menu ring */
+.menu-ring {
+  position: relative;
+  width: 290px;
+  height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-dot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.menu-dot:hover { transform: scale(1.08); }
+
+.menu-dot .icon-wrap {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(8px);
+}
+
+.menu-dot .cap { font-size: 10px; color: var(--text-secondary); font-weight: 500; }
+
+.m-d-top { top: 0; left: 50%; transform: translateX(-50%); }
+.m-d-top:hover { transform: translateX(-50%) scale(1.08); }
+.m-d-tr { top: 30px; right: 0; }
+.m-d-r { top: 50%; right: -5px; transform: translateY(-50%); }
+.m-d-r:hover { transform: translateY(-50%) scale(1.08); }
+.m-d-br { bottom: 30px; right: 10px; }
+.m-d-b { bottom: 0; left: 50%; transform: translateX(-50%); }
+.m-d-b:hover { transform: translateX(-50%) scale(1.08); }
+.m-d-bl { bottom: 30px; left: 10px; }
+
+/* Bottom controls */
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 6px 20px 4px;
+}
+
+.ctrl-circle {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.2s;
+}
+
+.ctrl-circle:active { transform: scale(0.94); background: rgba(255,255,255,0.9); }
+
+.ctrl-circle.main {
+  width: 68px; height: 68px;
+  background: var(--sakura-pink);
+  color: #fff;
+  font-size: 26px;
+  box-shadow: 0 4px 16px rgba(255,183,201,0.45);
+}
+
+/* ===== Card System ===== */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 8px 4px 10px;
+}
+
+.card {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-accent-blue { background: rgba(184,229,242,0.55); }
+.card-accent-pink { background: rgba(255,183,201,0.45); }
+
+/* ===== Diary ===== */
+.diary-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.diary-tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.25s;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.diary-tab-btn.blue-on { background: var(--cream-blue); color: var(--text-primary); }
+.diary-tab-btn.pink-on { background: var(--sakura-pink); color: var(--text-primary); }
+
+/* Calendar ring grid */
+.cal-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px 12px;
+  padding: 4px 0;
+}
+
+.cal-dot {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px dashed #D0D0D0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin: 0 auto;
+}
+
+.cal-dot.on {
+  border-style: solid;
+  border-color: var(--sakura-pink);
+  background: var(--sakura-pink);
+  color: #fff;
+}
+
+/* Pie */
+.pie-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.pie {
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: conic-gradient(#FFB7C9 0deg 90deg, #B8E5F2 90deg 180deg, #FFF9C4 180deg 270deg, #FFCDD2 270deg 360deg);
+  flex-shrink: 0;
+}
+
+.pie-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* Diary entries */
+.diary-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.03);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.diary-entry:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-1px); }
+
+.diary-emo-circle {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 2px solid #DDDDDD;
+  flex-shrink: 0;
+}
+
+.diary-emo-label { font-size: 10px; color: var(--text-secondary); text-align: center; margin-top: 3px; }
+
+.diary-vline {
+  width: 1px; height: 44px;
+  background: #EBEBEB;
+  flex-shrink: 0;
+}
+
+.diary-content { flex: 1; min-width: 0; }
+.diary-date-row { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+.diary-preview { font-size: 13px; color: var(--text-tertiary); }
+
+.diary-arr { font-size: 18px; color: var(--text-tertiary); flex-shrink: 0; }
+
+/* FAB */
+.fab {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--sakura-pink);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(255,183,201,0.5);
+  z-index: 60;
+  transition: all 0.25s;
+}
+
+.fab:hover { transform: translateX(-50%) scale(1.06); }
+
+/* Detail */
+.detail-date-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 20px;
+}
+
+.detail-date { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+
+.detail-weather {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-secondary);
+  padding: 6px 14px; border-radius: var(--radius-sm);
+  border: 1px solid #ECECEC; cursor: pointer;
+}
+
+.detail-text {
+  flex: 1; font-size: 15px; line-height: 1.9;
+  color: var(--text-primary); padding: 8px 0;
+}
+
+.mood-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0 12px;
+}
+
+.mood-wheel-row { display: flex; gap: 20px; align-items: flex-end; }
+.mood-wheel-dot { width: 52px; height: 52px; border-radius: 50%; border: 2px solid #DDDDDD; }
+.mood-wheel-dot.big { width: 68px; height: 68px; border-color: var(--sakura-pink); }
+.mood-wheel-label { font-size: 11px; color: var(--text-secondary); margin-top: 8px; letter-spacing: 1px; }
+
+.detail-bot-row {
+  display: flex; align-items: center; justify-content: space-between; padding: 8px 0;
+}
+
+.detail-bot-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--text-secondary); cursor: pointer;
+}
+
+/* ===== Gugu ===== */
+.gugu-pad {
+  position: relative;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  padding: 28px 20px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Paper clip */
+.gugu-pad::before {
+  content: '';
+  position: absolute;
+  top: 10px; left: 22px;
+  width: 14px; height: 28px;
+  border: 2px solid #90CAF9;
+  border-radius: 3px 3px 0 0;
+  border-bottom: none;
+}
+
+.gugu-pad::after {
+  content: '';
+  position: absolute;
+  top: 10px; left: 29px;
+  width: 8px; height: 16px;
+  border: 2px solid #90CAF9;
+  border-radius: 0 0 3px 3px;
+  border-top: none;
+}
+
+.gugu-corner-fold {
+  position: absolute;
+  top: 0; right: 0;
+  width: 0; height: 0;
+  border-style: solid;
+  border-width: 0 28px 28px 0;
+  border-color: transparent #FFF0F0 transparent transparent;
+}
+
+.gugu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.gugu-head h2 {
+  font-size: 16px; font-weight: 700; color: var(--text-primary);
+}
+
+.gugu-head span {
+  font-size: 11px; color: var(--text-tertiary);
+}
+
+.gugu-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+
+.gugu-row:last-child { border-bottom: none; }
+
+.gugu-chk {
+  width: 20px; height: 20px;
+  border: 2px solid #D0D0D0;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.gugu-chk.done {
+  background: var(--text-tertiary);
+  border-color: var(--text-tertiary);
+}
+
+.gugu-time { font-size: 13px; color: var(--text-tertiary); width: 48px; flex-shrink: 0; }
+.gugu-text { flex: 1; font-size: 14px; color: var(--text-primary); }
+.gugu-text.done { color: var(--text-tertiary); text-decoration: line-through; }
+
+.gugu-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.gugu-act { padding: 4px 10px; border-radius: 6px; border: none; font-size: 11px; cursor: pointer; }
+.gugu-act.del { background: #FFEBEE; color: #D32F2F; }
+.gugu-act.edit { background: #FFF8E1; color: #F57F17; }
+
+.gugu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+  padding: 20px 0 8px;
+}
+
+.gugu-footer .gf-icon {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--text-secondary); cursor: pointer;
+}
+
+.gugu-footer .gf-icon.prime {
+  width: 64px; height: 64px;
+  background: var(--sakura-pink);
+  color: #fff; font-size: 26px;
+  box-shadow: 0 4px 14px rgba(255,183,201,0.4);
+}
+
+/* ===== Connect ===== */
+.conn-title {
+  font-size: 13px; font-weight: 700; color: var(--text-secondary);
+  padding: 12px 4px 6px;
+}
+
+.conn-card {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.conn-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.conn-img { font-size: 44px; }
+.conn-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.conn-pct { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+
+.conn-bar {
+  width: 72px; height: 6px;
+  border-radius: 3px;
+  background: #EEEEEE;
+  overflow: hidden;
+}
+
+.conn-bar .fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #81C784;
+  transition: width 0.4s;
+}
+
+.conn-dot {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: #E57373;
+}
+
+.conn-dot::before {
+  content: '';
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #E57373;
+}
+
+.conn-dot.on { color: #66BB6A; }
+.conn-dot.on::before { background: #66BB6A; }
+
+.conn-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.conn-info-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 1px; }
+.conn-info-val { font-size: 13px; color: var(--text-primary); font-weight: 500; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.conn-info-val.hi { color: #F57F17; }
+
+.conn-btns { display: flex; gap: 8px; margin-top: 6px; }
+.conn-btn {
+  flex: 1; padding: 7px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid #E0E0E0;
+  background: transparent;
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; text-align: center;
+  transition: all 0.2s;
+}
+
+.conn-btn.pink { border-color: var(--sakura-pink); color: #D81B60; }
+.conn-btn.pink:hover { background: rgba(255,183,201,0.1); }
+
+.conn-delete {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255,183,201,0.2);
+  border: none;
+  font-size: 13px; font-weight: 600;
+  color: #D81B60;
+  cursor: pointer;
+  text-align: center;
+  margin-bottom: 16px;
+  transition: background 0.2s;
+}
+
+.conn-delete:hover { background: rgba(255,183,201,0.35); }
+
+/* ===== Settings ===== */
+.set-group-title {
+  font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 1.5px;
+  padding: 14px 4px 8px;
+}
+
+.set-card {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 6px;
+  box-shadow: var(--shadow-card);
+}
+
+.set-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.set-item:not(:last-child) { border-bottom: 1px solid rgba(0,0,0,0.03); }
+.set-item:hover { background: rgba(0,0,0,0.01); }
+
+.set-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+
+.set-icon.yl { background: #FFF9C4; }
+.set-icon.or { background: #FFE0B2; }
+
+.set-content { flex: 1; min-width: 0; }
+.set-item-title { font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.set-item-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+.set-arrow { font-size: 18px; color: var(--text-tertiary); flex-shrink: 0; }
+
+/* Account row */
+.acct-row {
+  display: flex; align-items: center; gap: 14px; padding: 18px;
+}
+
+.acct-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: #FFF9C4;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+
+.acct-info { flex: 1; }
+.acct-name { font-size: 15px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+.acct-phone { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.acct-logout {
+  padding: 6px 16px; border-radius: var(--radius-sm);
+  border: 1px solid #FFCDD2; background: transparent;
+  font-size: 12px; color: #D81B60; cursor: pointer; flex-shrink: 0;
+}
+
+.ver-text {
+  text-align: center; font-size: 11px; color: var(--text-tertiary);
+  padding: 20px 0; letter-spacing: 1px;
+}
+
+/* Soft edit icon */
+.ed-icon {
+  font-size: 13px; color: var(--text-tertiary); cursor: pointer;
+}
+
+/* ===== Dev Switch ===== */
+.dev-switch {
+  position: fixed; bottom: 24px; right: 24px;
+  background: rgba(0,0,0,0.65); color: #fff;
+  padding: 8px 18px; border-radius: 20px;
+  font-size: 11px; cursor: pointer; z-index: 1000;
+  border: none; font-family: inherit; font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="phone-shell">
+  <div class="phone-screen">
+    <div class="dynamic-island"></div>
+
+    <!-- ==================== HOME - SIMPLE ==================== -->
+    <div class="screen active" id="s-home-simple">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="life-row">
+        <div class="life-heart-box">
+          <svg viewBox="0 0 24 24" fill="#FF6B6B"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span>3</span>
+        </div>
+        <div class="life-track"></div>
+        <span class="life-mood">开心</span>
+      </div>
+
+      <div class="home-body">
+        <div class="mode-tag" onclick="showScreen('s-home-menu')">环绕菜单</div>
+        <div class="robot-area">
+          <div class="robot-shadow"></div>
+          <svg width="190" height="250" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="100" cy="242" rx="65" ry="12" fill="rgba(0,0,0,0.06)"/>
+            <path d="M68 168 Q68 156 82 156 L118 156 Q132 156 132 168 L126 218 Q126 228 116 228 L84 228 Q74 228 74 218 Z" fill="#B0BEC5"/>
+            <circle cx="38" cy="180" r="24" fill="#64B5F6"/>
+            <circle cx="162" cy="180" r="24" fill="#64B5F6"/>
+            <rect x="32" y="48" width="136" height="112" rx="36" fill="#E0E0E0"/>
+            <rect x="48" y="68" width="104" height="70" rx="20" fill="#37474F"/>
+            <ellipse cx="78" cy="103" rx="14" ry="22" fill="#64B5F6"/>
+            <ellipse cx="122" cy="103" rx="14" ry="22" fill="#64B5F6"/>
+            <circle cx="78" cy="100" r="3" fill="#fff" opacity="0.5"/>
+            <circle cx="122" cy="100" r="3" fill="#fff" opacity="0.5"/>
+            <path d="M90 126 Q100 138 110 126" stroke="#64B5F6" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <line x1="100" y1="48" x2="100" y2="26" stroke="#37474F" stroke-width="3"/>
+            <circle cx="100" cy="20" r="9" fill="#64B5F6"/>
+            <circle cx="22" cy="102" r="20" fill="#64B5F6"/>
+            <circle cx="178" cy="102" r="20" fill="#64B5F6"/>
+            <ellipse cx="100" cy="200" rx="26" ry="14" fill="rgba(0,0,0,0.06)"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <button class="ctrl-circle">⌘</button>
+        <button class="ctrl-circle main">≡</button>
+        <button class="ctrl-circle">T</button>
+      </div>
+      <div class="hint-text">长按桌宠出现其他功能</div>
+    </div>
+
+    <!-- ==================== HOME - MENU ==================== -->
+    <div class="screen" id="s-home-menu">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="life-row">
+        <div class="life-heart-box">
+          <svg viewBox="0 0 24 24" fill="#FF6B6B"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span>3</span>
+        </div>
+        <div class="life-track"></div>
+        <span class="life-mood">开心</span>
+      </div>
+
+      <div class="home-body">
+        <div class="mode-tag" onclick="showScreen('s-home-simple')">简洁模式</div>
+        <div class="menu-ring">
+          <div class="menu-dot m-d-top" onclick="nav('s-diary')">
+            <div class="icon-wrap">💬</div><span class="cap">贴贴机</span>
+          </div>
+          <div class="menu-dot m-d-tr" onclick="nav('s-settings')">
+            <div class="icon-wrap">⚙</div><span class="cap">系统设置</span>
+          </div>
+          <div class="menu-dot m-d-r" onclick="nav('s-diary')">
+            <div class="icon-wrap">📓</div><span class="cap">日记本</span>
+          </div>
+          <div class="menu-dot m-d-br" onclick="nav('s-settings')">
+            <div class="icon-wrap">👕</div><span class="cap">形象</span>
+          </div>
+          <div class="menu-dot m-d-b">
+            <div class="icon-wrap">🏝</div><span class="cap">桌屿</span>
+          </div>
+          <div class="menu-dot m-d-bl" onclick="nav('s-gugu')">
+            <div class="icon-wrap">📎</div><span class="cap">咕咕机</span>
+          </div>
+
+          <svg width="170" height="220" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="100" cy="242" rx="65" ry="12" fill="rgba(0,0,0,0.06)"/>
+            <path d="M68 168 Q68 156 82 156 L118 156 Q132 156 132 168 L126 218 Q126 228 116 228 L84 228 Q74 228 74 218 Z" fill="#B0BEC5"/>
+            <circle cx="38" cy="180" r="24" fill="#64B5F6"/>
+            <circle cx="162" cy="180" r="24" fill="#64B5F6"/>
+            <rect x="32" y="48" width="136" height="112" rx="36" fill="#E0E0E0"/>
+            <rect x="48" y="68" width="104" height="70" rx="20" fill="#37474F"/>
+            <ellipse cx="78" cy="103" rx="14" ry="22" fill="#64B5F6"/>
+            <ellipse cx="122" cy="103" rx="14" ry="22" fill="#64B5F6"/>
+            <circle cx="78" cy="100" r="3" fill="#fff" opacity="0.5"/>
+            <circle cx="122" cy="100" r="3" fill="#fff" opacity="0.5"/>
+            <path d="M90 126 Q100 138 110 126" stroke="#64B5F6" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <line x1="100" y1="48" x2="100" y2="26" stroke="#37474F" stroke-width="3"/>
+            <circle cx="100" cy="20" r="9" fill="#64B5F6"/>
+            <circle cx="22" cy="102" r="20" fill="#64B5F6"/>
+            <circle cx="178" cy="102" r="20" fill="#64B5F6"/>
+            <ellipse cx="100" cy="200" rx="26" ry="14" fill="rgba(0,0,0,0.06)"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="ctrl-row">
+        <button class="ctrl-circle">⌘</button>
+        <button class="ctrl-circle main">≡</button>
+        <button class="ctrl-circle">T</button>
+      </div>
+      <div class="hint-text">长按桌宠出现其他功能</div>
+    </div>
+
+    <!-- ==================== DIARY ==================== -->
+    <div class="screen" id="s-diary">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-back" onclick="goHome()">&#8249;</div>
+        <div class="nav-title">日记本</div>
+      </div>
+
+      <div class="scroll-area">
+        <div class="diary-tabs">
+          <button class="diary-tab-btn blue-on" id="tab-mood" onclick="switchDiaryTab('mood')">心情晴雨表</button>
+          <button class="diary-tab-btn" id="tab-stats" onclick="switchDiaryTab('stats')">心情统计图</button>
+        </div>
+
+        <!-- Mood view -->
+        <div id="view-mood">
+          <div class="card card-accent-blue">
+            <div class="cal-header">
+              <span>&#8249;</span>
+              <span>2026 年 8 月</span>
+              <span>&#8250;</span>
+              <span style="margin-left:auto; font-size:11px;">▼</span>
+            </div>
+            <div class="cal-grid">
+              <div class="cal-dot on">1</div><div class="cal-dot on">2</div><div class="cal-dot on">3</div><div class="cal-dot on">4</div><div class="cal-dot on">5</div>
+              <div class="cal-dot">6</div><div class="cal-dot">7</div><div class="cal-dot">8</div><div class="cal-dot">9</div><div class="cal-dot">10</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats view -->
+        <div id="view-stats" style="display:none;">
+          <div class="card card-accent-pink">
+            <div class="pie-row">
+              <div class="pie"></div>
+              <div class="pie-text">这是一段解释说明<br>这是段建议</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Entries -->
+        <div class="diary-entry" onclick="showScreen('s-detail')">
+          <div><div class="diary-emo-circle" style="background:#FFB7C9;"></div><div class="diary-emo-label">生气</div></div>
+          <div class="diary-vline"></div>
+          <div class="diary-content">
+            <div class="diary-date-row">☁ 8月7日 周五</div>
+            <div class="diary-preview">这是一段日记......</div>
+          </div>
+          <div class="diary-arr">&#8250;</div>
+        </div>
+
+        <div class="diary-entry" onclick="showScreen('s-detail')">
+          <div><div class="diary-emo-circle" style="background:#B8E5F2;"></div><div class="diary-emo-label">平和</div></div>
+          <div class="diary-vline"></div>
+          <div class="diary-content">
+            <div class="diary-date-row">☁ 8月6日 周四</div>
+            <div class="diary-preview">这是一段日记......</div>
+          </div>
+          <div class="diary-arr">&#8250;</div>
+        </div>
+
+        <div class="diary-entry" onclick="showScreen('s-detail')">
+          <div><div class="diary-emo-circle" style="background:#FFF9C4;"></div><div class="diary-emo-label">开心</div></div>
+          <div class="diary-vline"></div>
+          <div class="diary-content">
+            <div class="diary-date-row">☀ 8月5日 周三</div>
+            <div class="diary-preview">这是一段日记......</div>
+          </div>
+          <div class="diary-arr">&#8250;</div>
+        </div>
+        <div style="height:80px;"></div>
+      </div>
+
+      <button class="fab" onclick="showScreen('s-detail')">+</button>
+    </div>
+
+    <!-- ==================== DIARY DETAIL ==================== -->
+    <div class="screen" id="s-detail">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-back" onclick="showScreen('s-diary')">&#8249;</div>
+        <div class="nav-title">日记详情</div>
+      </div>
+
+      <div class="scroll-area">
+        <div class="detail-date-row">
+          <span class="detail-date">8月7日 周五</span>
+          <span class="detail-weather">天气 ▼</span>
+        </div>
+        <div class="detail-text">这是一段日记......</div>
+        <div class="mood-wheel">
+          <div class="mood-wheel-row">
+            <div class="mood-wheel-dot" style="background:#FFF9C4;"></div>
+            <div class="mood-wheel-dot big" style="background:#FFB7C9;"></div>
+            <div class="mood-wheel-dot" style="background:#B8E5F2;"></div>
+          </div>
+          <div class="mood-wheel-label">心情轮盘</div>
+        </div>
+      </div>
+
+      <div class="detail-bot-row" style="padding: 8px 20px;">
+        <div class="detail-bot-icon">🖼</div>
+        <div class="detail-bot-icon">≡</div>
+      </div>
+    </div>
+
+    <!-- ==================== GUGU ==================== -->
+    <div class="screen" id="s-gugu">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-back" onclick="goHome()">&#8249;</div>
+        <div class="nav-title">咕咕机</div>
+      </div>
+
+      <div class="scroll-area" style="position:relative;padding-bottom:100px;">
+        <div class="gugu-pad">
+          <div class="gugu-corner-fold"></div>
+          <div class="gugu-head">
+            <h2>今日待办</h2>
+            <span>5 项</span>
+          </div>
+
+          <div class="gugu-row">
+            <div class="gugu-chk done">
+              <svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <span class="gugu-time">8:00</span>
+            <span class="gugu-text done">这是一条待办</span>
+            <div class="gugu-actions">
+              <button class="gugu-act del">删除</button>
+              <button class="gugu-act edit">编辑</button>
+            </div>
+          </div>
+
+          <div class="gugu-row">
+            <div class="gugu-chk"></div>
+            <span class="gugu-text">...这是一条待办</span>
+          </div>
+
+          <div class="gugu-row">
+            <div class="gugu-chk"></div>
+            <span class="gugu-time">10:30</span>
+            <span class="gugu-text">这是一条待办</span>
+            <div class="gugu-actions">
+              <button class="gugu-act del">删除</button>
+              <button class="gugu-act edit">编辑</button>
+            </div>
+          </div>
+
+          <div class="gugu-row">
+            <div class="gugu-chk"></div>
+            <span class="gugu-time">11:30</span>
+            <span class="gugu-text">这是一条待办</span>
+          </div>
+
+          <div class="gugu-row">
+            <div class="gugu-chk"></div>
+            <span class="gugu-time">17:30</span>
+            <span class="gugu-text">这是一条待办</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gugu-footer">
+        <div class="gf-icon">≡</div>
+        <div class="gf-icon prime">✎</div>
+        <div class="gf-icon">☑</div>
+      </div>
+    </div>
+
+    <!-- ==================== CONNECT ==================== -->
+    <div class="screen" id="s-connect">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-back" onclick="goHome()">&#8249;</div>
+        <div class="nav-title">连接</div>
+      </div>
+
+      <button class="dev-switch" style="position:absolute;top:120px;right:20px;z-index:200;background:rgba(0,0,0,0.5);padding:6px 14px;border-radius:14px;font-size:10px;border:none;color:#fff;cursor:pointer;font-family:inherit;" onclick="toggleConnect()" id="conn-toggle-btn">已连接</button>
+
+      <div class="scroll-area" id="connect-scroll">
+        <div class="conn-title">眼镜连接管理</div>
+        <div class="conn-card">
+          <div class="conn-left">
+            <div class="conn-img">👓</div>
+            <div class="conn-name" id="glasses-name">Xray AR眼镜</div>
+            <div class="conn-pct" id="glasses-pct">89%</div>
+            <div class="conn-bar"><div class="fill" id="glasses-bar" style="width:89%;"></div></div>
+            <div class="conn-dot on" id="glasses-dot">已连接</div>
+          </div>
+          <div class="conn-right">
+            <div>
+              <div class="conn-info-label">设备信息</div>
+            </div>
+            <div>
+              <div class="conn-info-label">设备ID</div>
+              <div class="conn-info-val hi">132412Y3IRCS <span class="ed-icon">✎</span></div>
+            </div>
+            <div>
+              <div class="conn-info-label">信号强度</div>
+              <div class="conn-info-val hi" id="glasses-signal">良好</div>
+            </div>
+            <div>
+              <div class="conn-info-label">最后连接</div>
+              <div class="conn-info-val hi" id="glasses-last">2026/8/7 21:48</div>
+            </div>
+            <div class="conn-btns">
+              <button class="conn-btn">重新配对</button>
+              <button class="conn-btn pink" onclick="toggleConnect()">断开连接</button>
+            </div>
+          </div>
+        </div>
+        <button class="conn-delete">删除设备</button>
+
+        <div class="conn-title">桌宠连接管理</div>
+        <div class="conn-card">
+          <div class="conn-left">
+            <div class="conn-img">🤖</div>
+            <div class="conn-name">桌面机器人</div>
+            <div class="conn-pct" id="pet-pct">89%</div>
+            <div class="conn-bar"><div class="fill" id="pet-bar" style="width:89%;"></div></div>
+            <div class="conn-dot on" id="pet-dot">已连接</div>
+          </div>
+          <div class="conn-right">
+            <div>
+              <div class="conn-info-label">设备信息</div>
+            </div>
+            <div>
+              <div class="conn-info-label">桌宠ID</div>
+              <div class="conn-info-val hi">132412Y3IRCS <span class="ed-icon">✎</span></div>
+            </div>
+            <div>
+              <div class="conn-info-label">昵称</div>
+              <div class="conn-info-val hi">小屿 ›</div>
+            </div>
+            <div>
+              <div class="conn-info-label">最后连接</div>
+              <div class="conn-info-val hi" id="pet-last">2026/8/7 21:48</div>
+            </div>
+            <div class="conn-btns">
+              <button class="conn-btn">重新配对</button>
+              <button class="conn-btn pink" onclick="toggleConnect()">断开连接</button>
+            </div>
+          </div>
+        </div>
+        <button class="conn-delete">删除设备</button>
+        <div style="height:20px;"></div>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <div class="screen" id="s-settings">
+      <div class="status-row">
+        <div class="status-pills">
+          <span class="status-pill">眼镜连接</span>
+          <span class="status-pill">桌宠连接</span>
+        </div>
+        <div class="status-info">
+          <span>100%</span>
+          <span>12:00</span>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <div class="nav-back" onclick="goHome()">&#8249;</div>
+        <div class="nav-title">系统设置</div>
+      </div>
+
+      <div class="scroll-area">
+        <div class="set-group-title">账号</div>
+        <div class="set-card">
+          <div class="acct-row">
+            <div class="acct-avatar">👤</div>
+            <div class="acct-info">
+              <div class="acct-name">昵称 <span class="ed-icon">✎</span></div>
+              <div class="acct-phone">手机号：12123871497 <span class="ed-icon">✎</span></div>
+            </div>
+            <button class="acct-logout">注销</button>
+          </div>
+        </div>
+
+        <div class="set-group-title">个性化</div>
+        <div class="set-card">
+          <div class="set-item">
+            <div class="set-icon yl">📋</div>
+            <div class="set-content">
+              <div class="set-item-title">性格档案表</div>
+              <div class="set-item-desc">机器人的名字、性格、行为......<br>来打造专属自己的伙伴吧！</div>
+            </div>
+            <span class="set-arrow">›</span>
+          </div>
+          <div class="set-item">
+            <div class="set-icon yl">🎨</div>
+            <div class="set-content">
+              <div class="set-item-title">多形态造型间</div>
+              <div class="set-item-desc">切换形象、捏脸。<br>是时候展现自己的想象力了！</div>
+            </div>
+            <span class="set-arrow">›</span>
+          </div>
+        </div>
+
+        <div class="set-group-title">控制与辅助</div>
+        <div class="set-card">
+          <div class="set-item">
+            <div class="set-icon or">🔇</div>
+            <div class="set-content">
+              <div class="set-item-title">静音</div>
+              <div class="set-item-desc">关闭所有提示音。</div>
+            </div>
+            <span class="set-arrow">›</span>
+          </div>
+          <div class="set-item">
+            <div class="set-icon or">👋</div>
+            <div class="set-content">
+              <div class="set-item-title">定义手势</div>
+              <div class="set-item-desc">切换控制手势。</div>
+            </div>
+            <span class="set-arrow">›</span>
+          </div>
+          <div class="set-item">
+            <div class="set-icon or">♿</div>
+            <div class="set-content">
+              <div class="set-item-title">无障碍</div>
+              <div class="set-item-desc">字号 · 主题 · 语音引导</div>
+            </div>
+            <span class="set-arrow">›</span>
+          </div>
+        </div>
+        <div class="ver-text">— 版本 V1.1 —</div>
+      </div>
+    </div>
+
+    <!-- ===== Bottom Tab Bar ===== -->
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-item active" data-target="s-home-simple">
+        <span class="tab-icon">🏠</span>主页
+      </button>
+      <button class="tab-item" data-target="s-diary">
+        <span class="tab-icon">📓</span>日记
+      </button>
+      <button class="tab-item" data-target="s-gugu">
+        <span class="tab-icon">📎</span>咕咕
+      </button>
+      <button class="tab-item" data-target="s-connect">
+        <span class="tab-icon">🔗</span>连接
+      </button>
+      <button class="tab-item" data-target="s-settings">
+        <span class="tab-icon">⚙</span>设置
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goHome() {
+  showScreen('s-home-simple');
+}
+
+function nav(id) {
+  showScreen(id);
+}
+
+// Diary tab switch
+function switchDiaryTab(tab) {
+  const mood = document.getElementById('view-mood');
+  const stats = document.getElementById('view-stats');
+  const tMood = document.getElementById('tab-mood');
+  const tStats = document.getElementById('tab-stats');
+
+  if (tab === 'mood') {
+    mood.style.display = 'block';
+    stats.style.display = 'none';
+    tMood.className = 'diary-tab-btn blue-on';
+    tStats.className = 'diary-tab-btn';
+  } else {
+    mood.style.display = 'none';
+    stats.style.display = 'block';
+    tMood.className = 'diary-tab-btn';
+    tStats.className = 'diary-tab-btn pink-on';
+  }
+}
+
+// Connect toggle
+let connOnline = true;
+function toggleConnect() {
+  connOnline = !connOnline;
+  const btn = document.getElementById('conn-toggle-btn');
+  btn.textContent = connOnline ? '已连接' : '未连接';
+  btn.style.background = connOnline ? 'rgba(0,0,0,0.5)' : 'rgba(229,115,115,0.7)';
+
+  const pct = connOnline ? '89%' : '0%';
+  const barW = connOnline ? '89%' : '0%';
+  const dotCls = connOnline ? 'on' : '';
+  const dotTxt = connOnline ? '已连接' : '未连接';
+  const name0 = connOnline ? 'Xray AR眼镜' : '眼镜';
+  const sig = connOnline ? '良好' : '—';
+  const last = connOnline ? '2026/8/7 21:48' : '—';
+
+  document.getElementById('glasses-name').textContent = name0;
+  document.getElementById('glasses-pct').textContent = pct;
+  document.getElementById('glasses-bar').style.width = barW;
+  document.getElementById('glasses-dot').textContent = dotTxt;
+  document.getElementById('glasses-dot').className = 'conn-dot' + (connOnline ? ' on' : '');
+  document.getElementById('glasses-signal').textContent = sig;
+  document.getElementById('glasses-last').textContent = last;
+
+  document.getElementById('pet-pct').textContent = pct;
+  document.getElementById('pet-bar').style.width = barW;
+  document.getElementById('pet-dot').textContent = dotTxt;
+  document.getElementById('pet-dot').className = 'conn-dot' + (connOnline ? ' on' : '');
+  document.getElementById('pet-last').textContent = last;
+}
+
+// Bottom tab bar
+document.querySelectorAll('.tab-item').forEach(item => {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.tab-item').forEach(i => i.classList.remove('active'));
+    this.classList.add('active');
+    const target = this.dataset.target;
+    if (target) showScreen(target);
+  });
+});
+</script>
+
+</body>
+</html>
