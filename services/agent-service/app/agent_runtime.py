@@ -1,0 +1,164 @@
+from __future__ import annotations
+
+import json
+import re
+import time
+import uuid
+from typing import Any
+
+from fastmcp import Client
+
+from .data_service_client import DataServiceClient
+from .llm_provider import AssistantDecision, LLMProvider, ToolCall
+
+
+SYSTEM_PROMPT = (
+    "你是 AR-AIPet 的本地个人 Agent。只使用提供的工具完成日程和项目状态任务。"
+    "工具失败时如实说明，不要声称已完成。普通聊天直接回答。"
+)
+
+
+class AgentRuntimeError(RuntimeError):
+    pass
+
+
+def safe_tool_name(name: str) -> str:
+    converted = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+    return converted.strip("_") or "tool"
+
+
+class AgentRuntime:
+    def __init__(
+        self,
+        *,
+        mcp_url: str,
+        data_service: DataServiceClient,
+        provider: LLMProvider,
+        max_tool_rounds: int = 3,
+    ) -> None:
+        self.mcp_url = mcp_url
+        self.data_service = data_service
+        self.provider = provider
+        self.max_tool_rounds = max(1, max_tool_rounds)
+
+    async def _append_message(self, conversation_id: str | None, role: str, content: str) -> dict[str, Any]:
+        return await self.data_service.request(
+            "conversation.append",
+            {
+                "conversationId": conversation_id,
+                "role": role,
+                "content": content,
+                # MVP schema currently accepts unity_text, unity_voice and stackchan.
+                # Agent text is persisted as text-channel content without changing
+                # the existing database contract.
+                "channel": "unity_text",
+            },
+        )
+
+    @staticmethod
+    def _tool_specs(tools: list[Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+        specs: list[dict[str, Any]] = []
+        reverse: dict[str, str] = {}
+        for tool in tools:
+            model = tool.model_dump()
+            actual_name = model["name"]
+            exposed_name = safe_tool_name(actual_name)
+            if exposed_name in reverse and reverse[exposed_name] != actual_name:
+                raise AgentRuntimeError(f"MCP tool name collision after sanitizing: {actual_name}")
+            reverse[exposed_name] = actual_name
+            specs.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": exposed_name,
+                        "description": model.get("description") or actual_name,
+                        "parameters": model.get("inputSchema") or {"type": "object", "properties": {}},
+                    },
+                }
+            )
+        return specs, reverse
+
+    @staticmethod
+    def _mcp_result(result: Any) -> tuple[bool, Any]:
+        if getattr(result, "is_error", False):
+            return False, {"error": "MCP tool returned an error"}
+        data = getattr(result, "data", None)
+        if data is not None:
+            return True, data
+        structured = getattr(result, "structured_content", None)
+        if structured is not None:
+            return True, structured
+        content = getattr(result, "content", [])
+        text = "".join(getattr(item, "text", "") for item in content)
+        return True, text
+
+    async def _run_tool(self, client: Client, call: ToolCall, reverse: dict[str, str]) -> tuple[bool, Any]:
+        actual_name = reverse.get(call.name)
+        if actual_name is None:
+            return False, {"error": f"unknown tool: {call.name}"}
+        try:
+            result = await client.call_tool(actual_name, call.arguments)
+            return self._mcp_result(result)
+        except Exception as exc:
+            return False, {"error": str(exc)}
+
+    async def chat(self, text: str, conversation_id: str | None = None) -> dict[str, Any]:
+        if not text.strip():
+            raise AgentRuntimeError("text must not be empty")
+        started = time.perf_counter()
+        saved_user = await self._append_message(conversation_id, "user", text)
+        conversation_id = saved_user["conversationId"]
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": text},
+        ]
+        tool_calls_report: list[dict[str, Any]] = []
+
+        try:
+            async with Client(self.mcp_url) as client:
+                available = await client.list_tools()
+                model_tools, reverse = self._tool_specs(available)
+                answer: str | None = None
+                for _ in range(self.max_tool_rounds + 1):
+                    decision: AssistantDecision = await self.provider.complete(messages, model_tools)
+                    if not decision.tool_calls:
+                        answer = decision.text or "我没有得到可交付的结果。"
+                        break
+                    assistant_message = decision.raw_message or {
+                        "role": "assistant",
+                        "content": decision.text,
+                        "tool_calls": [
+                            {
+                                "id": call.id,
+                                "type": "function",
+                                "function": {"name": call.name, "arguments": json.dumps(call.arguments, ensure_ascii=False)},
+                            }
+                            for call in decision.tool_calls
+                        ],
+                    }
+                    messages.append(assistant_message)
+                    for call in decision.tool_calls:
+                        ok, result = await self._run_tool(client, call, reverse)
+                        tool_calls_report.append(
+                            {"name": reverse.get(call.name, call.name), "arguments": call.arguments, "status": "ok" if ok else "error"}
+                        )
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call.id,
+                                "name": call.name,
+                                "content": json.dumps({"ok": ok, "result": result}, ensure_ascii=False, default=str),
+                            }
+                        )
+                else:
+                    answer = "工具调用次数已达到上限，未能完成请求。"
+        except Exception as exc:
+            raise AgentRuntimeError(str(exc)) from exc
+
+        await self._append_message(conversation_id, "assistant", answer)
+        return {
+            "conversationId": conversation_id,
+            "text": answer,
+            "toolCalls": tool_calls_report,
+            "elapsedMs": round((time.perf_counter() - started) * 1000),
+        }
