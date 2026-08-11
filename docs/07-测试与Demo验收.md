@@ -29,6 +29,8 @@
 | 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
 | 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
 | Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
+| MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
+| Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |
 | 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |

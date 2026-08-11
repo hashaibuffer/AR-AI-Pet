@@ -1,61 +1,31 @@
-# Agent 服务
+# Agent 与数据服务
 
 ## 模块用途
 
-提供 AgentOS、数据、记忆、语音、宠物状态和虚拟生活服务。
+提供项目业务数据、虚拟生活、日程、游戏存档、记忆任务和 MCP 工具入口。语音会话由 StackChan 当前固件接入的 Xiaozhi AI.AGENT 负责，本服务不再重复实现一套对话运行时。
 
 ## 主责人
 
 B。
 
+## 当前架构
+
+- **Xiaozhi AI.AGENT**：负责语音、ASR、对话、任务理解和工具调用编排。
+- **Kimito 行为层**：负责表情、头部动作和陪伴反馈，不保存业务状态。
+- **本服务**：负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档、记忆任务和 AR-AIPet MCP Hub。
+- **MCP Hub**：首批状态与日程工具已经通过真实 MCP 客户端验证；后续逐步聚合机器人、底座、Mem0 和外部应用 MCP。
+
+QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验证材料，不是当前依赖或运行入口。AgentScope 也不是当前运行时。
+
 ## 当前状态
 
-已完成 QwenPaw 2.0.1 的隔离部署与 Web Console 基线验证（2026-08-05）：
-
-- Python 3.12.11 虚拟环境：`.venv/`（不提交）。
-- QwenPaw 工作目录：`runtime/qwenpaw/`（不提交）。
-- 本地 Console：`http://127.0.0.1:8088/`。
-- 健康检查：`GET /api/healthz` 返回 HTTP 200。
-- 全局模型配置：`siliconflow-cn/deepseek-ai/DeepSeek-V3.2`；当前 `default` Agent 的按 Agent 覆盖模型为 `siliconflow-cn/Qwen/Qwen3.5-35B-A3B`。
-- QwenPaw Web Console 已完成真实模型对话：日志记录 `has_response=True`，并记录了 token usage；此前独立 raw provider 探测得到的 402 不能代表 Web Console 会话结果。
-- QwenPaw 自带工作区初始化已完成：Web 会话实际读写了 `SOUL.md`、`PROFILE.md`，并调用过内置 `Read`、`Edit`、`Glob`、`Bash` 等工具。
-- 以上只证明 QwenPaw 自身的 Web/内置能力；本项目的自定义工具、Agent—宠物状态接口和正式协议仍未实现，不能据此标记项目 Agent 服务或端到端闭环通过。
-
-## 安装或运行方式
-
-在本目录执行以下命令可重建隔离环境（需要 Python 3.12 或其他满足 QwenPaw 要求的 Python 3.11–3.13）：
-
-```powershell
-uv venv --python 3.12 .venv
-uv pip install --python .venv\Scripts\python.exe qwenpaw
-```
-
-初始化并指定本模块内的运行数据目录：
-
-```powershell
-$env:QWENPAW_WORKING_DIR = (Join-Path (Get-Location) 'runtime\qwenpaw')
-$env:QWENPAW_SECRET_DIR = (Join-Path (Get-Location) 'runtime\qwenpaw.secret')
-.venv\Scripts\qwenpaw.exe init --defaults --accept-security
-```
-
-启动 Console：
-
-```powershell
-.venv\Scripts\qwenpaw.exe app --host 127.0.0.1 --port 8088
-```
-
-验证：
-
-```powershell
-.venv\Scripts\qwenpaw.exe doctor
-curl.exe http://127.0.0.1:8088/api/healthz
-```
-
-密钥只写入 QwenPaw 的 secret 目录或本地环境变量，不得提交到 Git。模型可用性必须单独记录，不能由 Console/healthz 的通过替代。
+- PostgreSQL、Alembic、WebSocket 数据服务、空库初始化、持久化和重启验证已通过。
+- StackChan 的 Xiaozhi 会话、Kimito 行为 MCP 和实体头部动作子链路已通过。
+- AR-AIPet MCP Hub 已建立首批项目工具；自托管 Mem0、Xiaozhi Agent 实际挂载、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
 
 ## 配置入口
 
-待负责人补充。密钥只能放在被忽略的本地环境文件中。
+数据服务配置见 [`.env.example`](.env.example)。数据库、模型和 Mem0 的地址或密钥只能放在本地环境变量中。
 
 ## 依赖的协议
 
@@ -67,11 +37,11 @@ curl.exe http://127.0.0.1:8088/api/healthz
 
 ## 已知问题
 
-QwenPaw 与 AgentScope 尚未完成限时二选一；QwenPaw 的项目自定义工具扩展尚未验证；`packages/protocol/` 的 Agent—宠物状态接口尚未冻结；Mem0 尚未验证。
+`packages/protocol/` 尚未根据真实 Unity 消费字段冻结；MCP Hub 尚未挂载到 Xiaozhi Agent，Mem0 尚未接入；当前 StackChan 会话链路尚未自动读取项目长期记忆。
 
-## MVP 数据服务（当前执行入口）
+## MVP 数据服务（已跑通）
 
-本阶段先独立跑通 PostgreSQL、Alembic 和 WebSocket 数据服务，不等待 Unity、StackChan、Agent 或 Mem0。
+PostgreSQL、Alembic 和 WebSocket 数据服务已在不依赖 Unity、StackChan、Agent 或 Mem0 的条件下独立跑通。
 
 ### 运行
 
@@ -108,7 +78,7 @@ docker compose exec data-service alembic current
 docker compose exec data-service alembic history
 ```
 
-本阶段只启动 PostgreSQL 和数据服务。Mem0 仅保留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，不启动容器、不调用模型。
+当前 Compose 只启动 PostgreSQL 和数据服务。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，下一步接入自托管实例。
 
 ## 本地环境与最小测试
 
@@ -142,3 +112,29 @@ docker compose up --build -d
 ```
 
 `down -v` 会删除本地 PostgreSQL 测试卷，不要在包含正式数据的环境执行。
+
+## AR-AIPet MCP Hub
+
+MCP Hub 与数据服务使用同一套业务函数和 PostgreSQL，不复制业务状态。当前只暴露四个首版工具：
+
+| 工具 | 用途 |
+|---|---|
+| `system.health` | 确认服务和单用户数据可用 |
+| `pet.state.get` | 读取宠物、家园或自主农场状态 |
+| `schedule.list` | 查询有效日程 |
+| `schedule.upsert` | 新建或更新日程 |
+
+启动后地址为：
+
+```text
+http://localhost:8081/mcp
+```
+
+本地验证：
+
+```powershell
+docker compose up --build -d
+docker compose exec -T mcp-hub python scripts/mcp_smoke.py
+```
+
+成功输出 `MCP_SMOKE_OK` 只代表 MCP Hub → 项目业务函数 → PostgreSQL 闭环通过；Xiaozhi Agent 实际调用和语音结果交付需单独验收。

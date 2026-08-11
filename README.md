@@ -57,6 +57,6 @@ packages/protocol/ 按模块主责定义，受影响人员确认
 
 ## 当前状态
 
-StackChan 已完成固定上游基线、Windows/MSVC 主机测试、ESP-IDF 5.5.4 + ESP32-S3 构建、COM7 烧录与实机启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网语音上传和服务器回答也已在实机观察到。中文离线唤醒/命令识别的已知可用配置为 `CONFIG_LANGUAGE_ZH_CN=y` 与 `CONFIG_SR_MN_CN_MULTINET6_QUANT=y`。
+StackChan 基础固件和实体子链路已有独立验证记录；本次数据服务基线已完成 PostgreSQL、Alembic、WebSocket 数据服务和空库初始化验证，MCP Hub 的四个状态/日程工具也已通过真实 MCP 客户端测试。QwenPaw 已废弃，当前 Agent 运行时与机器人固件的验证边界见开源验证清单。
 
-项目 Adapter、Beam Pro—StackChan 控制、StackChan—NanoDrive 串口、完整 AR—Agent—机器人闭环和三次连续 Demo 仍待验证。具体证据和边界见 [StackChan 固件 README](firmware/stackchan/README.md)、[开源项目验证清单](docs/06-开源项目验证清单.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。
+MCP Hub 尚未挂载到 Xiaozhi Agent；自托管 Mem0、Beam Pro 数据接入、StackChan—NanoDrive 串口和完整 AR—Agent—机器人闭环仍待验证。当前 MCP Hub 仍复用数据服务内部业务函数，这是 MVP 临时实现，不代表最终服务边界。具体证据和边界见 [Agent 服务 README](services/agent-service/README.md)、[开源项目验证清单](docs/06-开源项目验证清单.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。
