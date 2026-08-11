@@ -12,14 +12,14 @@ B。
 
 - **Xiaozhi AI.AGENT**：负责语音、ASR、对话、任务理解和工具调用编排。
 - **Kimito 行为层**：负责表情、头部动作和陪伴反馈，不保存业务状态。
-- **本服务**：负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档、记忆任务和 AR-AIPet MCP Hub。
-- **MCP Hub**：首批状态与日程工具已经通过真实 MCP 客户端验证；后续逐步聚合机器人、底座、Mem0 和外部应用 MCP。
+- **数据服务**：唯一负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档和记忆任务。
+- **MCP Hub**：通过 `DataServiceClient` 调用数据服务 WebSocket，不持有数据库连接；首批状态与日程工具已经通过真实 MCP 客户端验证。
 
 QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验证材料，不是当前依赖或运行入口。AgentScope 也不是当前运行时。
 
 ## 当前状态
 
-- PostgreSQL、Alembic、WebSocket 数据服务、空库初始化、持久化和重启验证已通过。
+- PostgreSQL、Alembic、WebSocket 数据服务、空库初始化、持久化、健康检查和重启验证已通过。
 - StackChan 的 Xiaozhi 会话、Kimito 行为 MCP 和实体头部动作子链路已通过。
 - AR-AIPet MCP Hub 已建立首批项目工具；自托管 Mem0、Xiaozhi Agent 实际挂载、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
 
@@ -78,7 +78,7 @@ docker compose exec data-service alembic current
 docker compose exec data-service alembic history
 ```
 
-当前 Compose 只启动 PostgreSQL 和数据服务。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，下一步接入自托管实例。
+当前 Compose 启动 PostgreSQL、数据服务和 MCP Hub。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，仍不在本次边界内。
 
 ## 本地环境与最小测试
 
@@ -115,7 +115,16 @@ docker compose up --build -d
 
 ## AR-AIPet MCP Hub
 
-MCP Hub 与数据服务使用同一套业务函数和 PostgreSQL，不复制业务状态。当前只暴露四个首版工具：
+正式数据流为：
+
+```text
+MCP Hub
+  → DataServiceClient
+  → WebSocket 数据服务
+  → PostgreSQL
+```
+
+MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_URL`。当前只暴露四个首版工具：
 
 | 工具 | 用途 |
 |---|---|
@@ -137,4 +146,4 @@ docker compose up --build -d
 docker compose exec -T mcp-hub python scripts/mcp_smoke.py
 ```
 
-成功输出 `MCP_SMOKE_OK` 只代表 MCP Hub → 项目业务函数 → PostgreSQL 闭环通过；Xiaozhi Agent 实际调用和语音结果交付需单独验收。
+成功输出 `MCP_SMOKE_OK` 代表 MCP Hub → DataServiceClient → WebSocket 数据服务 → PostgreSQL 闭环通过；Xiaozhi Agent 实际调用、Mem0、机器人、底座和 Unity 仍不在本次边界。

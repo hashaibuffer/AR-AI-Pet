@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 from fastmcp import FastMCP
 
-from .farm import advance_farm
-from .server import bootstrap, schedule_upsert, state_get
+from .data_service_client import DataServiceClient
 from .settings import MCP_HOST, MCP_PORT
+from .settings import DATA_SERVICE_TIMEOUT_SECONDS, DATA_SERVICE_WS_URL
 
 
 mcp = FastMCP(
@@ -18,14 +18,16 @@ mcp = FastMCP(
     ),
 )
 
+data_service = DataServiceClient(DATA_SERVICE_WS_URL, DATA_SERVICE_TIMEOUT_SECONDS)
+
 
 @mcp.tool(
     name="system.health",
     annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False},
 )
-def system_health() -> dict[str, Any]:
+async def system_health() -> dict[str, Any]:
     """Check whether the project database and default single-user data are available."""
-    snapshot = bootstrap()
+    snapshot = await data_service.request("bootstrap.get")
     return {
         "status": "ok",
         "userId": snapshot["userId"],
@@ -37,29 +39,28 @@ def system_health() -> dict[str, Any]:
     name="pet.state.get",
     annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False},
 )
-def pet_state_get(domain: Literal["pet", "home", "farm"] = "pet") -> dict[str, Any]:
+async def pet_state_get(domain: Literal["pet", "home", "farm"] = "pet") -> dict[str, Any]:
     """Read the latest structured pet, home, or autonomous farm state."""
-    if domain == "farm":
-        advance_farm()
-    return state_get({"domain": domain})
+    return await data_service.request("state.get", {"domain": domain})
 
 
 @mcp.tool(
     name="schedule.list",
     annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False},
 )
-def schedule_list(limit: int = 20) -> list[dict[str, Any]]:
+async def schedule_list(limit: int = 20) -> list[dict[str, Any]]:
     """List upcoming active reminders, ordered by reminder time."""
     if not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
-    return bootstrap()["schedules"][:limit]
+    snapshot = await data_service.request("bootstrap.get")
+    return snapshot["schedules"][:limit]
 
 
 @mcp.tool(
     name="schedule.upsert",
     annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
 )
-def schedule_save(
+async def schedule_save(
     title: str,
     starts_at: str,
     remind_at: str,
@@ -80,7 +81,7 @@ def schedule_save(
     }
     if schedule_id:
         payload["id"] = schedule_id
-    return schedule_upsert(payload)
+    return await data_service.request("schedule.upsert", payload)
 
 
 if __name__ == "__main__":

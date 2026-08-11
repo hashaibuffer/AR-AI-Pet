@@ -24,6 +24,12 @@ services:
       FARM_TICK_SECONDS: ${FARM_TICK_SECONDS:-30}
     ports:
       - "${WS_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "scripts/ws_health.py"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,14 +38,15 @@ services:
     build: .
     command: ["python", "-m", "app.mcp_hub"]
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
       MCP_HOST: 0.0.0.0
       MCP_PORT: 8081
+      DATA_SERVICE_WS_URL: ws://data-service:8080/ws
+      DATA_SERVICE_TIMEOUT_SECONDS: 5
     ports:
       - "${MCP_PORT:-8081}:8081"
     depends_on:
       data-service:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   araipet-postgres:

@@ -7,5 +7,7 @@ WS_HOST = os.getenv("WS_HOST", "0.0.0.0")
 WS_PORT = int(os.getenv("WS_PORT", "8080"))
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "8081"))
+DATA_SERVICE_WS_URL = os.getenv("DATA_SERVICE_WS_URL", "ws://localhost:8080/ws")
+DATA_SERVICE_TIMEOUT_SECONDS = float(os.getenv("DATA_SERVICE_TIMEOUT_SECONDS", "5"))
 FARM_TICK_SECONDS = int(os.getenv("FARM_TICK_SECONDS", "30"))
 PROTOCOL_VERSION = "0.1"
