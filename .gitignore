@@ -70,3 +70,7 @@ pnpm-debug.log*
 /services/db/generated-runtime/qwenpaw/.telemetry_collected
 /services/db/generated-runtime/qwenpaw/token_usage.json
 /services/db/generated-runtime/qwenpaw/skill_pool/.skill.json.lock
+
+# Local development runtimes and helper binaries
+/.workbuddy/
+/tools/arduino-cli/
