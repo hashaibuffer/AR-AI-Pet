@@ -44,6 +44,12 @@ services:
       DATA_SERVICE_TIMEOUT_SECONDS: 5
     ports:
       - "${MCP_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD", "python", "scripts/mcp_health.py"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
     depends_on:
       data-service:
         condition: service_healthy
