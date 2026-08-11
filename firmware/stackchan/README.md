@@ -2,7 +2,7 @@
 
 ## 模块用途
 
-实现 StackChan 表现、设备状态以及 NanoDrive 串口指令转发。
+保存 StackChan 原厂硬件基线、历史补丁和早期动作适配验证。
 
 ## 主责人
 
@@ -23,9 +23,7 @@ CONFIG_SR_MN_CN_MULTINET6_QUANT=y
 
 这里的 `SR_MN_CN_MULTINET6_QUANT` 表示 ESP-SR 的中文离线命令识别配置，不是云端 STT 模型。它曾在官方固件 A/B 中表现出差异，但不能据此推导云端 Xiaozhi 中文 ASR 必须打包 MultiNet。新的正式基线已经用普通 WakeNet、固件 `zh-cn` 和绑定 Agent `language=zh` 通过直接中文问答、连续追问、触摸 PTT 与实体动作验收；MultiNet 仅保留为出现回归时的诊断配置。
 
-实际源码构建目录为 `D:\sc\firmware`。`D:\sc` 不是 Git 工作区，而是来源于本仓库记录的固定上游提交的 Windows 短路径构建副本；构建产物和本地配置不属于本仓库交付物。
-
-本次实机烧录固件版本为 `1.4.5`；构建产物来自短路径副本 `D:\sc\firmware`。复现时仍需同时记录本地构建版本和最终设备版本。
+历史短路径构建副本已退出开发流程。当前产品固件只能从 [`../stackchan-mcp/`](../stackchan-mcp/) 的锁定源码、项目补丁和构建脚本复现。
 
 ## 上游基线
 

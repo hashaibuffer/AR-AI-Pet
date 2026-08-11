@@ -4,10 +4,10 @@
 
 | 项目 | 状态 | 证据或边界 |
 |---|---|---|
-| 仓库与分支 | 通过 | `feat/nanodrive-stackchan-link` 已迁移到 `origin/main` 403b9f0 |
+| 仓库与分支 | 通过 | `feat/nanodrive-stackchan-link` 基于 `origin/main` 403b9f0 |
 | NanoDrive v0.9 编译 | 通过 | AVR Nano Old Bootloader；Flash 27%，RAM 22% |
 | StackChan 正式固件 | 已恢复 | `stackchan-mcp` 验收 App，`ota_0` ELF `297217825730…` |
-| StackChan 底座适配器 | 待迁移构建 | 旧目录构建结果不作为正式基线证据，需接入锁定的 `stackchan-mcp` 源码后重建 |
+| StackChan 底座适配器 | 构建通过 | 已作为可复现补丁接入锁定的 `stackchan-mcp` 源码；`xiaozhi.bin` 约 26% 空闲 |
 | 底座电机与右编码器 | 历史实测通过 | 旧固件完成 FW/BW/TL/TR/ST；不等同于 v0.9 已烧录 |
 | 左编码器 | 待复测 | 旧测试曾为 0，之后恢复，疑似接触不稳定 |
 | StackChan→NanoDrive 单向串口 | 待实机 | 当前没有连接中的设备串口 |
@@ -35,7 +35,7 @@
 1. 底座轮子悬空，NanoDrive 单独通过 USB 烧录 v0.9。
 2. 通过 NanoDrive USB 运行 `verify_all.py`；重点复测左编码器和超时停车。
 3. 断开 NanoDrive USB，连接黑线和黄线，底座独立供电。
-4. 将底座适配器接入锁定的 `stackchan-mcp` 源码，使用 ESP-IDF 5.5.4 构建后再烧录，并保持连接电脑查看日志。
+4. 使用 ESP-IDF 5.5.4 运行正式构建入口，确认项目补丁和固件构建通过后再烧录，并保持连接电脑查看日志。
 5. 电脑与 StackChan 在同一 Wi-Fi，依次发送低速前进、停止、后退、左右转。
 6. 拔掉黄线或停止发指令，确认底座最迟约 2 秒停车。
 

@@ -73,6 +73,10 @@ else {
 
 Invoke-Checked "git" @("-C", $checkout, "fetch", "origin", $expectedCommit) "Pinned commit fetch"
 Invoke-Checked "git" @("-C", $checkout, "checkout", "--detach", $expectedCommit) "Pinned commit checkout"
+Invoke-Checked "git" @(
+    "-C", $checkout, "submodule", "update", "--init", "--recursive",
+    "firmware/components/smooth_ui_toolkit"
+) "Pinned source submodule initialization"
 
 $actualCommit = (& git -C $checkout rev-parse HEAD | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualCommit -ne $expectedCommit) {

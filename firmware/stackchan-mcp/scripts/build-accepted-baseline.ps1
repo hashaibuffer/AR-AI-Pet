@@ -38,11 +38,16 @@ if ($LASTEXITCODE -ne 0 -or $actualCommit -ne [string]$lock.sourceCommit) {
     Stop-WithError "Source commit does not match source.lock.json."
 }
 
+& (Join-Path $PSScriptRoot "apply-project-patches.ps1")
+if ($LASTEXITCODE -ne 0) {
+    Stop-WithError "Project patch preparation failed."
+}
+
 $idf = Get-Command idf.py -ErrorAction SilentlyContinue
 if ($null -eq $idf) {
     Stop-WithError "idf.py was not found. Run this script from ESP-IDF v5.5.4 PowerShell."
 }
-$idfVersion = (& $idf.Source --version 2>&1 | Out-String).Trim()
+$idfVersion = (& idf.py --version 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $idfVersion -notmatch 'v5\.5\.4') {
     Stop-WithError "Expected ESP-IDF v5.5.4, got: $idfVersion"
 }

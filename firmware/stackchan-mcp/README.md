@@ -14,7 +14,7 @@ StackChan 实体：麦克风、扬声器、触摸、屏幕、舵机和安全执�
 Kimito 行为层：表情、头部动作、陪伴反馈，不接管语音会话
 ```
 
-Beam Pro、Unity、AR、NanoDrive 和其他 MCP 客户端仍是后续消费者；本轮验收不能替代这些链路的端到端测试。
+Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 单向串口适配已纳入本模块，但真机闭环仍待验证。
 
 ## 固定来源
 
@@ -68,7 +68,14 @@ Agent       = zh
 touch PTT   = enabled
 ```
 
-它会执行完整构建并在被忽略的 `artifacts/local-consistency/` 生成“配置—模型—固件”一致性报告，但不会调用 `flash`、`esptool` 或写入任何分区。
+构建入口会先幂等应用 [`patches/0001-nanodrive-tx-only.patch`](patches/0001-nanodrive-tx-only.patch)，再执行完整构建并在被忽略的 `artifacts/local-consistency/` 生成“配置—模型—固件”一致性报告，但不会调用 `flash`、`esptool` 或写入任何分区。
+
+### NanoDrive 项目变体
+
+- StackChan GPIO17（Port C 黄线）以 115200 波特率单向发送到底座 RX；两端只共地，不连接 5V 和返回线。
+- 每次移动先发送 `EN:1`，再发送 `FW`、`BW`、`TL`、`TR` 或 `VL`；停止发送 `ST`，底座看门狗为 2000 ms。
+- `self.robot.base_move`、`base_drive`、`base_stop` 返回成功仅表示串口已写入，不代表底座回执。
+- GPIO17 被底座占用时，本项目变体不启用 Port C WS2812。
 
 ### 3. 绑定成员自己的 Xiaozhi Agent
 

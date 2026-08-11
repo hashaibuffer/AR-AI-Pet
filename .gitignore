@@ -53,6 +53,7 @@ pnpm-debug.log*
 /firmware/stackchan/upstream/
 /firmware/stackchan-mcp/upstream/
 # StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
+firmware/stackchan-mcp/artifacts/local-consistency/
 /firmware/kimito-stackchan/upstream/
 
 # Existing local output
