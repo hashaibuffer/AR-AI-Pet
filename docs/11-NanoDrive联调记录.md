@@ -47,7 +47,9 @@
 - 悬空轮测试通过：COM7 日志出现 `EN:1`、`FW:60`、`VL:60,60`、`VL:-60,-60`、`VL:-60,60`、`VL:60,-60` 及对应 `ST`。
 - 当前仍是 TX-only：不读取 NanoDrive 回执，不把“调用返回 true”解释为底座回执；底座安全由本地看门狗和 `ST` 保证。
 
-测试命令：
+当前动作网关使用 Streamable HTTP `http://127.0.0.1:8767/mcp`，由 MCP 客户端调用 `base_move`、`base_drive`、`base_stop`。仓库中的 `Invoke-StackChanControl.ps1` 仍是官方设备 `8080/ws` 的旧直连测试入口，不作为本次底座控制命令。
+
+历史直连命令（仅供旧链路参考）：
 
 ```powershell
 .\tools\stackchan-control-test\Invoke-StackChanControl.ps1 -RobotHost <IP> -Action base_move -Direction forward -Speed 80
