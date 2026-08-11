@@ -56,7 +56,7 @@ bool nanodrive_init(void) {
         .flags = {},
     };
 
-    esp_err_t result = uart_driver_install(NANODRIVE_UART_PORT, 256, 128, 0, nullptr, 0);
+    esp_err_t result = uart_driver_install(NANODRIVE_UART_PORT, 256, 256, 0, nullptr, 0);
     if (result != ESP_OK && result != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(kTag, "uart_driver_install failed: %s", esp_err_to_name(result));
         return false;
