@@ -16,6 +16,8 @@ B。
 - **数据服务**：唯一负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档和记忆任务。
 - **MCP Hub**：通过 `DataServiceClient` 调用数据服务 WebSocket，不持有数据库连接；首批状态与日程工具已经通过真实 MCP 客户端验证。
 
+当前 `conversationId` 只用于把本轮用户和助手消息归档到同一会话；本地 Agent 还不会自动读取历史消息，也未接入 Mem0 长期记忆。下一分支再补短期上下文读取和长期记忆检索。
+
 QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验证材料，不是当前依赖或运行入口。AgentScope 也不是当前运行时。
 
 ## 当前状态

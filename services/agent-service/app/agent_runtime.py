@@ -22,6 +22,9 @@ class AgentRuntimeError(RuntimeError):
     pass
 
 
+SAFE_FAILURE_MESSAGE = "本轮处理失败，请稍后重试。"
+
+
 def safe_tool_name(name: str) -> str:
     converted = re.sub(r"[^a-zA-Z0-9_]", "_", name)
     return converted.strip("_") or "tool"
@@ -119,7 +122,7 @@ class AgentRuntime:
                 available = await client.list_tools()
                 model_tools, reverse = self._tool_specs(available)
                 answer: str | None = None
-                for _ in range(self.max_tool_rounds + 1):
+                for _ in range(self.max_tool_rounds):
                     decision: AssistantDecision = await self.provider.complete(messages, model_tools)
                     if not decision.tool_calls:
                         answer = decision.text or "我没有得到可交付的结果。"
@@ -150,12 +153,20 @@ class AgentRuntime:
                                 "content": json.dumps({"ok": ok, "result": result}, ensure_ascii=False, default=str),
                             }
                         )
-                else:
+                if answer is None:
                     answer = "工具调用次数已达到上限，未能完成请求。"
         except Exception as exc:
-            raise AgentRuntimeError(str(exc)) from exc
+            try:
+                await self._append_message(conversation_id, "assistant", SAFE_FAILURE_MESSAGE)
+            except Exception:
+                # Keep the original model/MCP/runtime exception as the cause.
+                pass
+            raise AgentRuntimeError("本轮 Agent 处理失败") from exc
 
-        await self._append_message(conversation_id, "assistant", answer)
+        try:
+            await self._append_message(conversation_id, "assistant", answer)
+        except Exception as exc:
+            raise AgentRuntimeError("本轮 Agent 回复保存失败") from exc
         return {
             "conversationId": conversation_id,
             "text": answer,
