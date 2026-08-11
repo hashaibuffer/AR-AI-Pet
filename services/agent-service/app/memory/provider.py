@@ -1,13 +1,23 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 
-class MemoryProvider:
-    """Reserved interface for the later self-hosted Mem0 worker."""
+class MemoryProviderError(RuntimeError):
+    """Safe provider failure; callers must not expose provider internals."""
 
-    async def add(self, *, user_id: str, messages: list[dict[str, Any]], metadata: dict[str, Any]) -> str:
-        raise RuntimeError("Mem0 is not enabled in this MVP slice")
 
-    async def search(self, *, user_id: str, query: str) -> list[dict[str, Any]]:
-        raise RuntimeError("Mem0 is not enabled in this MVP slice")
+class MemoryProvider(Protocol):
+    name: str
+
+    async def add(
+        self,
+        *,
+        user_id: str,
+        messages: list[dict[str, Any]],
+        metadata: dict[str, Any],
+    ) -> list[dict[str, Any]]: ...
+
+    async def search(self, *, user_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]: ...
+
+    async def health(self) -> dict[str, Any]: ...

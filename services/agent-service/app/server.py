@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -13,7 +14,13 @@ from sqlalchemy import text
 from . import db
 from .farm import advance_farm
 from .maintenance import prune_expired_messages, scan_due_schedules
-from .settings import FARM_TICK_SECONDS, PROTOCOL_VERSION
+from .settings import (
+    FARM_TICK_SECONDS,
+    MEMORY_JOB_LEASE_SECONDS,
+    MEMORY_MAX_ATTEMPTS,
+    MEMORY_RETRY_BASE_SECONDS,
+    PROTOCOL_VERSION,
+)
 
 
 class Connections:
@@ -196,7 +203,8 @@ def conversation_append(payload: dict[str, Any]) -> dict[str, Any]:
     with db.session() as conn:
         user_id, pet_id = db.get_identity(conn)
         conversation_id = uuid.UUID(payload["conversationId"]) if payload.get("conversationId") else uuid.uuid4()
-        exists = conn.execute(text("SELECT id FROM conversations WHERE id=:id"), {"id": conversation_id}).scalar()
+        exists = conn.execute(text("SELECT id FROM conversations WHERE id=:id AND user_id=:user_id"),
+                              {"id": conversation_id, "user_id": user_id}).scalar()
         if not exists:
             conn.execute(text("""
                 INSERT INTO conversations (id,user_id,pet_id,channel,message_count,started_at)
@@ -209,7 +217,171 @@ def conversation_append(payload: dict[str, Any]) -> dict[str, Any]:
         """), {"id": message_id, "conversation_id": conversation_id, "role": payload["role"], "content": payload["content"],
                 "now": now, "expires_at": now + timedelta(days=7)})
         conn.execute(text("UPDATE conversations SET message_count = message_count + 1 WHERE id=:id"), {"id": conversation_id})
-        return {"conversationId": str(conversation_id), "messageId": str(message_id), "expiresAt": (now + timedelta(days=7)).isoformat()}
+        memory_job_id: uuid.UUID | None = None
+        if payload.get("role") == "assistant" and bool(payload.get("memoryEligible", False)):
+            user_message_id = conn.execute(text("""
+                SELECT id FROM messages
+                WHERE conversation_id=:conversation_id AND role='user' AND id<>:assistant_id
+                ORDER BY created_at DESC LIMIT 1
+            """), {"conversation_id": conversation_id, "assistant_id": message_id}).scalar()
+            if user_message_id:
+                event_id = uuid.uuid4()
+                memory_job_id = uuid.uuid4()
+                event_payload = db.as_json({
+                    "userMessageId": str(user_message_id),
+                    "assistantMessageId": str(message_id),
+                    "conversationId": str(conversation_id),
+                })
+                conn.execute(text("""
+                    INSERT INTO events (id,user_id,pet_id,event_type,source,payload,occurred_at,created_at)
+                    VALUES (:id,:user_id,:pet_id,'conversation.completed','agent',CAST(:payload AS jsonb),:now,:now)
+                """), {"id": event_id, "user_id": user_id, "pet_id": pet_id, "payload": event_payload, "now": now})
+                conn.execute(text("""
+                    INSERT INTO memory_jobs (id,source_event_id,status,attempts,next_retry_at,last_error,created_at)
+                    VALUES (:id,:event_id,'pending',0,:now,NULL,:now)
+                """), {"id": memory_job_id, "event_id": event_id, "now": now})
+        result = {
+            "conversationId": str(conversation_id),
+            "messageId": str(message_id),
+            "expiresAt": (now + timedelta(days=7)).isoformat(),
+            "memoryEligible": bool(payload.get("memoryEligible", False)),
+        }
+        if memory_job_id:
+            result["memoryJobId"] = str(memory_job_id)
+        return result
+
+
+def conversation_get(payload: dict[str, Any]) -> dict[str, Any]:
+    db.seed_defaults()
+    conversation_id = uuid.UUID(payload["conversationId"])
+    limit = min(max(int(payload.get("limit", 12)), 1), 50)
+    now = db.utc_now()
+    with db.session() as conn:
+        user_id, _ = db.get_identity(conn)
+        conversation = conn.execute(text("""
+            SELECT id, channel, started_at, ended_at
+            FROM conversations WHERE id=:id AND user_id=:user_id
+        """), {"id": conversation_id, "user_id": user_id}).mappings().one_or_none()
+        if conversation is None:
+            raise ValueError("conversation not found")
+        messages = conn.execute(text("""
+            SELECT id, role, content, created_at, expires_at
+            FROM messages
+            WHERE conversation_id=:conversation_id AND expires_at > :now
+            ORDER BY created_at ASC LIMIT :limit
+        """), {"conversation_id": conversation_id, "now": now, "limit": limit}).mappings().all()
+        return {
+            "conversationId": str(conversation["id"]),
+            "userId": str(user_id),
+            "channel": conversation["channel"],
+            "messages": [db.row_json(row) for row in messages],
+        }
+
+
+def memory_job_recover(_: dict[str, Any]) -> dict[str, Any]:
+    now = db.utc_now()
+    with db.session() as conn:
+        result = conn.execute(text("""
+            UPDATE memory_jobs
+            SET status='pending', next_retry_at=:now, last_error='worker lease expired'
+            WHERE status='processing' AND next_retry_at IS NOT NULL AND next_retry_at < :now
+        """), {"now": now})
+        return {"recovered": result.rowcount}
+
+
+def memory_job_claim(_: dict[str, Any]) -> dict[str, Any] | None:
+    now = db.utc_now()
+    lease_until = now + timedelta(seconds=MEMORY_JOB_LEASE_SECONDS)
+    with db.session() as conn:
+        row = conn.execute(text("""
+            SELECT mj.id, mj.attempts, mj.source_event_id, e.user_id, e.pet_id, e.payload
+            FROM memory_jobs mj JOIN events e ON e.id=mj.source_event_id
+            WHERE (mj.status='pending' OR (mj.status='failed' AND mj.next_retry_at <= :now))
+              AND (mj.next_retry_at IS NULL OR mj.next_retry_at <= :now)
+            ORDER BY mj.created_at ASC
+            FOR UPDATE SKIP LOCKED LIMIT 1
+        """), {"now": now}).mappings().one_or_none()
+        if row is None:
+            return None
+        conn.execute(text("""
+            UPDATE memory_jobs SET status='processing', attempts=attempts+1, next_retry_at=:lease_until
+            WHERE id=:id
+        """), {"id": row["id"], "lease_until": lease_until})
+        payload = row["payload"] or {}
+        user_message_id = uuid.UUID(payload["userMessageId"])
+        assistant_message_id = uuid.UUID(payload["assistantMessageId"])
+        messages = conn.execute(text("""
+            SELECT id, role, content, created_at
+            FROM messages WHERE id IN (:user_message_id, :assistant_message_id)
+            ORDER BY created_at ASC
+        """), {"user_message_id": user_message_id, "assistant_message_id": assistant_message_id}).mappings().all()
+        return {
+            "jobId": str(row["id"]),
+            "attempts": int(row["attempts"]) + 1,
+            "userId": str(row["user_id"]),
+            "eventId": str(row["source_event_id"]),
+            "conversationId": payload.get("conversationId"),
+            "messages": [db.row_json(item) for item in messages],
+        }
+
+
+def memory_job_complete(payload: dict[str, Any]) -> dict[str, Any]:
+    job_id = uuid.UUID(payload["jobId"])
+    refs = payload.get("refs") or []
+    now = db.utc_now()
+    with db.session() as conn:
+        row = conn.execute(text("""
+            SELECT mj.status, e.user_id FROM memory_jobs mj JOIN events e ON e.id=mj.source_event_id
+            WHERE mj.id=:id FOR UPDATE
+        """), {"id": job_id}).mappings().one()
+        if row["status"] == "completed":
+            return {"jobId": str(job_id), "status": "completed", "refCount": 0}
+        for ref in refs:
+            memory_id = str(ref.get("memoryId", "")).strip()
+            if not memory_id:
+                continue
+            bucket = ref.get("memoryBucket", "profile")
+            if bucket not in {"profile", "preference", "habit", "relationship", "goal", "milestone"}:
+                bucket = "profile"
+            conn.execute(text("""
+                INSERT INTO memory_refs (id,memory_job_id,user_id,mem0_memory_id,memory_bucket,created_at)
+                VALUES (:id,:job_id,:user_id,:memory_id,:bucket,:now)
+                ON CONFLICT (mem0_memory_id) DO NOTHING
+            """), {"id": uuid.uuid4(), "job_id": job_id, "user_id": row["user_id"],
+                  "memory_id": memory_id, "bucket": bucket, "now": now})
+        conn.execute(text("""
+            UPDATE memory_jobs SET status='completed', completed_at=:now, next_retry_at=NULL, last_error=NULL WHERE id=:id
+        """), {"id": job_id, "now": now})
+        count = conn.execute(text("SELECT count(*) FROM memory_refs WHERE memory_job_id=:id"), {"id": job_id}).scalar_one()
+        return {"jobId": str(job_id), "status": "completed", "refCount": int(count)}
+
+
+def memory_job_fail(payload: dict[str, Any]) -> dict[str, Any]:
+    job_id = uuid.UUID(payload["jobId"])
+    error = " ".join(str(payload.get("error", "memory provider failed")).split())
+    error = re.sub(r"(?:sk|pk)-[A-Za-z0-9_-]{12,}", "[redacted]", error, flags=re.IGNORECASE)
+    error = re.sub(r"(?i)(api[_ -]?key|token|password)\s*[:=]\s*\S+", r"\1=[redacted]", error)
+    error = error[:500]
+    now = db.utc_now()
+    with db.session() as conn:
+        row = conn.execute(text("SELECT attempts FROM memory_jobs WHERE id=:id FOR UPDATE"), {"id": job_id}).mappings().one()
+        attempts = int(row["attempts"])
+        retry_at = None if attempts >= MEMORY_MAX_ATTEMPTS else now + timedelta(seconds=MEMORY_RETRY_BASE_SECONDS * (2 ** max(attempts - 1, 0)))
+        conn.execute(text("""
+            UPDATE memory_jobs SET status='failed', next_retry_at=:retry_at, last_error=:error WHERE id=:id
+        """), {"id": job_id, "retry_at": retry_at, "error": error})
+        return {"jobId": str(job_id), "status": "failed", "attempts": attempts, "nextRetryAt": retry_at.isoformat() if retry_at else None}
+
+
+def memory_job_ignore(payload: dict[str, Any]) -> dict[str, Any]:
+    job_id = uuid.UUID(payload["jobId"])
+    reason = " ".join(str(payload.get("reason", "ignored")).split())[:500]
+    now = db.utc_now()
+    with db.session() as conn:
+        conn.execute(text("""
+            UPDATE memory_jobs SET status='ignored', next_retry_at=NULL, completed_at=:now, last_error=:reason WHERE id=:id
+        """), {"id": job_id, "now": now, "reason": reason})
+        return {"jobId": str(job_id), "status": "ignored"}
 
 
 async def dispatch(message: dict[str, Any]) -> dict[str, Any]:
@@ -234,6 +406,18 @@ async def dispatch(message: dict[str, Any]) -> dict[str, Any]:
         return response(request_id, "game-session.save.result", "ok", game_save(payload))
     if message_type == "conversation.append":
         return response(request_id, "conversation.append.result", "ok", conversation_append(payload))
+    if message_type == "conversation.get":
+        return response(request_id, "conversation.get.result", "ok", conversation_get(payload))
+    if message_type == "memory-job.recover":
+        return response(request_id, "memory-job.recover.result", "ok", memory_job_recover(payload))
+    if message_type == "memory-job.claim":
+        return response(request_id, "memory-job.claim.result", "ok", memory_job_claim(payload) or {})
+    if message_type == "memory-job.complete":
+        return response(request_id, "memory-job.complete.result", "ok", memory_job_complete(payload))
+    if message_type == "memory-job.fail":
+        return response(request_id, "memory-job.fail.result", "ok", memory_job_fail(payload))
+    if message_type == "memory-job.ignore":
+        return response(request_id, "memory-job.ignore.result", "ok", memory_job_ignore(payload))
     return response(request_id, f"{message_type or 'unknown'}.result", "error", {"code": "unsupported_message"})
 
 

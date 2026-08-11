@@ -9,6 +9,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from .agent_runtime import AgentRuntime, AgentRuntimeError
 from .data_service_client import DataServiceClient
+from .memory_client import MemoryServiceClient
 from .llm_provider import create_provider
 from .settings import (
     AGENT_HOST,
@@ -22,6 +23,8 @@ from .settings import (
     AGENT_TIMEZONE,
     DATA_SERVICE_TIMEOUT_SECONDS,
     DATA_SERVICE_WS_URL,
+    MEMORY_SEARCH_TIMEOUT_SECONDS,
+    MEMORY_WS_URL,
     MCP_URL,
 )
 
@@ -36,6 +39,7 @@ async def lifespan(_: FastAPI):
 
 
 data_service = DataServiceClient(DATA_SERVICE_WS_URL, DATA_SERVICE_TIMEOUT_SECONDS)
+memory_service = MemoryServiceClient(MEMORY_WS_URL, MEMORY_SEARCH_TIMEOUT_SECONDS)
 provider = create_provider(
     AGENT_PROVIDER,
     base_url=AGENT_LLM_BASE_URL,
@@ -47,6 +51,7 @@ provider = create_provider(
 runtime = AgentRuntime(
     mcp_url=MCP_URL,
     data_service=data_service,
+    memory_service=memory_service,
     provider=provider,
     max_tool_rounds=AGENT_MAX_TOOL_ROUNDS,
 )

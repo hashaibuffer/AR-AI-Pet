@@ -150,6 +150,9 @@ class MockProvider:
             if any(item.get("name") == "schedule_list" for item in messages if item.get("role") == "tool"):
                 return AssistantDecision("这是当前保存的日程。", [])
             return AssistantDecision("已完成，我已经把这条日程保存好了。", [])
+        system_text = next((_message_text(item) for item in messages if item.get("role") == "system"), "")
+        if "喜欢" in user_text and "草莓" in system_text and "香菜" in system_text:
+            return AssistantDecision("你最喜欢草莓，不喜欢香菜。", [])
         return AssistantDecision("这是本地 Mock Agent 的回复：" + (user_text or "你好。"), [])
 
 

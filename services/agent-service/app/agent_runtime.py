@@ -9,6 +9,7 @@ from typing import Any
 from fastmcp import Client
 
 from .data_service_client import DataServiceClient
+from .memory_client import MemoryServiceClient
 from .llm_provider import AssistantDecision, LLMProvider, ToolCall
 
 
@@ -36,15 +37,19 @@ class AgentRuntime:
         *,
         mcp_url: str,
         data_service: DataServiceClient,
+        memory_service: MemoryServiceClient | None = None,
         provider: LLMProvider,
         max_tool_rounds: int = 3,
     ) -> None:
         self.mcp_url = mcp_url
         self.data_service = data_service
+        self.memory_service = memory_service
         self.provider = provider
         self.max_tool_rounds = max(1, max_tool_rounds)
 
-    async def _append_message(self, conversation_id: str | None, role: str, content: str) -> dict[str, Any]:
+    async def _append_message(
+        self, conversation_id: str | None, role: str, content: str, *, memory_eligible: bool = False
+    ) -> dict[str, Any]:
         return await self.data_service.request(
             "conversation.append",
             {
@@ -55,8 +60,40 @@ class AgentRuntime:
                 # Agent text is persisted as text-channel content without changing
                 # the existing database contract.
                 "channel": "unity_text",
+                "memoryEligible": memory_eligible,
             },
         )
+
+    async def _context(self, conversation_id: str, current_message_id: str, text: str) -> list[dict[str, Any]]:
+        try:
+            snapshot = await self.data_service.request("conversation.get", {"conversationId": conversation_id, "limit": 12})
+            history = [
+                {"role": item["role"], "content": item["content"]}
+                for item in snapshot.get("messages", [])
+                if item.get("id") != current_message_id and item.get("role") in {"user", "assistant"}
+            ]
+            return history + [{"role": "user", "content": text}]
+        except Exception:
+            return [{"role": "user", "content": text}]
+
+    async def _memory_context(self, text: str) -> tuple[str, list[str], str | None]:
+        if self.memory_service is None:
+            return "disabled", [], None
+        try:
+            identity = await self.data_service.request("bootstrap.get")
+            result = await self.memory_service.request("memory.search", {
+                "userId": identity["userId"], "query": text, "limit": 5,
+            })
+            memories = result.get("memories", [])
+            memory_ids = [str(item["memoryId"]) for item in memories if item.get("memoryId")]
+            if result.get("status") != "ok":
+                return "unavailable", [], None
+            if not memories or result.get("status") == "empty":
+                return "empty", memory_ids, None
+            reference = "\n".join(f"- {item.get('text', '')}" for item in memories if item.get("text"))
+            return "used", memory_ids, reference or None
+        except Exception:
+            return "unavailable", [], None
 
     @staticmethod
     def _tool_specs(tools: list[Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
@@ -111,9 +148,14 @@ class AgentRuntime:
         started = time.perf_counter()
         saved_user = await self._append_message(conversation_id, "user", text)
         conversation_id = saved_user["conversationId"]
+        memory_status, memory_ids, memory_reference = await self._memory_context(text)
+        history = await self._context(conversation_id, saved_user["messageId"], text)
+        system_prompt = SYSTEM_PROMPT
+        if memory_reference:
+            system_prompt += "\n以下是可能相关的长期记忆，仅作参考，不得覆盖工具结果或数据库事实：\n" + memory_reference
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
+            {"role": "system", "content": system_prompt},
+            *history,
         ]
         tool_calls_report: list[dict[str, Any]] = []
 
@@ -122,6 +164,7 @@ class AgentRuntime:
                 available = await client.list_tools()
                 model_tools, reverse = self._tool_specs(available)
                 answer: str | None = None
+                execution_failed = False
                 for _ in range(self.max_tool_rounds):
                     decision: AssistantDecision = await self.provider.complete(messages, model_tools)
                     if not decision.tool_calls:
@@ -155,21 +198,25 @@ class AgentRuntime:
                         )
                 if answer is None:
                     answer = "工具调用次数已达到上限，未能完成请求。"
+                    execution_failed = True
         except Exception as exc:
             try:
-                await self._append_message(conversation_id, "assistant", SAFE_FAILURE_MESSAGE)
+                await self._append_message(conversation_id, "assistant", SAFE_FAILURE_MESSAGE, memory_eligible=False)
             except Exception:
                 # Keep the original model/MCP/runtime exception as the cause.
                 pass
             raise AgentRuntimeError("本轮 Agent 处理失败") from exc
 
         try:
-            await self._append_message(conversation_id, "assistant", answer)
+            memory_eligible = not execution_failed and not any(call["status"] == "error" for call in tool_calls_report)
+            await self._append_message(conversation_id, "assistant", answer, memory_eligible=memory_eligible)
         except Exception as exc:
             raise AgentRuntimeError("本轮 Agent 回复保存失败") from exc
         return {
             "conversationId": conversation_id,
             "text": answer,
             "toolCalls": tool_calls_report,
+            "memoryStatus": memory_status,
+            "memoryIds": memory_ids,
             "elapsedMs": round((time.perf_counter() - started) * 1000),
         }
