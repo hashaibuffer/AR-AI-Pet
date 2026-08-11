@@ -68,7 +68,7 @@ Agent       = zh
 touch PTT   = enabled
 ```
 
-构建入口会先幂等应用 [`patches/0001-nanodrive-tx-only.patch`](patches/0001-nanodrive-tx-only.patch)，再执行完整构建并在被忽略的 `artifacts/local-consistency/` 生成“配置—模型—固件”一致性报告，但不会调用 `flash`、`esptool` 或写入任何分区。
+构建入口会先幂等应用 [`patches/0001-nanodrive-tx-only.patch`](patches/0001-nanodrive-tx-only.patch) 和网关工具映射补丁 [`patches/0002-nanodrive-gateway-tools.patch`](patches/0002-nanodrive-gateway-tools.patch)，再执行完整构建并在被忽略的 `artifacts/local-consistency/` 生成“配置—模型—固件”一致性报告，但不会调用 `flash`、`esptool` 或写入任何分区。
 
 ### NanoDrive 项目变体
 
