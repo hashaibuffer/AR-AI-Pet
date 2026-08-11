@@ -28,5 +28,18 @@ services:
       postgres:
         condition: service_healthy
 
+  mcp-hub:
+    build: .
+    command: ["python", "-m", "app.mcp_hub"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8081
+    ports:
+      - "${MCP_PORT:-8081}:8081"
+    depends_on:
+      data-service:
+        condition: service_started
+
 volumes:
   araipet-postgres:
