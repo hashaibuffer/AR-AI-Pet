@@ -32,7 +32,8 @@
 | MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
 | MCP Hub 启动门槛 | 通过 | data-service 和 mcp-hub 均通过 WebSocket/MCP healthcheck 后进入 healthy。 |
 | 本地 Agent Runtime—MCP—数据服务 | 通过（Mock闭环） | `AGENT_SMOKE_OK` 已验证文字请求、日程读写、工具错误反馈和对话落库；真实模型与语音分别记录，本次不包含语音。 |
-| 本地 Agent—短期上下文—Mock记忆 | 通过（Mock闭环） | `MEMORY_SMOKE_OK` 已验证 `conversation.get` 顺序、完成事件、memory_jobs、Worker、memory_refs 和跨会话记忆检索。 |
+| 本地 Agent—短期上下文—Mock记忆 | 通过（Mock闭环） | `MEMORY_SMOKE_OK` 与 `CONVERSATION_RECENT_SMOKE_OK` 已验证 `conversation.get` 只返回最新 N 条并按时间正序返回，以及完成事件、memory_jobs、Worker、memory_refs 和跨会话记忆检索。 |
+| Memory Service Provider 健康状态 | 通过（Mock/不可用边界） | `memory_health.py` 同时检查顶层 `status` 与 `providerStatus`；正常 Mock 为 `ok`，模拟不可用 Provider 为 `degraded`，Docker 进程仍存活但健康检查失败。 |
 | Memory Service 停机降级 | 通过 | Memory Service 停止时 Agent 仍可完成普通对话和日程，返回 `memoryStatus=unavailable`；恢复后服务重新 healthy。 |
 | Memory Worker 失败重试 | 通过（数据服务边界） | 任务失败记录 attempts/next_retry_at，恢复服务后可再次领取并完成；真实 Mem0/Qdrant 故障仍需凭据和实机环境复测。 |
 | 真实 Mem0—Qdrant—LLM/Embedding | 待验证 | 当前环境没有真实 LLM 与 Embedding 凭据，不宣称真实 Mem0 已通过。 |

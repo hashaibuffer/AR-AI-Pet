@@ -46,7 +46,7 @@ async def websocket_endpoint(socket: WebSocket) -> None:
             try:
                 if message_type == "ping" or message_type == "memory.health":
                     result = await service.health()
-                    await socket.send_json(response(request_id, "memory.health.result", "ok", result))
+                    await socket.send_json(response(request_id, "memory.health.result", result["status"], result))
                 elif message_type == "memory.search":
                     result = await service.search(payload)
                     await socket.send_json(response(request_id, "memory.search.result", "ok", result))

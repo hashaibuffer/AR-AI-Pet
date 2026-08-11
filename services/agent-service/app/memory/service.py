@@ -58,7 +58,14 @@ class MemoryService:
 
     async def health(self) -> dict[str, Any]:
         result = await self.provider.health()
-        return {"status": "ok", "provider": result.get("provider", self.provider.name), "providerStatus": result.get("status", "ok")}
+        provider_status = result.get("status", "degraded")
+        if provider_status not in {"ok", "degraded"}:
+            provider_status = "degraded"
+        return {
+            "status": provider_status,
+            "provider": result.get("provider", self.provider.name),
+            "providerStatus": provider_status,
+        }
 
     async def search(self, payload: dict[str, Any]) -> dict[str, Any]:
         user_id = str(payload.get("userId", "")).strip()

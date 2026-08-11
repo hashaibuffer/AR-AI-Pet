@@ -20,7 +20,13 @@ async def main() -> None:
                 message = json.loads(await socket.recv())
                 if message.get("requestId") != request_id:
                     continue
-                if message.get("type") != "memory.health.result" or message.get("status") != "ok":
+                payload = message.get("payload") or {}
+                if (
+                    message.get("type") != "memory.health.result"
+                    or message.get("status") != "ok"
+                    or payload.get("status") != "ok"
+                    or payload.get("providerStatus") != "ok"
+                ):
                     raise RuntimeError(f"unexpected memory health response: {message}")
                 return
 

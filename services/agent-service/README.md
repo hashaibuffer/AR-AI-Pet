@@ -138,6 +138,16 @@ python scripts/memory_smoke.py
 
 `memory_smoke.py` 验证偏好对话产生任务、Worker 写入 Mock 记忆、`memory_refs` 生成、`conversation.get` 顺序和 Agent 跨会话检索。真实 Mem0 需要可用的 LLM 与 Embedding 凭据；本环境未提供，因此真实 Mem0 仍是待验证项。
 
+`memory_health.py` 同时检查 WebSocket 响应的顶层 `status` 和 `payload.providerStatus`。默认 Mock Provider 正常时均为 `ok`；启用但初始化失败的真实 Mem0 返回 `degraded`，容器进程仍可运行但健康检查会失败。
+
+最近短期上下文验证：
+
+```powershell
+docker compose exec -T agent-runtime python scripts/conversation_recent_smoke.py
+```
+
+该脚本验证 `conversation.get` 只返回最新 N 条消息，并按时间正序交给 Agent。
+
 需要验证空库时，仅针对本地测试数据执行：
 
 ```powershell

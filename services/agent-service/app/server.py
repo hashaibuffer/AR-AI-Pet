@@ -266,9 +266,14 @@ def conversation_get(payload: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("conversation not found")
         messages = conn.execute(text("""
             SELECT id, role, content, created_at, expires_at
-            FROM messages
-            WHERE conversation_id=:conversation_id AND expires_at > :now
-            ORDER BY created_at ASC LIMIT :limit
+            FROM (
+                SELECT id, role, content, created_at, expires_at
+                FROM messages
+                WHERE conversation_id=:conversation_id AND expires_at > :now
+                ORDER BY created_at DESC, id DESC
+                LIMIT :limit
+            ) recent
+            ORDER BY created_at ASC, id ASC
         """), {"conversation_id": conversation_id, "now": now, "limit": limit}).mappings().all()
         return {
             "conversationId": str(conversation["id"]),
