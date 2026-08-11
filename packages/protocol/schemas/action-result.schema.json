@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ar-aipet.local/protocol/action-result.schema.json",
+  "type": "object",
+  "required": ["actionId", "deviceId", "actionType", "status", "startedAt", "completedAt", "requestedParameters", "measuredResult", "error", "sourceEventId"],
+  "properties": {
+    "actionId": {"type": "string", "format": "uuid"},
+    "deviceId": {"type": "string"},
+    "actionType": {"type": "string"},
+    "status": {"type": "string", "enum": ["accepted", "started", "completed", "failed", "cancelled", "timeout"]},
+    "startedAt": {"type": ["string", "null"], "format": "date-time"},
+    "completedAt": {"type": ["string", "null"], "format": "date-time"},
+    "requestedParameters": {"type": "object"},
+    "measuredResult": {"type": "object"},
+    "error": {"type": ["string", "null"]},
+    "sourceEventId": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

@@ -42,5 +42,7 @@ MEM0_EMBEDDER_API_KEY = os.getenv("MEM0_EMBEDDER_API_KEY", "")
 MEM0_EMBEDDER_MODEL = os.getenv("MEM0_EMBEDDER_MODEL", "text-embedding-3-small")
 MEM0_EMBEDDING_DIMS = int(os.getenv("MEM0_EMBEDDING_DIMS", "1536"))
 MEMORY_MOCK_PATH = os.getenv("MEMORY_MOCK_PATH", "/data/mock_memories.json")
+PERSONA_ROOT = os.getenv("PERSONA_ROOT", "/app/content/runtime")
+EXPERIENCE_TICK_SECONDS = float(os.getenv("EXPERIENCE_TICK_SECONDS", "5"))
 FARM_TICK_SECONDS = int(os.getenv("FARM_TICK_SECONDS", "30"))
 PROTOCOL_VERSION = "0.1"

@@ -65,3 +65,14 @@ payload
 ## 已知问题
 
 当前只有消息结构建议，没有已冻结的代码定义。变更时必须同步协议、示例、Mock和使用方。
+
+## Agent 体验编排协议
+
+当前已冻结四类 JSON Schema：
+
+- `schemas/agent-turn-result.schema.json`
+- `schemas/experience-event.schema.json`
+- `schemas/sensor-observation.schema.json`
+- `schemas/action-result.schema.json`
+
+对应示例位于 `examples/`。Python Agent 运行时使用 `services/agent-service/app/experience_protocol.py` 做同字段约束；`innerOs` 只表示可展示的角色旁白，不保存或暴露模型隐藏推理过程。Mock Unity/Robot 只消费语义动作并回传 `ActionResult`，不传输 PWM、电机电压等底层参数。

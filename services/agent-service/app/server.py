@@ -14,6 +14,7 @@ from sqlalchemy import text
 from . import db
 from .farm import advance_farm
 from .maintenance import prune_expired_messages, scan_due_schedules
+from .experience_protocol import ProtocolValidationError, validate_action_result, validate_experience_event, validate_sensor_observation
 from .settings import (
     FARM_TICK_SECONDS,
     MEMORY_JOB_LEASE_SECONDS,
@@ -158,6 +159,37 @@ def schedule_upsert(payload: dict[str, Any]) -> dict[str, Any]:
         return db.row_json(conn.execute(text("SELECT * FROM schedules WHERE id = :id"), {"id": schedule_id}).mappings().one())
 
 
+def schedule_update_status(payload: dict[str, Any], *, status: str) -> dict[str, Any]:
+    db.seed_defaults()
+    schedule_id = uuid.UUID(payload["id"])
+    now = db.utc_now()
+    with db.session() as conn:
+        user_id, _ = db.get_identity(conn)
+        result = conn.execute(text("""
+            UPDATE schedules SET status=:status, updated_at=:now, reminded_at=CASE WHEN :status='completed' THEN :now ELSE reminded_at END
+            WHERE id=:id AND user_id=:user_id
+        """), {"status": status, "now": now, "id": schedule_id, "user_id": user_id})
+        if result.rowcount == 0:
+            raise ValueError("schedule not found")
+        return db.row_json(conn.execute(text("SELECT * FROM schedules WHERE id=:id"), {"id": schedule_id}).mappings().one())
+
+
+def schedule_snooze(payload: dict[str, Any]) -> dict[str, Any]:
+    db.seed_defaults()
+    schedule_id = uuid.UUID(payload["id"])
+    minutes = min(max(int(payload.get("minutes", 10)), 1), 1440)
+    now = db.utc_now()
+    with db.session() as conn:
+        user_id, _ = db.get_identity(conn)
+        result = conn.execute(text("""
+            UPDATE schedules SET remind_at=remind_at + (:minutes * INTERVAL '1 minute'), status='active', updated_at=:now
+            WHERE id=:id AND user_id=:user_id
+        """), {"minutes": minutes, "now": now, "id": schedule_id, "user_id": user_id})
+        if result.rowcount == 0:
+            raise ValueError("schedule not found")
+        return db.row_json(conn.execute(text("SELECT * FROM schedules WHERE id=:id"), {"id": schedule_id}).mappings().one())
+
+
 def game_save(payload: dict[str, Any]) -> dict[str, Any]:
     db.seed_defaults()
     now = db.utc_now()
@@ -195,6 +227,48 @@ def game_save(payload: dict[str, Any]) -> dict[str, Any]:
                 VALUES (:id,:user_id,:pet_id,:game_type,:schema_version,:status,CAST(:state AS jsonb),CAST(:result AS jsonb),:started_at,:updated_at,:ended_at)
             """), values)
         return db.row_json(conn.execute(text("SELECT * FROM game_sessions WHERE id=:id"), {"id": game_id}).mappings().one())
+
+
+def farm_perform_action(payload: dict[str, Any]) -> dict[str, Any]:
+    db.seed_defaults()
+    action = payload.get("action")
+    if action not in {"water", "plant", "harvest", "rest"}:
+        raise ValueError("unsupported farm action")
+    now = db.utc_now()
+    with db.session() as conn:
+        user_id, pet_id = db.get_identity(conn)
+        row = conn.execute(text("""
+            SELECT id, revision, data FROM state_documents WHERE pet_id=:pet_id AND domain='farm' FOR UPDATE
+        """), {"pet_id": pet_id}).mappings().one()
+        data = dict(row["data"])
+        data["currentActivity"] = {"water": "watering", "plant": "planting", "harvest": "harvesting", "rest": "resting"}[action]
+        data["lastAction"] = action
+        data["lastTickAt"] = now.isoformat()
+        revision = int(row["revision"]) + 1
+        conn.execute(text("""
+            UPDATE state_documents SET data=CAST(:data AS jsonb), revision=:revision, updated_at=:now WHERE id=:id
+        """), {"data": db.as_json(data), "revision": revision, "now": now, "id": row["id"]})
+        event_payload = db.as_json({"action": action, "revision": revision, "data": data})
+        conn.execute(text("""
+            INSERT INTO events (id,user_id,pet_id,event_type,source,payload,occurred_at,created_at)
+            VALUES (:id,:user_id,:pet_id,'farm.action.completed','agent',CAST(:payload AS jsonb),:now,:now)
+        """), {"id": uuid.uuid4(), "user_id": user_id, "pet_id": pet_id, "payload": event_payload, "now": now})
+        return {"domain": "farm", "action": action, "status": "completed", "revision": revision, "data": data}
+
+
+def sensor_query(payload: dict[str, Any]) -> dict[str, Any]:
+    db.seed_defaults()
+    sensor_type = payload.get("sensorType")
+    limit = min(max(int(payload.get("limit", 10)), 1), 50)
+    with db.session() as conn:
+        params: dict[str, Any] = {"limit": limit}
+        condition = "event_type='sensor.observation'"
+        if sensor_type:
+            condition += " AND payload->>'sensorType'=:sensor_type"
+            params["sensor_type"] = sensor_type
+        rows = conn.execute(text(f"SELECT payload FROM events WHERE {condition} ORDER BY occurred_at DESC, id DESC LIMIT :limit"), params).mappings().all()
+        observations = [row["payload"] for row in rows]
+        return {"observations": observations}
 
 
 def conversation_append(payload: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +355,56 @@ def conversation_get(payload: dict[str, Any]) -> dict[str, Any]:
             "channel": conversation["channel"],
             "messages": [db.row_json(row) for row in messages],
         }
+
+
+def proactive_tick(_: dict[str, Any]) -> dict[str, Any]:
+    reminders = scan_due_schedules()
+    changed = advance_farm()
+    return {"reminders": reminders, "farmChanged": changed}
+
+
+def append_event(payload: dict[str, Any], *, event_type: str, source: str, value: dict[str, Any]) -> dict[str, Any]:
+    db.seed_defaults()
+    now = db.utc_now()
+    with db.session() as conn:
+        user_id, pet_id = db.get_identity(conn)
+        event_id = uuid.UUID(str(value.get("eventId") or value.get("actionId") or value.get("observationId") or uuid.uuid4()))
+        conn.execute(text("""
+            INSERT INTO events (id,user_id,pet_id,event_type,source,payload,occurred_at,created_at)
+            VALUES (:id,:user_id,:pet_id,:event_type,:source,CAST(:payload AS jsonb),:occurred_at,:created_at)
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": event_id, "user_id": user_id, "pet_id": pet_id, "event_type": event_type,
+                "source": source, "payload": db.as_json(value), "occurred_at": now, "created_at": now})
+        return {"eventId": str(event_id), "eventType": event_type, "status": "recorded", "payload": value}
+
+
+def experience_event_append(payload: dict[str, Any]) -> dict[str, Any]:
+    event = validate_experience_event(payload["event"] if isinstance(payload.get("event"), dict) else payload)
+    return append_event(payload, event_type="experience.event", source="agent", value=event)
+
+
+def action_result_append(payload: dict[str, Any]) -> dict[str, Any]:
+    result = validate_action_result(payload["result"] if isinstance(payload.get("result"), dict) else payload)
+    source = "unity" if result["deviceId"].startswith("mock-unity") or result["deviceId"].startswith("unity") else "stackchan"
+    return append_event(payload, event_type="action.result", source=source, value=result)
+
+
+def sensor_observation_append(payload: dict[str, Any]) -> dict[str, Any]:
+    observation = validate_sensor_observation(payload["observation"] if isinstance(payload.get("observation"), dict) else payload)
+    return append_event(payload, event_type="sensor.observation", source="unity", value=observation)
+
+
+def robot_action_request(payload: dict[str, Any]) -> dict[str, Any]:
+    now = db.utc_now()
+    action = {
+        "actionId": str(uuid.uuid4()), "deviceId": str(payload.get("deviceId", "mock-robot")),
+        "actionType": str(payload.get("actionType", "nod")), "status": "accepted",
+        "startedAt": now.isoformat(), "completedAt": None,
+        "requestedParameters": payload.get("parameters") or {}, "measuredResult": {"simulated": True},
+        "error": None, "sourceEventId": payload.get("sourceEventId"),
+    }
+    validate_action_result(action)
+    return action
 
 
 def memory_job_recover(_: dict[str, Any]) -> dict[str, Any]:
@@ -407,12 +531,35 @@ async def dispatch(message: dict[str, Any]) -> dict[str, Any]:
         return response(request_id, "state.put.result", status, result)
     if message_type == "schedule.upsert":
         return response(request_id, "schedule.upsert.result", "ok", schedule_upsert(payload))
+    if message_type == "schedule.complete":
+        return response(request_id, "schedule.complete.result", "ok", schedule_update_status(payload, status="completed"))
+    if message_type == "schedule.snooze":
+        return response(request_id, "schedule.snooze.result", "ok", schedule_snooze(payload))
+    if message_type == "farm.perform_action":
+        return response(request_id, "farm.perform_action.result", "ok", farm_perform_action(payload))
+    if message_type == "sensor.latest":
+        recent = sensor_query({"sensorType": payload.get("sensorType"), "limit": 1})
+        return response(request_id, "sensor.latest.result", "ok", recent.get("observations", [{}])[0] if recent.get("observations") else {})
+    if message_type == "sensor.query_recent":
+        return response(request_id, "sensor.query_recent.result", "ok", sensor_query(payload))
+    if message_type == "game.start":
+        return response(request_id, "game.start.result", "ok", game_save({"gameType": "yahtzee", "status": "playing", "state": {}}))
     if message_type == "game-session.save":
         return response(request_id, "game-session.save.result", "ok", game_save(payload))
     if message_type == "conversation.append":
         return response(request_id, "conversation.append.result", "ok", conversation_append(payload))
     if message_type == "conversation.get":
         return response(request_id, "conversation.get.result", "ok", conversation_get(payload))
+    if message_type == "proactive.tick":
+        return response(request_id, "proactive.tick.result", "ok", proactive_tick(payload))
+    if message_type == "experience.event.append":
+        return response(request_id, "experience.event.append.result", "ok", experience_event_append(payload))
+    if message_type == "action.result.append":
+        return response(request_id, "action.result.append.result", "ok", action_result_append(payload))
+    if message_type == "sensor.observation.append":
+        return response(request_id, "sensor.observation.append.result", "ok", sensor_observation_append(payload))
+    if message_type == "robot.action.request":
+        return response(request_id, "robot.action.request.result", "ok", robot_action_request(payload))
     if message_type == "memory-job.recover":
         return response(request_id, "memory-job.recover.result", "ok", memory_job_recover(payload))
     if message_type == "memory-job.claim":

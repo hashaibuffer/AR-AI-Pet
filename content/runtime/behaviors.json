@@ -1,0 +1,10 @@
+{
+  "behaviors": [
+    {"id": "conversation", "triggerType": "turn", "conditions": {}, "probability": 1, "cooldown": 0, "maxPerDay": 0, "quietHours": [], "priority": 100, "requiredCapabilities": [], "emotion": "warm", "speechPrompt": "回应用户", "innerOsPrompt": "给出简短旁白", "robotBehaviorIntent": "nod"},
+    {"id": "dance", "triggerType": "text", "contains": ["跳舞", "跳个舞"], "conditions": {}, "probability": 1, "cooldown": 10, "maxPerDay": 20, "quietHours": [], "priority": 100, "requiredCapabilities": ["dance"], "emotion": "excited", "speechPrompt": "邀请用户一起跳舞", "innerOsPrompt": "准备开始跳舞", "robotBehaviorIntent": "dance"},
+    {"id": "farm", "triggerType": "text", "contains": ["种菜", "农场"], "conditions": {}, "probability": 1, "cooldown": 10, "maxPerDay": 20, "quietHours": [], "priority": 100, "requiredCapabilities": ["farm_tend"], "emotion": "calm", "speechPrompt": "说明农场动作", "innerOsPrompt": "照顾自己的农场", "robotBehaviorIntent": "farm_tend"},
+    {"id": "reminder", "triggerType": "schedule.triggered", "conditions": {}, "probability": 1, "cooldown": 0, "maxPerDay": 0, "quietHours": [], "priority": 80, "requiredCapabilities": ["wave"], "emotion": "warm", "speechPrompt": "提醒用户", "innerOsPrompt": "提醒已经到时间", "robotBehaviorIntent": "wave"},
+    {"id": "face", "triggerType": "sensor.face", "conditions": {}, "probability": 1, "cooldown": 10, "maxPerDay": 20, "quietHours": [], "priority": 60, "requiredCapabilities": ["wave"], "emotion": "warm", "speechPrompt": "主动问候", "innerOsPrompt": "检测到面对面互动", "robotBehaviorIntent": "wave"},
+    {"id": "companion", "triggerType": "companion", "conditions": {}, "probability": 1, "cooldown": 60, "maxPerDay": 10, "quietHours": [], "priority": 20, "requiredCapabilities": ["blink"], "emotion": "calm", "speechPrompt": "保持陪伴", "innerOsPrompt": "安静陪伴", "robotBehaviorIntent": "blink"}
+  ]
+}

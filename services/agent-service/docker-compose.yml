@@ -72,8 +72,12 @@ services:
       MCP_URL: http://mcp-hub:8081/mcp
       MEMORY_WS_URL: ws://memory-service:8083/ws
       MEMORY_SEARCH_TIMEOUT_SECONDS: ${MEMORY_SEARCH_TIMEOUT_SECONDS:-2}
+      PERSONA_ROOT: /app/content/runtime
+      EXPERIENCE_TICK_SECONDS: ${EXPERIENCE_TICK_SECONDS:-5}
     ports:
       - "${AGENT_PORT:-8082}:8082"
+    volumes:
+      - ../../content/runtime:/app/content/runtime:ro
     healthcheck:
       test: ["CMD", "python", "scripts/agent_health.py"]
       interval: 3s

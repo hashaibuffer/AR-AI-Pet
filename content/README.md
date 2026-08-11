@@ -56,3 +56,7 @@ A、B验证程序可读取的 CSV 或 JSON；C验证规则、文案和资源表�
 ## 已知问题
 
 当前没有正式规则、内容数据或资产，不应由开发人员自行补写。
+
+## 当前运行时样例
+
+`runtime/personas.json` 和 `runtime/behaviors.json` 是本轮可运行的最小样例，供 PersonaLoader、RuleEngine 和 Mock 闭环使用。它们只提供结构与测试文案，不替代 C 后续提交的正式人格、规则和资源内容；运行时通过稳定的 `personaId` 与行为 `id` 引用配置。

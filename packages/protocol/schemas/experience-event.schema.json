@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ar-aipet.local/protocol/experience-event.schema.json",
+  "type": "object",
+  "required": ["eventId", "sourceEventId", "personaId", "mode", "priority", "expiresAt", "speech", "innerOs", "robot", "xr", "app", "interruptible"],
+  "properties": {
+    "eventId": {"type": "string", "format": "uuid"},
+    "sourceEventId": {"type": ["string", "null"]},
+    "personaId": {"type": "string"},
+    "mode": {"type": "string", "enum": ["conversation", "reminder", "farm", "game", "sensor", "companion"]},
+    "priority": {"type": "integer", "minimum": 0, "maximum": 100},
+    "expiresAt": {"type": "string", "format": "date-time"},
+    "speech": {"type": "object"},
+    "innerOs": {"type": "object"},
+    "robot": {"type": "object"},
+    "xr": {"type": "object"},
+    "app": {"type": "object"},
+    "interruptible": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}
