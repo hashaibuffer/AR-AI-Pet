@@ -2,7 +2,7 @@
 
 ## 模块用途
 
-提供项目业务数据、虚拟生活、日程、游戏存档、记忆任务和 MCP 工具入口。语音会话由 StackChan 当前固件接入的 Xiaozhi AI.AGENT 负责，本服务不再重复实现一套对话运行时。
+提供项目业务数据、虚拟生活、日程、游戏存档、MCP 工具和本地 Agent Runtime。当前先支持文字输入；语音协议网关属于后续工作。
 
 ## 主责人
 
@@ -10,10 +10,13 @@ B。
 
 ## 当前架构
 
-- **Xiaozhi AI.AGENT**：负责语音、ASR、对话、任务理解和工具调用编排。
+- **本地 Agent Runtime**：负责文字会话、模型调用、MCP 工具编排和对话落库。
+- **Xiaozhi AI.AGENT / StackChan 固件**：继续提供设备语音和实体能力；当前不作为本地文字闭环的运行时。
 - **Kimito 行为层**：负责表情、头部动作和陪伴反馈，不保存业务状态。
 - **数据服务**：唯一负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档和记忆任务。
 - **MCP Hub**：通过 `DataServiceClient` 调用数据服务 WebSocket，不持有数据库连接；首批状态与日程工具已经通过真实 MCP 客户端验证。
+
+当前 `conversationId` 只用于把本轮用户和助手消息归档到同一会话；本地 Agent 还不会自动读取历史消息，也未接入 Mem0 长期记忆。下一分支再补短期上下文读取和长期记忆检索。
 
 QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验证材料，不是当前依赖或运行入口。AgentScope 也不是当前运行时。
 
@@ -21,7 +24,7 @@ QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验�
 
 - PostgreSQL、Alembic、WebSocket 数据服务、空库初始化、持久化、健康检查和重启验证已通过。
 - StackChan 的 Xiaozhi 会话、Kimito 行为 MCP 和实体头部动作子链路已通过。
-- AR-AIPet MCP Hub 已建立首批项目工具；自托管 Mem0、Xiaozhi Agent 实际挂载、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
+- AR-AIPet MCP Hub 已建立首批项目工具；本地 Agent Runtime 的 Mock 文字闭环已通过。真实模型、语音协议网关、自托管 Mem0、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
 
 ## 配置入口
 
@@ -37,7 +40,7 @@ QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验�
 
 ## 已知问题
 
-`packages/protocol/` 尚未根据真实 Unity 消费字段冻结；MCP Hub 尚未挂载到 Xiaozhi Agent，Mem0 尚未接入；当前 StackChan 会话链路尚未自动读取项目长期记忆。
+`packages/protocol/` 尚未根据真实 Unity 消费字段冻结；真实模型和语音协议网关尚未接入；Mem0 尚未接入；StackChan 会话链路尚未自动读取项目长期记忆。
 
 ## MVP 数据服务（已跑通）
 
@@ -78,7 +81,7 @@ docker compose exec data-service alembic current
 docker compose exec data-service alembic history
 ```
 
-当前 Compose 启动 PostgreSQL、数据服务和 MCP Hub。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，仍不在本次边界内。
+当前 Compose 启动 PostgreSQL、数据服务、MCP Hub 和本地 Agent Runtime。默认 `AGENT_PROVIDER=mock` 仅用于自动化 smoke；正式部署应配置 `AGENT_PROVIDER=openai` 和外部 OpenAI-compatible 接口。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，仍不在本次边界内。
 
 ## 本地环境与最小测试
 
@@ -100,9 +103,12 @@ docker compose exec -T data-service python scripts/maintenance_smoke.py
 docker compose exec -T data-service alembic current
 docker compose restart data-service
 docker compose exec -T data-service python scripts/ws_smoke.py
+python scripts/agent_smoke.py
 ```
 
 `ws_smoke.py` 使用两个 WebSocket 连接验证农场补算后的主动推送，并验证日程写入、快艇骰子局面保存、游戏结束必填结果、对话写入和版本冲突。`maintenance_smoke.py` 验证日程扫描和对话过期清理。
+
+`agent_smoke.py` 连接 `ws://localhost:8082/ws`，使用默认 Mock Provider 验证文字会话、日程工具调用、工具错误反馈和同一会话落库；真实模型需单独设置 `AGENT_PROVIDER=openai` 并提供兼容接口配置。
 
 需要验证空库时，仅针对本地测试数据执行：
 
@@ -124,7 +130,7 @@ MCP Hub
   → PostgreSQL
 ```
 
-MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_URL`。当前只暴露四个首版工具：
+MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_URL`。本地 Agent Runtime 通过 MCP Hub 获取工具，并通过数据服务保存用户和助手原文。当前只暴露四个首版工具：
 
 | 工具 | 用途 |
 |---|---|
@@ -146,4 +152,4 @@ docker compose up --build -d
 docker compose exec -T mcp-hub python scripts/mcp_smoke.py
 ```
 
-成功输出 `MCP_SMOKE_OK` 代表 MCP Hub → DataServiceClient → WebSocket 数据服务 → PostgreSQL 闭环通过；Xiaozhi Agent 实际调用、Mem0、机器人、底座和 Unity 仍不在本次边界。
+成功输出 `MCP_SMOKE_OK` 代表 MCP Hub → DataServiceClient → WebSocket 数据服务 → PostgreSQL 闭环通过；`AGENT_SMOKE_OK` 代表本地文字 Agent → MCP 工具 → 数据服务 → PostgreSQL → Agent 回复闭环通过。真实模型、语音、Mem0、机器人、底座和 Unity 仍需单独验收。
