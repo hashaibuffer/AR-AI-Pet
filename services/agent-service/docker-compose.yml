@@ -70,6 +70,8 @@ services:
       DATA_SERVICE_WS_URL: ws://data-service:8080/ws
       DATA_SERVICE_TIMEOUT_SECONDS: ${DATA_SERVICE_TIMEOUT_SECONDS:-5}
       MCP_URL: http://mcp-hub:8081/mcp
+      MEMORY_WS_URL: ws://memory-service:8083/ws
+      MEMORY_SEARCH_TIMEOUT_SECONDS: ${MEMORY_SEARCH_TIMEOUT_SECONDS:-2}
     ports:
       - "${AGENT_PORT:-8082}:8082"
     healthcheck:
@@ -82,5 +84,67 @@ services:
       mcp-hub:
         condition: service_healthy
 
+  qdrant:
+    image: qdrant/qdrant:v1.19.0
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    healthcheck:
+      # The minimal Qdrant image has no curl/wget. The persisted raft file is
+      # created only after the storage layer has initialized.
+      test: ["CMD-SHELL", "test -f /qdrant/storage/raft_state.json"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  memory-service:
+    build: .
+    command: ["uvicorn", "app.memory_service:app", "--host", "0.0.0.0", "--port", "8083"]
+    environment:
+      MEMORY_HOST: 0.0.0.0
+      MEMORY_PORT: 8083
+      MEMORY_PROVIDER: ${MEMORY_PROVIDER:-mock}
+      MEMORY_WORKER_INTERVAL_SECONDS: ${MEMORY_WORKER_INTERVAL_SECONDS:-2}
+      MEMORY_MAX_ATTEMPTS: ${MEMORY_MAX_ATTEMPTS:-3}
+      MEMORY_JOB_LEASE_SECONDS: ${MEMORY_JOB_LEASE_SECONDS:-60}
+      MEMORY_RETRY_BASE_SECONDS: ${MEMORY_RETRY_BASE_SECONDS:-5}
+      MEMORY_MOCK_PATH: /data/mock_memories.json
+      MEM0_ENABLED: ${MEM0_ENABLED:-false}
+      MEM0_QDRANT_URL: http://qdrant:6333
+      MEM0_COLLECTION: ${MEM0_COLLECTION:-araipet_memories}
+      MEM0_HISTORY_DB_PATH: /data/mem0-history.db
+      MEM0_LLM_PROVIDER: ${MEM0_LLM_PROVIDER:-openai}
+      MEM0_LLM_BASE_URL: ${MEM0_LLM_BASE_URL:-https://api.openai.com/v1}
+      MEM0_LLM_API_KEY: ${MEM0_LLM_API_KEY:-}
+      MEM0_LLM_MODEL: ${MEM0_LLM_MODEL:-gpt-4o-mini}
+      MEM0_EMBEDDER_PROVIDER: ${MEM0_EMBEDDER_PROVIDER:-openai}
+      MEM0_EMBEDDER_BASE_URL: ${MEM0_EMBEDDER_BASE_URL:-https://api.openai.com/v1}
+      MEM0_EMBEDDER_API_KEY: ${MEM0_EMBEDDER_API_KEY:-}
+      MEM0_EMBEDDER_MODEL: ${MEM0_EMBEDDER_MODEL:-text-embedding-3-small}
+      MEM0_EMBEDDING_DIMS: ${MEM0_EMBEDDING_DIMS:-1536}
+      DATA_SERVICE_WS_URL: ws://data-service:8080/ws
+      DATA_SERVICE_TIMEOUT_SECONDS: ${DATA_SERVICE_TIMEOUT_SECONDS:-5}
+    ports:
+      - "${MEMORY_PORT:-8083}:8083"
+    volumes:
+      - mem0-data:/data
+    healthcheck:
+      test: ["CMD", "python", "scripts/memory_health.py"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      data-service:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
 volumes:
   araipet-postgres:
+  qdrant-storage:
+  mem0-data:

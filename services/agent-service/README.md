@@ -16,7 +16,7 @@ B。
 - **数据服务**：唯一负责 PostgreSQL 业务事实、虚拟生活、日程、游戏存档和记忆任务。
 - **MCP Hub**：通过 `DataServiceClient` 调用数据服务 WebSocket，不持有数据库连接；首批状态与日程工具已经通过真实 MCP 客户端验证。
 
-当前 `conversationId` 只用于把本轮用户和助手消息归档到同一会话；本地 Agent 还不会自动读取历史消息，也未接入 Mem0 长期记忆。下一分支再补短期上下文读取和长期记忆检索。
+当前 `conversationId` 用于归档并读取最近短期上下文；长期记忆通过独立 Memory Service 异步处理。Mem0 真实 LLM/Embedding 尚未实测。
 
 QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验证材料，不是当前依赖或运行入口。AgentScope 也不是当前运行时。
 
@@ -24,7 +24,8 @@ QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验�
 
 - PostgreSQL、Alembic、WebSocket 数据服务、空库初始化、持久化、健康检查和重启验证已通过。
 - StackChan 的 Xiaozhi 会话、Kimito 行为 MCP 和实体头部动作子链路已通过。
-- AR-AIPet MCP Hub 已建立首批项目工具；本地 Agent Runtime 的 Mock 文字闭环已通过。真实模型、语音协议网关、自托管 Mem0、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
+- AR-AIPet MCP Hub 已建立首批项目工具；本地 Agent Runtime 的 Mock 文字闭环已通过。真实模型、语音协议网关、真实自托管 Mem0、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
+- Mock 长期记忆链路已通过：对话完成事件 → memory_jobs → Memory Worker → memory_refs → memory.search。
 
 ## 配置入口
 
@@ -40,7 +41,27 @@ QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验�
 
 ## 已知问题
 
-`packages/protocol/` 尚未根据真实 Unity 消费字段冻结；真实模型和语音协议网关尚未接入；Mem0 尚未接入；StackChan 会话链路尚未自动读取项目长期记忆。
+`packages/protocol/` 尚未根据真实 Unity 消费字段冻结；真实 LLM/Embedding 尚未实测；StackChan 会话链路尚未自动读取项目长期记忆。
+
+## 当前记忆实现
+
+| 组件 | 版本/入口 | 状态 |
+|---|---|---|
+| Mem0 OSS Python Library | [`mem0ai==2.0.17`](https://github.com/mem0ai/mem0) | 代码已接入；真实模型凭据缺失，未宣称真实通过 |
+| Qdrant | [`qdrant/qdrant:v1.19.0`](https://qdrant.tech/documentation/) | Compose 固定版本、健康检查和持久化卷已通过 |
+| Memory Worker | `app/memory/worker.py` | 通过数据服务 WebSocket 领取、完成、失败、忽略和恢复任务 |
+| Memory Service | `ws://localhost:8083/ws` | 提供 `memory.health`、`memory.search`；不持有 `DATABASE_URL` |
+
+正式记忆数据流为：
+
+```text
+Agent Runtime → Memory Service → Mem0/Qdrant
+Memory Worker → DataService WebSocket → PostgreSQL
+```
+
+PostgreSQL 保存对话、事件、任务和 `memory_refs`，是业务事实来源；Mem0 只保存经规则筛选的长期语义记忆。`memory-service` 不直接连接 PostgreSQL，Agent 不因记忆服务不可用而停止普通对话或日程工具。
+
+Mem0 的 LLM 与 Embedding 使用独立环境变量配置；`.env.example` 只含空占位符。默认 Compose 使用持久化文件 Mock Provider，便于无外部凭据时验收架构；设置 `MEMORY_PROVIDER=mem0`、`MEM0_ENABLED=true` 后才启用真实 Mem0。
 
 ## MVP 数据服务（已跑通）
 
@@ -81,7 +102,7 @@ docker compose exec data-service alembic current
 docker compose exec data-service alembic history
 ```
 
-当前 Compose 启动 PostgreSQL、数据服务、MCP Hub 和本地 Agent Runtime。默认 `AGENT_PROVIDER=mock` 仅用于自动化 smoke；正式部署应配置 `AGENT_PROVIDER=openai` 和外部 OpenAI-compatible 接口。Mem0 已预留 `memory_jobs`、`memory_refs`、`MemoryProvider` 与 Worker 入口，仍不在本次边界内。
+当前 Compose 启动 PostgreSQL、数据服务、MCP Hub、本地 Agent Runtime、Qdrant 和 Memory Service。默认 `AGENT_PROVIDER=mock`、`MEMORY_PROVIDER=mock` 仅用于自动化 smoke；正式部署应配置真实模型和 Embedding 接口。
 
 ## 本地环境与最小测试
 
@@ -109,6 +130,23 @@ python scripts/agent_smoke.py
 `ws_smoke.py` 使用两个 WebSocket 连接验证农场补算后的主动推送，并验证日程写入、快艇骰子局面保存、游戏结束必填结果、对话写入和版本冲突。`maintenance_smoke.py` 验证日程扫描和对话过期清理。
 
 `agent_smoke.py` 连接 `ws://localhost:8082/ws`，使用默认 Mock Provider 验证文字会话、日程工具调用、工具错误反馈和同一会话落库；真实模型需单独设置 `AGENT_PROVIDER=openai` 并提供兼容接口配置。
+
+```powershell
+docker compose exec -T memory-service python scripts/memory_health.py
+python scripts/memory_smoke.py
+```
+
+`memory_smoke.py` 验证偏好对话产生任务、Worker 写入 Mock 记忆、`memory_refs` 生成、`conversation.get` 顺序和 Agent 跨会话检索。真实 Mem0 需要可用的 LLM 与 Embedding 凭据；本环境未提供，因此真实 Mem0 仍是待验证项。
+
+`memory_health.py` 同时检查 WebSocket 响应的顶层 `status` 和 `payload.providerStatus`。默认 Mock Provider 正常时均为 `ok`；启用但初始化失败的真实 Mem0 返回 `degraded`，容器进程仍可运行但健康检查会失败。
+
+最近短期上下文验证：
+
+```powershell
+docker compose exec -T agent-runtime python scripts/conversation_recent_smoke.py
+```
+
+该脚本验证 `conversation.get` 只返回最新 N 条消息，并按时间正序交给 Agent。
 
 需要验证空库时，仅针对本地测试数据执行：
 
