@@ -1,0 +1,284 @@
+diff --git a/firmware/main/CMakeLists.txt b/firmware/main/CMakeLists.txt
+index f989e22..98649e7 100644
+--- a/firmware/main/CMakeLists.txt
++++ b/firmware/main/CMakeLists.txt
+@@ -831,6 +831,12 @@ endif()
+ 
+ if(CONFIG_BOARD_TYPE_STACKCHAN)
+     set(STACKCHAN_BOARD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/boards/stackchan)
++    set(AR_CONTROLLER_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../espnow-controller/core)
++    list(APPEND SOURCES
++        ${AR_CONTROLLER_CORE_DIR}/controller_protocol.c
++        ${AR_CONTROLLER_CORE_DIR}/controller_state.c
++    )
++    list(APPEND INCLUDE_DIRS ${AR_CONTROLLER_CORE_DIR})
+     set(STACKCHAN_LOCAL_AVATAR_CC ${STACKCHAN_BOARD_DIR}/avatar_images.local.cc)
+     set(STACKCHAN_LOCAL_AVATAR_H ${STACKCHAN_BOARD_DIR}/avatar_images.local.h)
+     if(EXISTS ${STACKCHAN_LOCAL_AVATAR_CC})
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+index 97b1a50..4440e68 100644
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -36,6 +36,7 @@ static inline bool ServoWritePosOk(int r) { return r > 0; }
+ #include <smooth_ui_toolkit.hpp>
+ #include <esp_log.h>
+ #include <esp_wifi.h>
++#include <esp_now.h>
+ #include <driver/i2c_master.h>
+ #include <driver/gpio.h>
+ #include <driver/uart.h>
+@@ -47,6 +48,9 @@ static inline bool ServoWritePosOk(int r) { return r > 0; }
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/task.h>
+ #include <freertos/semphr.h>
++#include <freertos/queue.h>
++#include "controller_protocol.h"
++#include "controller_state.h"
+ #include "esp_video.h"
+ #include <cJSON.h>
+ #include <lvgl.h>
+@@ -503,6 +507,32 @@ private:
+ 
+ class StackChanBoard : public WifiBoard {
+ private:
++    struct ControllerRxPacket {
++        uint8_t source[ESP_NOW_ETH_ALEN];
++        uint8_t payload[AR_CONTROLLER_PACKET_SIZE];
++    };
++
++    QueueHandle_t controller_rx_queue_ = nullptr;
++    TaskHandle_t controller_task_ = nullptr;
++    ar_receiver_state_t controller_state_{};
++    ar_controller_mode_t controller_last_mode_ = AR_MODE_HEAD;
++    bool controller_espnow_ok_ = false;
++    bool controller_armed_ = false;
++    bool controller_base_active_ = false;
++    uint32_t controller_rx_count_ = 0;
++    uint32_t controller_raw_rx_count_ = 0;
++    static inline StackChanBoard* controller_instance_ = nullptr;
++    static constexpr int CONTROLLER_NEUTRAL_THRESHOLD = 150;
++    // Keep remote head control responsive without driving the servos toward
++    // their mechanical extremes. Pitch is deliberately kept well below 90°.
++    static constexpr int CONTROLLER_HEAD_YAW_LIMIT_DEG = 45;
++    static constexpr int CONTROLLER_HEAD_PITCH_MIN_DEG = 20;
++    static constexpr int CONTROLLER_HEAD_PITCH_MAX_DEG = 70;
++    static constexpr int CONTROLLER_HEAD_SPEED_DPS = 200;
++    static constexpr int CONTROLLER_HEAD_UPDATE_THRESHOLD_DEG = 2;
++    int controller_last_head_yaw_deg_ = std::numeric_limits<int>::min();
++    int controller_last_head_pitch_deg_ = std::numeric_limits<int>::min();
++
+     // Internal I2C bus (shared by AXP2101 / AW9523 / FT6336 / PY32 / Si12T /
+     // audio codec / IMU). Direct on-board ICs only; not exposed through
+     // self.i2c.* MCP tools.
+@@ -2225,6 +2255,203 @@ private:
+         return ESP_OK;
+     }
+ 
++    static uint32_t ControllerNowMs() {
++        return static_cast<uint32_t>(esp_timer_get_time() / 1000ULL);
++    }
++
++    static void ControllerReceiveCallback(const esp_now_recv_info_t* info,
++                                          const uint8_t* data, int length) {
++        auto* self = controller_instance_;
++        if (self == nullptr || self->controller_rx_queue_ == nullptr ||
++            info == nullptr || data == nullptr) {
++            return;
++        }
++        ++self->controller_raw_rx_count_;
++        if (self->controller_raw_rx_count_ == 1) {
++            ESP_LOGI(TAG, "ESP-NOW raw RX first packet length=%d", length);
++        }
++        if (length != static_cast<int>(AR_CONTROLLER_PACKET_SIZE)) return;
++        ControllerRxPacket packet{};
++        memcpy(packet.source, info->src_addr, ESP_NOW_ETH_ALEN);
++        memcpy(packet.payload, data, AR_CONTROLLER_PACKET_SIZE);
++        xQueueSend(self->controller_rx_queue_, &packet, 0);
++    }
++
++    void SendControllerStatus(const ar_controller_packet_t& input) {
++        ar_controller_packet_t status{};
++        status.kind = AR_PACKET_STATUS;
++        status.mode = input.mode;
++        status.flags = AR_FLAG_ONLINE;
++        status.sequence = input.sequence;
++        uint8_t payload[AR_CONTROLLER_PACKET_SIZE];
++        if (ar_controller_encode(&status, payload)) {
++            static const uint8_t broadcast_addr[ESP_NOW_ETH_ALEN] =
++                {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
++            const esp_err_t err = esp_now_send(broadcast_addr, payload, sizeof(payload));
++            if (err != ESP_OK) {
++                ESP_LOGW(TAG, "ESP-NOW status TX failed: %s", esp_err_to_name(err));
++            }
++        }
++    }
++
++    void StopControllerBase() {
++        if (controller_base_active_) {
++            WriteNanoDriveCommand("ST");
++            controller_base_active_ = false;
++        }
++    }
++
++    void ApplyControllerInput(const ar_controller_packet_t& packet) {
++        const bool mode_changed = packet.mode != controller_last_mode_;
++        if (mode_changed) {
++            StopControllerBase();
++            controller_armed_ = false;
++            controller_last_mode_ = packet.mode;
++            controller_last_head_yaw_deg_ = std::numeric_limits<int>::min();
++            controller_last_head_pitch_deg_ = std::numeric_limits<int>::min();
++            ESP_LOGI(TAG, "ESP-NOW controller mode: %s",
++                     ar_controller_mode_name(packet.mode));
++        }
++
++        if (!controller_armed_ &&
++            std::abs(static_cast<int>(packet.joystick_x)) <= CONTROLLER_NEUTRAL_THRESHOLD &&
++            std::abs(static_cast<int>(packet.joystick_y)) <= CONTROLLER_NEUTRAL_THRESHOLD) {
++            controller_armed_ = true;
++            ESP_LOGI(TAG, "ESP-NOW controller armed at neutral");
++        }
++        if (!controller_armed_) {
++            StopControllerBase();
++            return;
++        }
++
++        if (packet.mode == AR_MODE_HEAD) {
++            StopControllerBase();
++            const int yaw = std::clamp(-static_cast<int>(packet.head_yaw) *
++                                           CONTROLLER_HEAD_YAW_LIMIT_DEG / 1280,
++                                       -CONTROLLER_HEAD_YAW_LIMIT_DEG,
++                                       CONTROLLER_HEAD_YAW_LIMIT_DEG);
++            const int pitch = std::clamp(
++                CONTROLLER_HEAD_PITCH_MIN_DEG +
++                    static_cast<int>(packet.head_pitch) *
++                        (CONTROLLER_HEAD_PITCH_MAX_DEG - CONTROLLER_HEAD_PITCH_MIN_DEG) / 900,
++                CONTROLLER_HEAD_PITCH_MIN_DEG, CONTROLLER_HEAD_PITCH_MAX_DEG);
++            if (controller_last_head_yaw_deg_ == std::numeric_limits<int>::min() ||
++                std::abs(yaw - controller_last_head_yaw_deg_) >=
++                    CONTROLLER_HEAD_UPDATE_THRESHOLD_DEG ||
++                std::abs(pitch - controller_last_head_pitch_deg_) >=
++                    CONTROLLER_HEAD_UPDATE_THRESHOLD_DEG) {
++                WriteHeadAngles(yaw, pitch, CONTROLLER_HEAD_SPEED_DPS);
++                controller_last_head_yaw_deg_ = yaw;
++                controller_last_head_pitch_deg_ = pitch;
++            }
++            return;
++        }
++
++        if (packet.mode == AR_MODE_BASE) {
++            if ((packet.flags & AR_FLAG_STOP) || controller_state_.stopped) {
++                StopControllerBase();
++                return;
++            }
++            const int left = std::clamp(static_cast<int>(controller_state_.base_left) *
++                                            NANODRIVE_MAX_SPEED / 1000,
++                                        -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
++            const int right = std::clamp(static_cast<int>(controller_state_.base_right) *
++                                             NANODRIVE_MAX_SPEED / 1000,
++                                         -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
++            controller_base_active_ = SendNanoDriveMotion(
++                "VL:" + std::to_string(left) + "," + std::to_string(right));
++            return;
++        }
++
++        StopControllerBase();
++        if (packet.button_events != 0) {
++            ESP_LOGI(TAG, "ESP-NOW game input mode=%s buttons=0x%04x x=%d y=%d",
++                     ar_controller_mode_name(packet.mode), packet.button_events,
++                     packet.joystick_x, packet.joystick_y);
++        }
++    }
++
++    void ControllerTask() {
++        while (true) {
++            if (!controller_espnow_ok_) {
++                uint8_t primary = 0;
++                wifi_second_chan_t secondary = WIFI_SECOND_CHAN_NONE;
++                wifi_ap_record_t connected_ap{};
++                if (esp_wifi_sta_get_ap_info(&connected_ap) == ESP_OK &&
++                    esp_wifi_get_channel(&primary, &secondary) == ESP_OK && primary != 0) {
++                    esp_err_t err = esp_now_init();
++                    if (err == ESP_OK) {
++                        esp_now_register_recv_cb(ControllerReceiveCallback);
++                        esp_now_peer_info_t peer{};
++                        memset(peer.peer_addr, 0xff, ESP_NOW_ETH_ALEN);
++                        peer.ifidx = WIFI_IF_STA;
++                        peer.channel = 0;
++                        peer.encrypt = false;
++                        err = esp_now_add_peer(&peer);
++                        if (err == ESP_OK || err == ESP_ERR_ESPNOW_EXIST) {
++                            controller_espnow_ok_ = true;
++                            esp_wifi_set_ps(WIFI_PS_NONE);
++                            ESP_LOGI(TAG, "ESP-NOW controller ready on Wi-Fi channel %u", primary);
++                        } else {
++                            ESP_LOGE(TAG, "ESP-NOW broadcast peer failed: %s", esp_err_to_name(err));
++                            esp_now_deinit();
++                        }
++                    }
++                }
++                vTaskDelay(pdMS_TO_TICKS(500));
++                continue;
++            }
++
++            // Real-time remote input must not depend on modem-sleep receive windows.
++            esp_wifi_set_ps(WIFI_PS_NONE);
++
++            ControllerRxPacket rx{};
++            if (xQueueReceive(controller_rx_queue_, &rx, pdMS_TO_TICKS(50)) == pdTRUE) {
++                ar_controller_packet_t packet{};
++                if (ar_controller_decode(rx.payload, sizeof(rx.payload), &packet) &&
++                    ar_receiver_accept_input(&controller_state_, &packet, ControllerNowMs())) {
++                    ++controller_rx_count_;
++                    if (controller_rx_count_ == 1 || controller_rx_count_ % 100 == 0) {
++                        ESP_LOGI(TAG, "ESP-NOW controller RX count=%lu mode=%s seq=%lu",
++                                 static_cast<unsigned long>(controller_rx_count_),
++                                 ar_controller_mode_name(packet.mode),
++                                 static_cast<unsigned long>(packet.sequence));
++                    }
++                    ApplyControllerInput(packet);
++                    SendControllerStatus(packet);
++                }
++            }
++
++            const bool was_stopped = controller_state_.stopped;
++            ar_receiver_tick(&controller_state_, ControllerNowMs());
++            if (!was_stopped && controller_state_.stopped) {
++                StopControllerBase();
++                controller_armed_ = false;
++                ESP_LOGW(TAG, "ESP-NOW controller input timeout; outputs stopped");
++            }
++        }
++    }
++
++    static void ControllerTaskTrampoline(void* arg) {
++        static_cast<StackChanBoard*>(arg)->ControllerTask();
++    }
++
++    void InitializeEspNowController() {
++        ar_receiver_state_init(&controller_state_);
++        controller_rx_queue_ = xQueueCreate(8, sizeof(ControllerRxPacket));
++        if (controller_rx_queue_ == nullptr) {
++            ESP_LOGE(TAG, "ESP-NOW controller queue allocation failed");
++            return;
++        }
++        controller_instance_ = this;
++        if (xTaskCreate(ControllerTaskTrampoline, "controller_rx", 6144, this, 5,
++                        &controller_task_) != pdPASS) {
++            ESP_LOGE(TAG, "ESP-NOW controller task creation failed");
++            vQueueDelete(controller_rx_queue_);
++            controller_rx_queue_ = nullptr;
++        }
++    }
++
+     esp_err_t InitPortCWs2812(uint16_t led_count) {
+         if (port_c_ws2812_ok_ && port_c_ws2812_led_count_ == led_count) {
+             return ESP_OK;  // idempotent: same led_count is a no-op
+@@ -7107,6 +7334,7 @@ public:
+         GetBacklight()->RestoreBrightness();
+         InitializeIOExpander();
+         InitializeServo();
++        InitializeEspNowController();
+         InitializeTouchSettings();
+         InitializeSi12tTouch();
+         I2cDetect();

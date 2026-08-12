@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RobotHost,
 
-    [ValidateSet('list_tools', 'play_motion', 'stop_motion', 'set_head_angles')]
+    [ValidateSet('list_tools', 'play_motion', 'stop_motion', 'set_head_angles', 'base_move', 'base_drive', 'base_stop')]
     [string]$Action = 'list_tools',
 
     [ValidateSet('happy', 'robot', 'panic', 'look_around')]
@@ -13,6 +13,15 @@ param(
     [int]$Pitch = 0,
     [ValidateRange(100, 1000)]
     [int]$Speed = 300,
+
+    [ValidateSet('forward', 'backward', 'left', 'right')]
+    [string]$Direction = 'forward',
+
+    [ValidateRange(-180, 180)]
+    [int]$Left = 0,
+
+    [ValidateRange(-180, 180)]
+    [int]$Right = 0,
 
     [int]$Port = 8080
 )
@@ -39,12 +48,27 @@ switch ($Action) {
         $method = 'tools/call'
         $arguments = @{ yaw = $Yaw; pitch = $Pitch; speed = $Speed }
     }
+    'base_move' {
+        $method = 'tools/call'
+        $arguments = @{ direction = $Direction; speed = [Math]::Min($Speed, 180) }
+    }
+    'base_drive' {
+        $method = 'tools/call'
+        $arguments = @{ left = $Left; right = $Right }
+    }
+    'base_stop' {
+        $method = 'tools/call'
+        $arguments = @{}
+    }
 }
 
 $toolName = switch ($Action) {
     'play_motion' { 'self.robot.play_motion' }
     'stop_motion' { 'self.robot.stop_motion' }
     'set_head_angles' { 'self.robot.set_head_angles' }
+    'base_move' { 'self.robot.base_move' }
+    'base_drive' { 'self.robot.base_drive' }
+    'base_stop' { 'self.robot.base_stop' }
     default { $null }
 }
 

@@ -75,6 +75,7 @@ void RobotActionAdapter::registerMcpTools(McpServer& server)
             mclog::tagInfo(kTag, "stop_motion accepted={}", accepted);
             return accepted;
         });
+
 }
 
 bool RobotActionAdapter::playMotion(std::string_view name)

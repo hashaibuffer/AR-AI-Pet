@@ -52,7 +52,9 @@ pnpm-debug.log*
 # Locally checked out upstream firmware baselines; exact revisions are recorded in module READMEs.
 /firmware/stackchan/upstream/
 /firmware/stackchan-mcp/upstream/
+/firmware/espnow-controller/build-host/
 # StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
+firmware/stackchan-mcp/artifacts/local-consistency/
 /firmware/kimito-stackchan/upstream/
 
 # Existing local output
@@ -70,3 +72,7 @@ pnpm-debug.log*
 /services/db/generated-runtime/qwenpaw/.telemetry_collected
 /services/db/generated-runtime/qwenpaw/token_usage.json
 /services/db/generated-runtime/qwenpaw/skill_pool/.skill.json.lock
+
+# Local development runtimes and helper binaries
+/.workbuddy/
+/tools/arduino-cli/

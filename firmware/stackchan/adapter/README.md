@@ -22,3 +22,5 @@ AI.Agent → McpServer → 本适配器
 
 官方 WebSocket 源码位于 StackChan 工程的 `xiaozhi-esp32/main/boards/otto-robot/`，
 项目只在 StackChan 的 CMake 和 HAL 启动流程中接入它，不另定义控制协议。
+
+NanoDrive 已移入当前产品固件模块 [`../../stackchan-mcp/`](../../stackchan-mcp/)，本历史适配器不再维护重复实现。

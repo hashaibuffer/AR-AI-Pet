@@ -1,0 +1,431 @@
+diff --git a/remote/code/main/CMakeLists.txt b/remote/code/main/CMakeLists.txt
+index 8c14b31..f37ef66 100644
+--- a/remote/code/main/CMakeLists.txt
++++ b/remote/code/main/CMakeLists.txt
+@@ -8,6 +8,8 @@ set(SOURCES
+     ui/updown_img.c
+     lvgl_port.cpp
+     StackChan-RemoteControl-ESPNow.cpp
++    ../../../../../espnow-controller/core/controller_protocol.c
++    ../../../../../espnow-controller/core/controller_state.c
+ )
+ 
+ idf_component_register(SRCS ${SOURCES}
+@@ -16,4 +18,5 @@ idf_component_register(SRCS ${SOURCES}
+                     esp_now
+                     joystick
+                     ui
++                    ../../../../../espnow-controller/core
+                     )
+diff --git a/remote/code/main/StackChan-RemoteControl-ESPNow.cpp b/remote/code/main/StackChan-RemoteControl-ESPNow.cpp
+index dc23aaf..2218897 100644
+--- a/remote/code/main/StackChan-RemoteControl-ESPNow.cpp
++++ b/remote/code/main/StackChan-RemoteControl-ESPNow.cpp
+@@ -34,32 +34,24 @@ joystick_data_t joystick_data;
+  */
+ void handle_button_press()
+ {
+-    static uint8_t screen_mode = MODE_SETUP;
+-    // check if BtnA is pressed
+     if (M5.BtnA.wasPressed()) {
+-        // use BtnA to switch mode
+-        screen_mode = (screen_mode + 1) % 3;
+-
+-        if (screen_mode == MODE_SETUP) {
+-            // in setup mode, press A to enter running mode
+-            joystick_data.screen_mode = MODE_SETUP;
+-            switch_screen(joystick_data.screen_mode);
+-        } else if (screen_mode == MODE_RUNNING) {
+-            // in running mode, press A to enter IMU mode
+-            wifi_espnow_reinit(joystick_data.channel);
+-            joystick_data.screen_mode = MODE_RUNNING;
+-            switch_screen(joystick_data.screen_mode);
+-        } else if (screen_mode == MODE_IMU) {
+-            // in IMU mode, press A to return to setup mode
+-            joystick_data.screen_mode = MODE_IMU;
+-            switch_screen(joystick_data.screen_mode);
+-        }
++        ar_controller_toggle_physical_mode(&joystick_data.controller);
+     }
+-    if (M5.BtnB.wasPressed()) {
+-        if (joystick_data.screen_mode == MODE_SETUP) {
+-            joystick_data.select_mode = !joystick_data.select_mode;
+-        } else if ((joystick_data.screen_mode == MODE_RUNNING) || (joystick_data.screen_mode == MODE_IMU)) {
+-            joystick_data.btnB_status = !joystick_data.btnB_status;
++    joystick_data.btnB_status = M5.BtnB.isPressed();
++}
++
++void handle_incoming_packets()
++{
++    uint8_t wire[64];
++    size_t length = 0;
++    ar_controller_packet_t packet;
++    while (espnow_receive_data(wire, sizeof(wire), &length)) {
++        if (!ar_controller_decode(wire, length, &packet)) continue;
++        uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
++        if (packet.kind == AR_PACKET_STATUS) {
++            ar_controller_accept_status(&joystick_data.controller, &packet, now_ms);
++        } else if (packet.kind == AR_PACKET_MODE_COMMAND) {
++            ar_controller_apply_agent_command(&joystick_data.controller, packet.command);
+         }
+     }
+ }
+@@ -67,6 +59,7 @@ void handle_button_press()
+ void app_main(void)
+ {
+     imu_data_t imu_data;
++    uint32_t last_channel_scan_ms = 0;
+ 
+     // Initialize NVS
+     esp_err_t ret = nvs_flash_init();
+@@ -86,18 +79,26 @@ void app_main(void)
+ 
+     lvgl_port_init();  // init LVGL
+     ui_init();         // init UI
++    joystick_data.screen_mode = MODE_RUNNING;
+ 
+     // init WiFi and ESP-NOW
+     wifi_espnow_init(joystick_data.channel);
+ 
+-    xTaskCreate(handle_setup_screen, "handle_setup_screen", 8192, &joystick_data, 5, NULL);      // handle setup mode
+     xTaskCreate(handle_running_screen, "handle_running_screen", 8192, &joystick_data, 5, NULL);  // handle running mode
+-    xTaskCreate(handle_imu_screen, "handle_imu_screen", 8192, &joystick_data, 5, NULL);
+ 
+     while (1) {
+         M5.update();
+         // Handle button press
+         handle_button_press();
++        handle_incoming_packets();
++        uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000);
++        ar_controller_tick(&joystick_data.controller, now_ms);
++        if (!joystick_data.controller.online &&
++            (uint32_t)(now_ms - last_channel_scan_ms) >= 700) {
++            joystick_data.channel = (joystick_data.channel % 13) + 1;
++            wifi_espnow_reinit(joystick_data.channel);
++            last_channel_scan_ms = now_ms;
++        }
+         joystick_data.bat = (M5.Power.Axp192.getBatteryLevel());  // updata battery level
+ 
+         joystick_data.bat = (joystick_data.bat > 100) ? 100 : joystick_data.bat;
+diff --git a/remote/code/main/esp_now/esp_now_init.c b/remote/code/main/esp_now/esp_now_init.c
+index 073d74f..bb9df04 100644
+--- a/remote/code/main/esp_now/esp_now_init.c
++++ b/remote/code/main/esp_now/esp_now_init.c
+@@ -4,6 +4,34 @@
+  * SPDX-License-Identifier: MIT
+  */
+ #include "esp_now_init.h"
++#include "freertos/queue.h"
++
++#define RX_PACKET_MAX 64
++
++typedef struct {
++    size_t length;
++    uint8_t data[RX_PACKET_MAX];
++} rx_packet_t;
++
++static QueueHandle_t rx_queue;
++static uint8_t current_channel;
++
++static esp_err_t receive_data(uint8_t *src_addr, void *data, size_t size,
++                              wifi_pkt_rx_ctrl_t *rx_ctrl)
++{
++    (void)src_addr;
++    (void)rx_ctrl;
++    if (rx_queue == NULL || data == NULL || size > RX_PACKET_MAX) return ESP_ERR_INVALID_ARG;
++    rx_packet_t packet = {.length = size};
++    memcpy(packet.data, data, size);
++    return xQueueSend(rx_queue, &packet, 0) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
++}
++
++static void enable_receive(void)
++{
++    if (rx_queue == NULL) rx_queue = xQueueCreate(8, sizeof(rx_packet_t));
++    ESP_ERROR_CHECK(espnow_set_config_for_data_type(ESPNOW_DATA_TYPE_DATA, true, receive_data));
++}
+ 
+ /**
+  * @brief Initialize WiFi in STA mode and ESP-NOW with the specified channel
+@@ -33,6 +61,7 @@ void wifi_espnow_init(uint8_t channel)
+     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+     ESP_ERROR_CHECK(esp_wifi_start());
+     ESP_ERROR_CHECK(esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE));
++    current_channel = channel;
+ 
+ #if CONFIG_ESPNOW_ENABLE_LONG_RANGE
+     ESP_ERROR_CHECK(esp_wifi_set_protocol(
+@@ -44,9 +73,10 @@ void wifi_espnow_init(uint8_t channel)
+     espnow_config.forward_switch_channel = false;
+     espnow_config.send_retry_num         = 5;
+     espnow_config.receive_enable.forward = false;
+-    espnow_config.receive_enable.data    = false;
++    espnow_config.receive_enable.data    = true;
+ 
+     espnow_init(&espnow_config);
++    enable_receive();
+ 
+     uint8_t mac[6];
+     esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY);
+@@ -71,9 +101,9 @@ void wifi_espnow_init(uint8_t channel)
+ int wifi_espnow_reinit(uint8_t new_channel)
+ {
+     uint8_t channel = 0;
+-    if (new_channel == channel) {
++    if (new_channel == current_channel) {
+         ESP_LOGI("wifi reinit", "New Channel is same as current channel, no need to reinitialize");
+-        return channel;
++        return current_channel;
+     }
+     // ESP_LOGI("reinit", "Reinitializing WiFi and ESP-NOW with channel: %d", new_channel);
+ 
+@@ -95,9 +125,10 @@ int wifi_espnow_reinit(uint8_t new_channel)
+     espnow_config.forward_switch_channel = false;
+     espnow_config.send_retry_num         = 5;
+     espnow_config.receive_enable.forward = false;
+-    espnow_config.receive_enable.data    = false;
++    espnow_config.receive_enable.data    = true;
+ 
+     espnow_init(&espnow_config);
++    enable_receive();
+ 
+     uint8_t mac[6];
+     esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY);
+@@ -105,6 +136,7 @@ int wifi_espnow_reinit(uint8_t new_channel)
+              mac[4], mac[5]);
+     wifi_second_chan_t second;
+     esp_wifi_get_channel(&channel, &second);
++    current_channel = channel;
+     ESP_LOGI("WiFi", "Current channel: %d", channel);
+     return channel;
+ }
+@@ -125,3 +157,15 @@ void espnow_send_data(uint8_t *pkt, size_t len)
+     espnow_frame_head_t frame_head = ESPNOW_FRAME_CONFIG_DEFAULT();
+     ESP_ERROR_CHECK(espnow_send(ESPNOW_DATA_TYPE_DATA, ESPNOW_ADDR_BROADCAST, pkt, len, &frame_head, portMAX_DELAY));
+ }
++
++bool espnow_receive_data(uint8_t *pkt, size_t capacity, size_t *length)
++{
++    rx_packet_t received;
++    if (pkt == NULL || length == NULL || rx_queue == NULL ||
++        xQueueReceive(rx_queue, &received, 0) != pdTRUE || received.length > capacity) {
++        return false;
++    }
++    memcpy(pkt, received.data, received.length);
++    *length = received.length;
++    return true;
++}
+diff --git a/remote/code/main/esp_now/esp_now_init.h b/remote/code/main/esp_now/esp_now_init.h
+index 350ec8a..e93d36e 100644
+--- a/remote/code/main/esp_now/esp_now_init.h
++++ b/remote/code/main/esp_now/esp_now_init.h
+@@ -20,6 +20,7 @@ extern "C" {
+ void wifi_espnow_init(uint8_t channel);
+ int wifi_espnow_reinit(uint8_t new_channel);
+ void espnow_send_data(uint8_t *pkt, size_t len);
++bool espnow_receive_data(uint8_t *pkt, size_t capacity, size_t *length);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/remote/code/main/joystick/joystick_basic.h b/remote/code/main/joystick/joystick_basic.h
+index ced9832..31986ed 100644
+--- a/remote/code/main/joystick/joystick_basic.h
++++ b/remote/code/main/joystick/joystick_basic.h
+@@ -6,6 +6,8 @@
+ #ifndef _JOYSTICK_BASIC_H_
+ #define _JOYSTICK_BASIC_H_
+ 
++#include "controller_state.h"
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -19,6 +21,7 @@ typedef struct {
+     uint8_t screen_mode;
+     uint8_t select_mode;
+     bool btnB_status;
++    ar_controller_state_t controller;
+     float accel_x;
+     float accel_y;
+     float accel_z;
+diff --git a/remote/code/main/joystick/joystick_handle.c b/remote/code/main/joystick/joystick_handle.c
+index db1334b..6973dd6 100644
+--- a/remote/code/main/joystick/joystick_handle.c
++++ b/remote/code/main/joystick/joystick_handle.c
+@@ -101,6 +101,7 @@ joystick_data_t joystick_init()
+     tmp.screen_mode = MODE_SETUP;
+     tmp.select_mode = CHANNEL_SELECT;
+     tmp.btnB_status = false;
++    ar_controller_state_init(&tmp.controller);
+     return tmp;
+ }
+ 
+@@ -144,60 +145,28 @@ void handle_setup_screen(void *pvParam)
+ void handle_running_screen(void *pvParam)
+ {
+     joystick_data_t *joystick_data = (joystick_data_t *)pvParam;
+-    // communicate packet
+-    uint8_t pkt[8];
+-    pkt[0]              = joystick_data->id;  // id: 0 for broadcast
+-    int16_t yaw_angle   = 0;
+-    int16_t pitch_angle = 0;
+-    int16_t last_yaw    = 0;
+-    int16_t last_pitch  = 0;
+-    int16_t speed_val   = 600;
++    uint8_t wire[AR_CONTROLLER_PACKET_SIZE];
++    ar_controller_packet_t packet;
+ 
+     while (1) {
+         // update screen and send packet when in running mode
+         if (joystick_data->screen_mode == MODE_RUNNING) {
+             joystick_read_xy(&joystick_data->joyX, &joystick_data->joyY);
+ 
++            ar_controller_build_input(&joystick_data->controller, joystick_data->joyX,
++                                      joystick_data->joyY,
++                                      joystick_data->btnB_status ? AR_BUTTON_ACTION : 0,
++                                      &packet);
+             if (running_screen != NULL && lv_obj_is_valid(running_screen)) {
+-                update_running_screen(joystick_data->joyX, joystick_data->joyY, joystick_data->channel,
+-                                      joystick_data->id, joystick_data->bat);
+-            }
+-
+-            // handle data from joystick
+-            if ((joystick_data->joyX < X_CENTER + DEAD_ZONE) && (joystick_data->joyX > X_CENTER - DEAD_ZONE)) {
+-                joystick_data->joyX = X_CENTER;
+-            }
+-            if ((joystick_data->joyY < Y_CENTER + DEAD_ZONE) && (joystick_data->joyY > Y_CENTER - DEAD_ZONE)) {
+-                joystick_data->joyY = Y_CENTER;
++                update_running_screen(joystick_data->joyX, joystick_data->joyY,
++                                      joystick_data->channel, joystick_data->id,
++                                      joystick_data->bat,
++                                      ar_controller_mode_name(joystick_data->controller.mode),
++                                      joystick_data->controller.online);
+             }
+-
+-            yaw_angle   = (int16_t)map(joystick_data->joyX, X_MIN, X_MAX, 1280, -1280);
+-            pitch_angle = (int16_t)map(joystick_data->joyY, Y_MIN, Y_MAX, 0, 900);
+-
+-            // send pitch_angle and yaw_angle only when changes exceed threshold
+-            if (abs(yaw_angle - last_yaw) < 5 && abs(pitch_angle - last_pitch) < 5) {
+-                if (pkt[7] != joystick_data->btnB_status) {
+-                    pkt[7] = joystick_data->btnB_status;
+-                    espnow_send_data(pkt, sizeof(pkt));
+-                }
+-                vTaskDelay(30 / portTICK_PERIOD_MS);
+-                continue;
++            if (ar_controller_encode(&packet, wire)) {
++                espnow_send_data(wire, sizeof(wire));
+             }
+-
+-            pkt[0] = joystick_data->id;
+-            memcpy(&pkt[1], &yaw_angle, sizeof(int16_t));
+-            memcpy(&pkt[3], &pitch_angle, sizeof(int16_t));
+-            memcpy(&pkt[5], &speed_val, sizeof(int16_t));
+-            pkt[7] = joystick_data->btnB_status;
+-
+-#if 0 
+-            ESP_LOGI("handle_running_screen", "Yaw: %d, Pitch: %d, Speed: %d, id: %u, Button: %u", 
+-                        yaw_angle, pitch_angle, speed_val, joystick_data->id, joystick_data->btnB_status);
+-#endif
+-
+-            last_yaw   = yaw_angle;
+-            last_pitch = pitch_angle;
+-            espnow_send_data(pkt, sizeof(pkt));
+             vTaskDelay(30 / portTICK_PERIOD_MS);
+         } else {
+             vTaskDelay(200 / portTICK_PERIOD_MS);
+diff --git a/remote/code/main/ui/ui.c b/remote/code/main/ui/ui.c
+index 1583c42..34c7768 100644
+--- a/remote/code/main/ui/ui.c
++++ b/remote/code/main/ui/ui.c
+@@ -83,7 +83,7 @@ void switch_screen(int screen_id)
+ }
+ 
+ /**
+- * @brief Initialize the UI system by creating and loading the initial setup screen
++ * @brief Initialize the UI system directly in controller mode.
+  * @note This function serves as the entry point for UI initialization
+  * @details
+  *      1. Creates the setup screen using create_setup_screen()
+@@ -93,6 +93,6 @@ void switch_screen(int screen_id)
+  */
+ void ui_init()
+ {
+-    create_setup_screen();
+-    lv_disp_load_scr(setup_screen);
++    create_running_screen();
++    lv_disp_load_scr(running_screen);
+ }
+diff --git a/remote/code/main/ui/ui_running_screen.c b/remote/code/main/ui/ui_running_screen.c
+index dfcce26..373c9a3 100644
+--- a/remote/code/main/ui/ui_running_screen.c
++++ b/remote/code/main/ui/ui_running_screen.c
+@@ -14,6 +14,8 @@ lv_obj_t* joystick_area      = NULL;
+ lv_obj_t* battery_label      = NULL;
+ lv_obj_t* channel_info_label = NULL;
+ lv_obj_t* id_info_label      = NULL;
++lv_obj_t* mode_info_label    = NULL;
++lv_obj_t* online_info_label  = NULL;
+ 
+ /**
+  * @brief Create the running screen UI with joystick visualization and status information
+@@ -110,6 +112,16 @@ void create_running_screen()
+     lv_obj_align(id_info_label, LV_ALIGN_TOP_LEFT, 10, 200);
+     lv_obj_set_style_text_font(id_info_label, &lv_font_montserrat_14, 0);
+ 
++    mode_info_label = lv_label_create(running_screen);
++    lv_label_set_text(mode_info_label, "Mode: HEAD");
++    lv_obj_align(mode_info_label, LV_ALIGN_TOP_RIGHT, -10, 160);
++    lv_obj_set_style_text_font(mode_info_label, &lv_font_montserrat_14, 0);
++
++    online_info_label = lv_label_create(running_screen);
++    lv_label_set_text(online_info_label, "OFFLINE");
++    lv_obj_align(online_info_label, LV_ALIGN_TOP_RIGHT, -10, 180);
++    lv_obj_set_style_text_font(online_info_label, &lv_font_montserrat_14, 0);
++
+     lvgl_port_unlock();
+ }
+ 
+@@ -129,7 +141,8 @@ void create_running_screen()
+  *      4. Updates the position of the joystick dot
+  *      5. Updates battery level, channel and ID information labels
+  */
+-void update_running_screen(int16_t joyX, int16_t joyY, uint8_t channel, uint8_t id, uint8_t bat)
++void update_running_screen(int16_t joyX, int16_t joyY, uint8_t channel, uint8_t id,
++                           uint8_t bat, const char* mode, bool online)
+ {
+     // Map joystick values to 115x115 area (using your mapping approach)
+     int16_t x_pos = map(joyX, X_MIN, X_MAX, 5, 110);  // Leave 5px margin
+@@ -166,6 +179,8 @@ void update_running_screen(int16_t joyX, int16_t joyY, uint8_t channel, uint8_t
+     } else {
+         lv_label_set_text_fmt(id_info_label, "Receiver ID: %u", id);
+     }
++    lv_label_set_text_fmt(mode_info_label, "Mode: %s", mode);
++    lv_label_set_text(online_info_label, online ? "ONLINE" : "OFFLINE");
+     lvgl_port_unlock();
+ }
+ 
+@@ -190,4 +205,6 @@ void ui_running_screen_destory()
+     battery_label      = NULL;
+     channel_info_label = NULL;
+     id_info_label      = NULL;
++    mode_info_label    = NULL;
++    online_info_label  = NULL;
+ }
+diff --git a/remote/code/main/ui/ui_running_screen.h b/remote/code/main/ui/ui_running_screen.h
+index 9e1ceca..6a78c5e 100644
+--- a/remote/code/main/ui/ui_running_screen.h
++++ b/remote/code/main/ui/ui_running_screen.h
+@@ -33,9 +33,12 @@ extern lv_obj_t* joystick_area;
+ extern lv_obj_t* battery_label;
+ extern lv_obj_t* channel_info_label;
+ extern lv_obj_t* id_info_label;
++extern lv_obj_t* mode_info_label;
++extern lv_obj_t* online_info_label;
+ 
+ void create_running_screen();
+-void update_running_screen(int16_t joyX, int16_t joyY, uint8_t channel, uint8_t id, uint8_t bat);
++void update_running_screen(int16_t joyX, int16_t joyY, uint8_t channel, uint8_t id,
++                           uint8_t bat, const char* mode, bool online);
+ void ui_running_screen_destory();
+ 
+ #ifdef __cplusplus

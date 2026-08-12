@@ -1,0 +1,74 @@
+diff --git a/gateway/stackchan_mcp/stdio_server.py b/gateway/stackchan_mcp/stdio_server.py
+index 91a4131..3796fca 100644
+--- a/gateway/stackchan_mcp/stdio_server.py
++++ b/gateway/stackchan_mcp/stdio_server.py
+@@ -1173,6 +1173,18 @@ async def _dispatch_mcp_tool(
+             "self.i2c.write_read",
+             arguments,
+         ),
++        "base_move": (
++            "self.robot.base_move",
++            arguments,
++        ),
++        "base_drive": (
++            "self.robot.base_drive",
++            arguments,
++        ),
++        "base_stop": (
++            "self.robot.base_stop",
++            {},
++        ),
+     }
+ 
+     if name not in tool_map:
+@@ -2761,6 +2773,50 @@ def create_server(notify_config: NotifyConfig | None = None) -> StackChanServer:
+                     "required": ["addr", "write_bytes", "n_bytes"],
+                 },
+             ),
++            Tool(
++                name="base_move",
++                description=(
++                    "Move the NanoDrive base. The direction is forward, "
++                    "backward, left, or right; speed is 0..180."
++                ),
++                inputSchema={
++                    "type": "object",
++                    "properties": {
++                        "direction": {
++                            "type": "string",
++                            "enum": ["forward", "backward", "left", "right"],
++                            "default": "forward",
++                        },
++                        "speed": {
++                            "type": "integer",
++                            "minimum": 0,
++                            "maximum": 180,
++                            "default": 80,
++                        },
++                    },
++                    "required": ["direction", "speed"],
++                },
++            ),
++            Tool(
++                name="base_drive",
++                description=(
++                    "Set NanoDrive left and right wheel speeds independently; "
++                    "each value is -180..180."
++                ),
++                inputSchema={
++                    "type": "object",
++                    "properties": {
++                        "left": {"type": "integer", "minimum": -180, "maximum": 180},
++                        "right": {"type": "integer", "minimum": -180, "maximum": 180},
++                    },
++                    "required": ["left", "right"],
++                },
++            ),
++            Tool(
++                name="base_stop",
++                description="Immediately stop the NanoDrive base.",
++                inputSchema={"type": "object", "properties": {}},
++            ),
+             Tool(
+                 name="load_avatar_set",
+                 description=(

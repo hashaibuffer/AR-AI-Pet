@@ -1,0 +1,15 @@
+[
+  {"dir": "SC→ND", "cmd": "EN:1", "note": "使能电机"},
+  {"dir": "SC→ND", "cmd": "PING", "note": "查询连接和版本"},
+  {"dir": "ND→SC", "cmd": "OK:PONG:v0.9", "note": "仅 USB 单机测试或未来双向接线可见"},
+  {"dir": "SC→ND", "cmd": "GS", "note": "查询初始状态"},
+  {"dir": "ND→SC", "cmd": "ST:L0,R0,V7680,E0,M0", "note": "状态回报"},
+  {"dir": "SC→ND", "cmd": "FW:200", "note": "前进"},
+  {"dir": "ND→SC", "cmd": "ST:L480,R500,V7670,E0,M1", "note": "编码器增量回报"},
+  {"dir": "SC→ND", "cmd": "TL:150", "note": "原地左转"},
+  {"dir": "ND→SC", "cmd": "ST:L1200,R200,V7660,E0,M1", "note": ""},
+  {"dir": "SC→ND", "cmd": "ST", "note": "停止"},
+  {"dir": "ND→SC", "cmd": "OK:ST", "note": ""},
+  {"dir": "SC→ND", "cmd": "EN:0", "note": "禁用电机"},
+  {"dir": "ND→SC", "cmd": "OK:EN:0", "note": ""}
+]
