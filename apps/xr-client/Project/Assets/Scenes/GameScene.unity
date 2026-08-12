@@ -1345,7 +1345,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ARPet: {fileID: 0}
   StackChanClient: {fileID: 616314532}
-  DriveDevice: 1
+  DriveDevice: 0
 --- !u!1 &572492965
 GameObject:
   m_ObjectHideFlags: 0
@@ -1620,7 +1620,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ModeConfig: {fileID: 0}
-  ConnectToAgent: 0
+  ConnectToAgent: 1
   ReconnectInterval: 3
   PingInterval: 30
 --- !u!4 &616314533

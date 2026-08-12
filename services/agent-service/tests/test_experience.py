@@ -101,6 +101,8 @@ class ConfiguredCopyTests(unittest.TestCase):
         event = orchestrator.reminder_event({"eventId": str(uuid.uuid4()), "title": "团队会议"})
         self.assertIn("团队会议", event["speech"]["text"])
         self.assertNotEqual(event["xr"]["displayActionId"], event["robot"]["actions"][0]["actionId"])
+        self.assertEqual(event["xr"]["expression"], {"emotion": "warm", "face": "smile", "emoji": "😊", "intensity": 1.0})
+        self.assertEqual(event["robot"]["actions"][0]["parameters"]["face"], "smile")
 
 
 class PersonaTests(unittest.TestCase):

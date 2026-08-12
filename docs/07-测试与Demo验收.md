@@ -1,5 +1,16 @@
 # 测试与 Demo 验收
 
+## 本轮阶段验收记录（2026-08-12）
+
+| 项目 | 状态 | 证据与边界 |
+| --- | --- | --- |
+| XREAL SDK 3.1.0 本机安装 | 通过 | `apps/xr-client/Project/Packages/com.xreal.xr/` 已由官方压缩包安装；包体不提交仓库，其他机器执行安装脚本。 |
+| Unity 2022.3.62f3 脚本编译 | 通过 | 批处理导入完成，无 C# 编译错误。 |
+| Unity PC Play Mode → Agent Gateway WebSocket | 通过（PC Mock） | `Project/Library/AgentPlayModeSmokeResult.json` 为 `passed=true`；覆盖订阅、聊天、ExperienceEvent、显示层 ActionResult。 |
+| Agent Gateway → Mock Robot Bridge | 通过（Mock） | `ROBOT_BRIDGE_SMOKE_OK`；覆盖语义动作执行、结果回传和数据服务查询。 |
+| Beam Pro Android 运行与 XREAL 实机显示 | 待验证 | Windows Editor 的 `XREALXRPlugin` 缺失警告属于预期限制，不替代 Android/眼镜实机验收。 |
+| Robot Bridge → StackChan / NanoDrive 实体动作 | 待验证 | 当前仍使用 MockRobotAdapter；实体适配器和底座安全链路另行验收。 |
+
 状态和证据或问题为空，表示待验证；只记录实际运行结果。延迟和性能指标统一在实测后冻结。
 
 | 场景                         | 主责人   | 通过标准                              | 状态  | 证据或问题 |
@@ -39,7 +50,10 @@
 | 真实 Mem0—Qdrant—LLM/Embedding | 待验证 | 当前环境没有真实 LLM 与 Embedding 凭据，不宣称真实 Mem0 已通过。 |
 | 正式内容 JSON 加载 | 通过（本地/容器单元测试） | 三种人格、触发规则、口播、内心 OS、情绪动作、快艇骰子和农场配置可被 Agent Runtime 读取；固定文案缺失时有 fallback。 |
 | 内容规则与 GDD 对齐 | 通过（静态审查） | 快艇骰子为五骰、双方各 11 回合、每回合最多 3 次投掷；农场含机器人自主小田；真实 Unity 规则执行仍待联调。 |
-| Agent 体验编排—Mock Unity/Robot | 通过（Mock闭环） | `AGENT_EXPERIENCE_SMOKE_OK` 已验证 Persona、ExperienceEvent、主动日程提醒、语义机器人动作、ActionResult 回传和 PostgreSQL 事件落库；真实 Unity/StackChan/底座仍未接入。 |
+| Agent 体验编排—PC Unity/Mock Robot Bridge | 通过（分层闭环） | `AGENT_EXPERIENCE_SMOKE_OK`、`UNITY_AGENT_SMOKE_OK`、`ROBOT_BRIDGE_SMOKE_OK` 已分别验证 Persona、ExperienceEvent、PC Unity 显示回传、语义机器人动作和 PostgreSQL 事件落库；StackChan/NanoDrive 实体仍未接入。 |
+| Unity 干净环境打开 | 通过（本机） | XREAL SDK 3.1.0 已按脚本安装；Unity 2022.3.62f3 脚本编译通过。官方包体不提交仓库，其他机器需自行安装。 |
+| Unity—Agent Gateway WebSocket | 通过（PC Play Mode） | 已验证真实 WebSocket 连接、订阅确认、`ExperienceEvent` 消费、XR `ActionResult` 回传；Beam Pro 仍待验证。 |
+| 人格—表情—Emoji—内心 OS | 部分通过（PC Mock） | Unity 已消费统一 `xr.expression`、创建覆盖层并回传显示结果；Emoji 字形、中文字体、空间锚点和 Beam Pro 实机视觉效果仍待验证。 |
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |

@@ -11,6 +11,7 @@
       "gameStyle": "鼓励用户尝试，不故意制造挫败",
       "reminderStyle": "先说明事项，再给一个轻量行动建议",
       "expressionMapping": {"warm": "smile", "excited": "sparkle", "calm": "blink", "concerned": "look_down"},
+      "emojiMapping": {"warm": "😊", "excited": "🤩", "calm": "😌", "concerned": "😟"},
       "behaviorWeights": {"nod": 1.2, "wave": 1.0, "dance": 0.6, "farm_tend": 1.2, "blink": 1.0},
       "preferredActions": ["nod", "wave", "farm_tend", "game_invite"],
       "forbiddenTopics": ["模型内部推理", "未观测的传感器事实", "把推测说成已经发生"]
@@ -25,6 +26,7 @@
       "gameStyle": "会主动邀请对局，适度提高挑战，不改变规则",
       "reminderStyle": "直接、明快，提醒后给出马上能做的动作",
       "expressionMapping": {"warm": "smile", "excited": "sparkle", "calm": "bounce", "concerned": "alert"},
+      "emojiMapping": {"warm": "😄", "excited": "✨", "calm": "😎", "concerned": "❗"},
       "behaviorWeights": {"nod": 1.0, "wave": 1.5, "dance": 2.2, "farm_tend": 1.4, "blink": 0.8},
       "preferredActions": ["dance", "game_invite", "farm_tend", "wave"],
       "forbiddenTopics": ["模型内部推理", "未观测的传感器事实", "把推测说成已经发生"]
@@ -39,6 +41,7 @@
       "gameStyle": "会认真对战，输了也承认，提醒用户别连续硬撑",
       "reminderStyle": "先吐槽一句，再明确说明要做什么",
       "expressionMapping": {"warm": "smirk", "excited": "sparkle", "calm": "blink", "concerned": "look_down"},
+      "emojiMapping": {"warm": "😏", "excited": "⭐", "calm": "🙂", "concerned": "😒"},
       "behaviorWeights": {"nod": 1.0, "wave": 0.8, "dance": 1.2, "farm_tend": 1.1, "blink": 1.0},
       "preferredActions": ["farm_tend", "game_invite", "nod", "wave"],
       "forbiddenTopics": ["模型内部推理", "未观测的传感器事实", "人身攻击", "把推测说成已经发生"]

@@ -84,6 +84,33 @@ namespace ARAIPet.Pet
             _transitionCoroutine = StartCoroutine(TransitionEmotion(oldEmotion, oldIntensity, emotion, intensity));
         }
 
+        /// <summary>将 Agent 的语义情绪与人格表情映射到当前 VRM 五类表情。</summary>
+        public void SetSemanticExpression(string emotion, string face, float intensity = 1f)
+        {
+            SetEmotion(ResolveVrmEmotion(emotion, face), intensity);
+        }
+
+        public static string ResolveVrmEmotion(string emotion, string face)
+        {
+            switch ((face ?? "").ToLowerInvariant())
+            {
+                case "smile":
+                case "smirk":
+                case "sparkle": return "happy";
+                case "look_down": return "sad";
+                case "alert":
+                case "bounce": return "surprised";
+                case "blink": return "neutral";
+            }
+            switch ((emotion ?? "").ToLowerInvariant())
+            {
+                case "warm": return "happy";
+                case "excited": return "surprised";
+                case "concerned": return "sad";
+                default: return "neutral";
+            }
+        }
+
         /// <summary>获取当前表情</summary>
         public string GetCurrentEmotion() => _currentEmotion;
 

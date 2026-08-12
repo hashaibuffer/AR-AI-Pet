@@ -33,6 +33,7 @@ pnpm-debug.log*
 **/*.csproj
 **/*.sln
 **/*.suo
+/apps/xr-client/Project/Packages/com.xreal.xr/
 
 # Python generated files
 **/__pycache__/

@@ -69,6 +69,9 @@ class ExperienceOrchestrator:
         thought = inner_os if inner_os is not None else self.content.resolve(
             "innerOs", behavior.get("innerOsKey"), persona["personaId"], context, inner_os_fallback
         )
+        emotion = str(behavior.get("emotion", turn.get("emotion", "calm")))
+        face = str((persona.get("expressionMapping") or {}).get(emotion, "blink"))
+        emoji = str((persona.get("emojiMapping") or {}).get(emotion, "🙂"))
         event = {
             "version": "0.1",
             "eventId": event_id or str(uuid.uuid4()),
@@ -77,10 +80,15 @@ class ExperienceOrchestrator:
             "mode": mode,
             "priority": int(behavior.get("priority", turn.get("priority", 20))),
             "expiresAt": (now + timedelta(seconds=30)).isoformat(),
-            "speech": {"text": spoken, "emotion": behavior.get("emotion", turn.get("emotion", "calm")), "interruptible": True},
+            "speech": {"text": spoken, "emotion": emotion, "interruptible": True},
             "innerOs": {"text": thought, "durationMs": 4000, "anchor": "robot"},
-            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {}}]},
-            "xr": {"visible": True, "mode": "inner-os", "displayActionId": str(uuid.uuid4())},
+            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {"emotion": emotion, "face": face}}]},
+            "xr": {
+                "visible": True,
+                "mode": "inner-os",
+                "displayActionId": str(uuid.uuid4()),
+                "expression": {"emotion": emotion, "face": face, "emoji": emoji, "intensity": 1.0},
+            },
             "app": {"refresh": True, "section": "home"},
             "interruptible": True,
         }
