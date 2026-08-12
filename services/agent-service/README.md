@@ -213,5 +213,5 @@ docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
 - `robot.stop` sends a semantic stop command through the Agent Gateway to the Robot Bridge, then records the result.
 - Unity owns Yahtzee dice, rules and scoring. The data service stores Unity-authoritative snapshots only.
 - Farm actions mutate the selected plot; they are not only activity labels.
-- Speech and inner-OS copy comes from `content/runtime/behaviors.json` templates.
+- Speech and inner-OS copy first resolve persona variants from `content/runtime/dialogue-lines.json` and `content/runtime/inner-os-lines.json`, then fall back to templates in `behaviors.json`.
 - This PR remains Mock-only: real Unity/XREAL, StackChan and NanoDrive are separate follow-up work.

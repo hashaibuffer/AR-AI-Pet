@@ -6,6 +6,7 @@ from typing import Any
 import uuid
 
 from .data_service_client import DataServiceClient
+from .content_lines import ContentCatalog
 from .experience_protocol import validate_agent_turn_result, validate_experience_event
 from .persona import BehaviorRuleEngine, PersonaLoader
 
@@ -18,6 +19,7 @@ class ExperienceOrchestrator:
     def __init__(self, content_root: str | Path = "content/runtime") -> None:
         self.personas = PersonaLoader(content_root)
         self.rules = BehaviorRuleEngine(content_root)
+        self.content = ContentCatalog(content_root)
         self.persona_id: str | None = None
 
     def ensure_persona(self) -> dict[str, Any]:
@@ -59,8 +61,14 @@ class ExperienceOrchestrator:
         now = utc_now()
         persona = self.personas.load(self.persona_id)
         context = {**turn, "title": turn.get("title", ""), "action": turn.get("action", "")}
-        spoken = speech if speech is not None else self._render(behavior.get("speechPrompt"), str(turn.get("spokenText", "")), context)
-        thought = inner_os if inner_os is not None else self._render(behavior.get("innerOsPrompt"), str(turn.get("innerOsText", "")), context)
+        speech_fallback = self._render(behavior.get("speechPrompt"), str(turn.get("spokenText", "")), context)
+        inner_os_fallback = self._render(behavior.get("innerOsPrompt"), str(turn.get("innerOsText", "")), context)
+        spoken = speech if speech is not None else self.content.resolve(
+            "dialogue", behavior.get("dialogueKey"), persona["personaId"], context, speech_fallback
+        )
+        thought = inner_os if inner_os is not None else self.content.resolve(
+            "innerOs", behavior.get("innerOsKey"), persona["personaId"], context, inner_os_fallback
+        )
         event = {
             "version": "0.1",
             "eventId": event_id or str(uuid.uuid4()),

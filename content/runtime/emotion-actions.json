@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "semanticActions": {
+    "nod": {"emotion": "warm", "robotIntent": "nod", "xrEffect": "avatar.nod", "interruptible": true},
+    "wave": {"emotion": "warm", "robotIntent": "wave", "xrEffect": "avatar.wave", "interruptible": true},
+    "blink": {"emotion": "calm", "robotIntent": "blink", "xrEffect": "avatar.blink", "interruptible": true},
+    "dance": {"emotion": "excited", "robotIntent": "dance", "xrEffect": "avatar.dance", "interruptible": false},
+    "farm_tend": {"emotion": "calm", "robotIntent": "farm_tend", "xrEffect": "farm.robot_tend", "interruptible": true},
+    "stop": {"emotion": "concerned", "robotIntent": "stop", "xrEffect": "none", "interruptible": false}
+  },
+  "priority": ["safety_stop", "user_directive", "reminder", "game", "farm", "companion", "ambient"],
+  "notes": [
+    "robotIntent 只表示高层能力，不暴露舵机、电压或串口细节",
+    "dance 默认不可被普通陪伴事件打断；stop 仍可抢占",
+    "真实设备不支持的动作必须返回能力不足，不伪造完成"
+  ]
+}

@@ -62,6 +62,7 @@ class AgentRuntime:
             f"\n当前人格：{persona.get('personaId', '')}。\n"
             f"人格特征：{traits}。说话方式：{persona.get('speechStyle', '')}。\n"
             f"内心OS风格：{persona.get('innerOsStyle', '')}。\n"
+            f"主动程度：{persona.get('initiative', 'medium')}。游戏风格：{persona.get('gameStyle', '')}。提醒风格：{persona.get('reminderStyle', '')}。\n"
             f"优先行为：{preferred}。禁止话题：{forbidden}。\n"
             "人格只影响表达和行为倾向，不得覆盖工具返回的事实、用户指令或安全边界。"
         )

@@ -37,6 +37,8 @@
 | Memory Service 停机降级 | 通过 | Memory Service 停止时 Agent 仍可完成普通对话和日程，返回 `memoryStatus=unavailable`；恢复后服务重新 healthy。 |
 | Memory Worker 失败重试 | 通过（数据服务边界） | 任务失败记录 attempts/next_retry_at，恢复服务后可再次领取并完成；真实 Mem0/Qdrant 故障仍需凭据和实机环境复测。 |
 | 真实 Mem0—Qdrant—LLM/Embedding | 待验证 | 当前环境没有真实 LLM 与 Embedding 凭据，不宣称真实 Mem0 已通过。 |
+| 正式内容 JSON 加载 | 通过（本地/容器单元测试） | 三种人格、触发规则、口播、内心 OS、情绪动作、快艇骰子和农场配置可被 Agent Runtime 读取；固定文案缺失时有 fallback。 |
+| 内容规则与 GDD 对齐 | 通过（静态审查） | 快艇骰子为五骰、双方各 11 回合、每回合最多 3 次投掷；农场含机器人自主小田；真实 Unity 规则执行仍待联调。 |
 | Agent 体验编排—Mock Unity/Robot | 通过（Mock闭环） | `AGENT_EXPERIENCE_SMOKE_OK` 已验证 Persona、ExperienceEvent、主动日程提醒、语义机器人动作、ActionResult 回传和 PostgreSQL 事件落库；真实 Unity/StackChan/底座仍未接入。 |
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |

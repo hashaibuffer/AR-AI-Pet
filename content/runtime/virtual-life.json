@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "lifeId": "deskle-home",
+  "displayName": "桌屿日常",
+  "mode": "single_user_robot_companion",
+  "dailyActivities": [
+    {"id": "farm_tend", "when": "farm_needs_action", "priority": 20, "action": "farm_tend"},
+    {"id": "rest", "when": "energy_low", "priority": 10, "action": "blink"},
+    {"id": "observe", "when": "user_working_and_idle", "priority": 10, "action": "blink"},
+    {"id": "invite_game", "when": "user_present_and_idle", "priority": 50, "action": "nod"}
+  ],
+  "stateValues": ["idle", "working", "playing", "resting", "away"],
+  "rules": [
+    "机器人有自己的生活状态，但不伪造真实世界事实",
+    "生活事件只能在用户在场、空闲或明确请求时打扰用户",
+    "农场和日程是业务事实；生活状态是可恢复的体验状态"
+  ]
+}
