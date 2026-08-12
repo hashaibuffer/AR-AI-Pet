@@ -13,6 +13,9 @@ from app.experience import ExperienceOrchestrator, ProactiveScheduler
 from app.agent_gateway import ExperienceHub
 
 
+CONTENT_ROOT = Path(__file__).resolve().parents[3] / "content" / "runtime"
+
+
 class ExperienceProtocolTests(unittest.TestCase):
     def _event(self) -> dict:
         now = datetime.now(timezone.utc).isoformat()
@@ -76,7 +79,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
 class ConfiguredCopyTests(unittest.TestCase):
     def test_behavior_copy_and_distinct_display_action_are_configured(self) -> None:
-        orchestrator = ExperienceOrchestrator("content/runtime")
+        orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
         orchestrator.select_persona("gentle-companion")
         event = orchestrator.reminder_event({"eventId": str(uuid.uuid4()), "title": "团队会议"})
         self.assertIn("团队会议", event["speech"]["text"])
@@ -158,7 +161,7 @@ class _FakeDataService:
 
 class ProactiveTests(unittest.IsolatedAsyncioTestCase):
     async def test_idle_companion_and_game_invite(self) -> None:
-        orchestrator = ExperienceOrchestrator("content/runtime")
+        orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
         orchestrator.select_persona("energetic-partner")
         orchestrator.rules.rng = _FixedRandom()
         orchestrator.rules.clock = lambda: datetime(2026, 8, 12, 12, tzinfo=timezone.utc)
