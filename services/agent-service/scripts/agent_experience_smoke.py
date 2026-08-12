@@ -46,6 +46,10 @@ async def main() -> None:
         robot = MockRobot(AGENT_URL, "mock-robot")
         await unity.connect()
         await robot.connect()
+        personas = await request(agent, "persona.list")
+        assert {item["personaId"] for item in personas} >= {"gentle-companion", "energetic-partner"}, personas
+        selected = await request(agent, "persona.select", {"personaId": "energetic-partner", "personaVersion": "0.1"})
+        assert selected["personaId"] == "energetic-partner", selected
         await request(data, "schedule.upsert", {
             "title": f"体验编排 smoke {uuid.uuid4().hex[:6]}",
             "startsAt": (now - timedelta(minutes=1)).isoformat(),
@@ -71,7 +75,7 @@ async def main() -> None:
         await asyncio.gather(unity.acknowledge(reminder_unity, "display"), robot.acknowledge(reminder_robot, "wave"))
         observation_id = str(uuid.uuid4())
         await request(data, "sensor.observation.append", {"observation": {
-            "observationId": observation_id, "deviceId": "mock-robot", "sensorType": "camera.face",
+            "version": "0.1", "observationId": observation_id, "deviceId": "mock-robot", "sensorType": "camera.face",
             "observedAt": datetime.now(timezone.utc).isoformat(), "value": {"present": True},
             "confidence": 0.99, "unit": "normalized", "source": "mock", "privacyClass": "local",
         }})
@@ -79,6 +83,11 @@ async def main() -> None:
         assert sensor_unity["eventId"] == sensor_robot["eventId"], (sensor_unity, sensor_robot)
         assert sensor_unity["mode"] == "sensor", sensor_unity
         await asyncio.gather(unity.acknowledge(sensor_unity, "display"), robot.acknowledge(sensor_robot, "wave"))
+        actions = await request(data, "action.query_recent", {"limit": 20})
+        statuses = {item.get("status") for item in actions.get("actions", [])}
+        assert {"accepted", "started", "completed"} <= statuses, actions
+        stopped = await request(data, "robot.action.stop", {"deviceId": "mock-robot"})
+        assert stopped.get("status") == "cancelled", stopped
         await unity.socket.close()
         await robot.socket.close()
     print(f"AGENT_EXPERIENCE_SMOKE_OK {datetime.now().isoformat()}")

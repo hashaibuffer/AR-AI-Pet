@@ -107,7 +107,8 @@ async def farm_get_state() -> dict[str, Any]:
 @mcp.tool(name="farm.get_available_actions", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
 async def farm_get_available_actions() -> list[str]:
     """List semantic farm actions available to the pet."""
-    return ["water", "plant", "harvest", "rest"]
+    result = await data_service.request("farm.get_available_actions")
+    return result.get("actions", [])
 
 
 @mcp.tool(name="farm.perform_action", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
@@ -125,13 +126,18 @@ async def game_start() -> dict[str, Any]:
 @mcp.tool(name="game.get_state", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
 async def game_get_state() -> dict[str, Any]:
     """Read the active Yahtzee game."""
-    return await data_service.request("bootstrap.get")
+    return await data_service.request("game.get_state")
 
 
 @mcp.tool(name="game.submit_action", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
-async def game_submit_action(game_id: str, state: dict[str, Any]) -> dict[str, Any]:
-    """Persist a semantic Yahtzee action result."""
-    return await data_service.request("game-session.save", {"id": game_id, "gameType": "yahtzee", "status": "playing", "state": state})
+async def game_submit_action(action: Literal["roll", "keep", "score"], indices: list[int] | None = None, score: int | None = None) -> dict[str, Any]:
+    """Apply one semantic Yahtzee action; the data service owns the rules."""
+    payload: dict[str, Any] = {"action": action}
+    if indices is not None:
+        payload["indices"] = indices
+    if score is not None:
+        payload["score"] = score
+    return await data_service.request("game.submit_action", payload)
 
 
 @mcp.tool(name="game.end", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
@@ -163,21 +169,62 @@ async def device_capabilities(device_id: str = "mock-robot") -> dict[str, Any]:
 
 
 @mcp.tool(name="robot.react", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
-async def robot_react(action_type: str, parameters: dict[str, Any] | None = None, source_event_id: str | None = None) -> dict[str, Any]:
+async def robot_react(action_type: str, parameters: dict[str, Any] | None = None, source_event_id: str | None = None, action_id: str | None = None) -> dict[str, Any]:
     """Request one semantic robot reaction."""
-    return await data_service.request("robot.action.request", {"actionType": action_type, "parameters": parameters or {}, "sourceEventId": source_event_id})
+    return await data_service.request("robot.action.request", {"actionId": action_id, "actionType": action_type, "parameters": parameters or {}, "sourceEventId": source_event_id})
 
 
 @mcp.tool(name="robot.stop", annotations={"readOnlyHint": False, "destructiveHint": True, "openWorldHint": False})
 async def robot_stop(source_event_id: str | None = None) -> dict[str, Any]:
     """Request the highest-priority semantic stop action."""
-    return await data_service.request("robot.action.request", {"actionType": "stop", "parameters": {}, "sourceEventId": source_event_id})
+    return await data_service.request("robot.action.stop", {"sourceEventId": source_event_id})
 
 
 @mcp.tool(name="robot.get_status", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
 async def robot_get_status(device_id: str = "mock-robot") -> dict[str, Any]:
     """Read the mock robot semantic status."""
-    return {"deviceId": device_id, "status": "idle", "connected": True, "capabilities": ["nod", "wave", "dance", "farm_tend", "stop"]}
+    latest = await data_service.request("action.latest", {"deviceId": device_id})
+    status = latest.get("status", "idle") if latest else "idle"
+    return {"deviceId": device_id, "status": status, "connected": True, "capabilities": ["nod", "wave", "dance", "farm_tend", "stop"], "latestAction": latest}
+
+
+@mcp.tool(name="action.latest", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
+async def action_latest(device_id: str = "mock-robot") -> dict[str, Any]:
+    """Read the most recent semantic action lifecycle record."""
+    return await data_service.request("action.latest", {"deviceId": device_id})
+
+
+@mcp.tool(name="action.query_recent", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
+async def action_query_recent(limit: int = 10, action_type: str | None = None) -> list[dict[str, Any]]:
+    """Read recent action requests and lifecycle results."""
+    if not 1 <= limit <= 50:
+        raise ValueError("limit must be between 1 and 50")
+    result = await data_service.request("action.query_recent", {"limit": limit, "actionType": action_type})
+    return result.get("actions", [])
+
+
+_PERSONAS = {
+    "gentle-companion": {"personaId": "gentle-companion", "version": "0.1"},
+    "energetic-partner": {"personaId": "energetic-partner", "version": "0.1"},
+}
+
+
+@mcp.tool(name="persona.list", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
+async def persona_list() -> list[dict[str, Any]]:
+    """List the built-in single-user personas."""
+    return list(_PERSONAS.values())
+
+
+@mcp.tool(name="persona.get", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
+async def persona_get() -> dict[str, Any]:
+    """Read the persisted active persona selection."""
+    return await data_service.request("persona.get")
+
+
+@mcp.tool(name="persona.select", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
+async def persona_select(persona_id: Literal["gentle-companion", "energetic-partner"], persona_version: str = "0.1") -> dict[str, Any]:
+    """Persist the active persona selection."""
+    return await data_service.request("persona.select", {"personaId": persona_id, "personaVersion": persona_version})
 
 
 if __name__ == "__main__":

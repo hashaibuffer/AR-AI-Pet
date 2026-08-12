@@ -9,21 +9,25 @@ from pathlib import Path
 
 from app.experience_protocol import ProtocolValidationError, validate_action_result, validate_experience_event
 from app.persona import BehaviorRuleEngine, PersonaConfigError, PersonaLoader
+from app.experience import ExperienceOrchestrator, ProactiveScheduler
 
 
 class ExperienceProtocolTests(unittest.TestCase):
     def _event(self) -> dict:
         now = datetime.now(timezone.utc).isoformat()
         return {
-            "eventId": str(uuid.uuid4()), "sourceEventId": None, "personaId": "gentle-companion",
+            "version": "0.1", "eventId": str(uuid.uuid4()), "sourceEventId": None, "personaId": "gentle-companion",
             "mode": "conversation", "priority": 100, "expiresAt": now,
-            "speech": {}, "innerOs": {}, "robot": {}, "xr": {}, "app": {}, "interruptible": True,
+            "speech": {"text": "", "emotion": "calm", "interruptible": True},
+            "innerOs": {"text": "", "durationMs": 0, "anchor": "robot"},
+            "robot": {"actions": []}, "xr": {"visible": True, "mode": "inner-os"},
+            "app": {"refresh": False, "section": "home"}, "interruptible": True,
         }
 
     def test_valid_experience_event_and_action_result(self) -> None:
         self.assertEqual(validate_experience_event(self._event())["mode"], "conversation")
         action = {
-            "actionId": str(uuid.uuid4()), "deviceId": "mock-robot", "actionType": "nod", "status": "completed",
+            "version": "0.1", "actionId": str(uuid.uuid4()), "deviceId": "mock-robot", "actionType": "nod", "status": "completed",
             "startedAt": datetime.now(timezone.utc).isoformat(), "completedAt": datetime.now(timezone.utc).isoformat(),
             "requestedParameters": {}, "measuredResult": {}, "error": None, "sourceEventId": None,
         }
@@ -32,6 +36,14 @@ class ExperienceProtocolTests(unittest.TestCase):
     def test_invalid_event_is_rejected(self) -> None:
         with self.assertRaises(ProtocolValidationError):
             validate_experience_event({"mode": "conversation"})
+        invalid = self._event()
+        invalid["priority"] = True
+        with self.assertRaises(ProtocolValidationError):
+            validate_experience_event(invalid)
+        invalid = self._event()
+        invalid["unexpected"] = True
+        with self.assertRaises(ProtocolValidationError):
+            validate_experience_event(invalid)
 
 
 class PersonaTests(unittest.TestCase):
@@ -56,3 +68,70 @@ class PersonaTests(unittest.TestCase):
             (root / "behaviors.json").write_text(json.dumps({"behaviors": []}), encoding="utf-8")
             with self.assertRaises(PersonaConfigError):
                 PersonaLoader(root).load()
+
+    def test_probability_capability_and_cooldown_persist(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "personas.json").write_text(json.dumps({"defaultPersonaId": "demo", "personas": {"demo": {
+                "version": "1", "traits": [], "speechStyle": "short", "innerOsStyle": "aside",
+                "expressionMapping": {}, "behaviorWeights": {}, "preferredActions": [], "forbiddenTopics": []}}}), encoding="utf-8")
+            (root / "behaviors.json").write_text(json.dumps({"behaviors": [
+                {"id": "never", "triggerType": "companion", "probability": 0, "requiredCapabilities": ["missing"], "cooldown": 10},
+                {"id": "once", "triggerType": "companion", "probability": 1, "requiredCapabilities": ["blink"], "cooldown": 60, "maxPerDay": 1},
+            ]}), encoding="utf-8")
+            clock_value = [datetime(2026, 8, 12, 12, tzinfo=timezone.utc)]
+            engine = BehaviorRuleEngine(root, clock=lambda: clock_value[0])
+            self.assertIsNone(engine.select(trigger_type="companion", context={"capabilities": []}))
+            self.assertEqual(engine.select(trigger_type="companion", context={"capabilities": ["blink"]})["id"], "once")
+            self.assertIsNone(engine.select(trigger_type="companion", context={"capabilities": ["blink"]}))
+            restored = BehaviorRuleEngine(root, clock=lambda: clock_value[0])
+            restored.restore_runtime_state(engine.runtime_state())
+            self.assertIsNone(restored.select(trigger_type="companion", context={"capabilities": ["blink"]}))
+
+
+class _FixedRandom:
+    def random(self) -> float:
+        return 0.0
+
+    def choices(self, values, weights=None, k=1):
+        return [values[-1]]
+
+
+class _FakeDataService:
+    def __init__(self, snapshot: dict):
+        self.snapshot = snapshot
+        self.calls: list[tuple[str, dict]] = []
+
+    async def request(self, message_type: str, payload: dict | None = None):
+        self.calls.append((message_type, payload or {}))
+        if message_type == "proactive.tick":
+            return self.snapshot
+        if message_type == "state.get":
+            return {"data": {}, "revision": 1}
+        if message_type == "sensor.query_recent":
+            return {"observations": []}
+        if message_type == "farm.get_available_actions":
+            return {"actions": ["water", "rest"]}
+        if message_type == "farm.perform_action":
+            return {"status": "completed"}
+        if message_type == "state.put":
+            return {"revision": 2}
+        raise AssertionError(message_type)
+
+
+class ProactiveTests(unittest.IsolatedAsyncioTestCase):
+    async def test_idle_companion_and_game_invite(self) -> None:
+        orchestrator = ExperienceOrchestrator("content/runtime")
+        orchestrator.select_persona("energetic-partner")
+        orchestrator.rules.rng = _FixedRandom()
+        orchestrator.rules.clock = lambda: datetime(2026, 8, 12, 12, tzinfo=timezone.utc)
+        data = _FakeDataService({"idle": True, "reminders": [], "farmChanged": None})
+        events = await ProactiveScheduler(data, orchestrator).tick()
+        self.assertEqual({event["mode"] for event in events}, {"companion", "game"})
+
+    async def test_farm_proactive_action_is_executed_before_event(self) -> None:
+        orchestrator = ExperienceOrchestrator("content/runtime")
+        data = _FakeDataService({"idle": False, "reminders": [], "farmChanged": {"revision": 2}})
+        events = await ProactiveScheduler(data, orchestrator).tick()
+        self.assertEqual(events[0]["mode"], "farm")
+        self.assertIn(("farm.perform_action", {"action": "water"}), data.calls)

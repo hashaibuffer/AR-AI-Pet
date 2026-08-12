@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ar-aipet.local/protocol/action-result.schema.json",
   "type": "object",
-  "required": ["actionId", "deviceId", "actionType", "status", "startedAt", "completedAt", "requestedParameters", "measuredResult", "error", "sourceEventId"],
+  "required": ["version", "actionId", "deviceId", "actionType", "status", "startedAt", "completedAt", "requestedParameters", "measuredResult", "error", "sourceEventId"],
   "properties": {
+    "version": {"type": "string"},
     "actionId": {"type": "string", "format": "uuid"},
     "deviceId": {"type": "string"},
     "actionType": {"type": "string"},

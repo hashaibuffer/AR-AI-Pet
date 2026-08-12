@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 import websockets
@@ -32,21 +33,8 @@ class MockExperienceClient:
             if message.get("type") == "experience.event":
                 return message["payload"]
 
-    async def acknowledge(self, event: dict[str, Any], action_type: str) -> dict[str, Any]:
+    async def _send_result(self, result: dict[str, Any]) -> dict[str, Any]:
         assert self.socket is not None
-        now = event["expiresAt"]
-        result = {
-            "actionId": str(uuid.uuid4()),
-            "deviceId": self.device_id,
-            "actionType": action_type,
-            "status": "completed",
-            "startedAt": now,
-            "completedAt": now,
-            "requestedParameters": {},
-            "measuredResult": {"simulated": True},
-            "error": None,
-            "sourceEventId": event["eventId"],
-        }
         request_id = f"action-{uuid.uuid4().hex}"
         await self.socket.send(json.dumps({"requestId": request_id, "type": "experience.action.result", "payload": {"result": result}}))
         while True:
@@ -54,6 +42,25 @@ class MockExperienceClient:
             if message.get("requestId") == request_id:
                 assert message.get("status") == "ok", message
                 return message.get("payload") or {}
+
+    async def acknowledge(self, event: dict[str, Any], action_type: str, *, final_status: str = "completed") -> list[dict[str, Any]]:
+        action = (event.get("robot") or {}).get("actions", [{}])[0]
+        action_id = action.get("actionId") or str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        results = []
+        for status in ("accepted", "started", final_status):
+            result = {
+                "version": "0.1", "actionId": action_id, "deviceId": self.device_id,
+                "actionType": action_type, "status": status,
+                "startedAt": now if status != "accepted" else None,
+                "completedAt": now if status in {"completed", "failed", "cancelled", "timeout"} else None,
+                "requestedParameters": action.get("parameters", {}),
+                "measuredResult": {"simulated": True},
+                "error": None if status not in {"failed", "timeout", "cancelled"} else status,
+                "sourceEventId": event["eventId"],
+            }
+            results.append(await self._send_result(result))
+        return results
 
 
 class MockUnity(MockExperienceClient):

@@ -4,6 +4,7 @@ import asyncio
 import json
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -41,6 +42,8 @@ def response(request_id: str | None, message_type: str, status: str, payload: An
 class ExperienceHub:
     def __init__(self) -> None:
         self.subscribers: set[WebSocket] = set()
+        self.active_event: dict[str, Any] | None = None
+        self.last_cancellation: dict[str, Any] | None = None
 
     async def subscribe(self, socket: WebSocket) -> None:
         self.subscribers.add(socket)
@@ -49,6 +52,24 @@ class ExperienceHub:
         self.subscribers.discard(socket)
 
     async def publish(self, event: dict[str, Any]) -> None:
+        if self.active_event:
+            try:
+                active_priority = int(self.active_event.get("priority", 0))
+                active_expiry = self.active_event.get("expiresAt")
+                expired = not active_expiry or active_expiry <= datetime.now(timezone.utc).isoformat()
+                if not expired and int(event.get("priority", 0)) < active_priority:
+                    return
+                if not expired and int(event.get("priority", 0)) > active_priority:
+                    cancelled = {"eventId": self.active_event.get("eventId"), "reason": "preempted", "byEventId": event.get("eventId")}
+                    self.last_cancellation = cancelled
+                    for socket in list(self.subscribers):
+                        try:
+                            await socket.send_json({"type": "experience.cancelled", "status": "ok", "payload": cancelled})
+                        except Exception:
+                            self.unsubscribe(socket)
+            except (TypeError, ValueError):
+                pass
+        self.active_event = event
         dead: list[WebSocket] = []
         for socket in self.subscribers:
             try:
@@ -84,7 +105,22 @@ app = FastAPI(title="AR-AIPet Local Agent", version="0.2")
 
 async def persist_and_publish(event: dict[str, Any]) -> None:
     await data_service.request("experience.event.append", {"event": event})
+    for action in (event.get("robot") or {}).get("actions", []):
+        action_id = action.get("actionId")
+        if not action_id:
+            continue
+        existing = await data_service.request("action.query_recent", {"actionId": action_id, "limit": 1})
+        if not existing.get("actions"):
+            await data_service.request("robot.action.request", {
+                "actionId": action_id,
+                "actionType": action.get("intent", "nod"),
+                "parameters": action.get("parameters", {}),
+                "sourceEventId": event.get("eventId"),
+            })
     await hub.publish(event)
+    if hub.last_cancellation:
+        await data_service.request("experience.event.cancel", {"cancellation": hub.last_cancellation})
+        hub.last_cancellation = None
 
 
 async def proactive_loop(stop: asyncio.Event) -> None:
@@ -103,6 +139,12 @@ async def proactive_loop(stop: asyncio.Event) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    try:
+        selected = await data_service.request("persona.get")
+        persona = orchestrator.select_persona(selected.get("personaId"))
+        runtime.set_persona(persona)
+    except Exception:
+        runtime.set_persona(orchestrator.ensure_persona())
     stop = asyncio.Event()
     task = asyncio.create_task(proactive_loop(stop))
     try:
@@ -133,9 +175,26 @@ async def websocket_endpoint(socket: WebSocket) -> None:
                 subscribed = True
                 await socket.send_json(response(request_id, "experience.subscribe.result", "ok", {"subscribed": True}))
                 continue
+            if message_type == "persona.list":
+                await socket.send_json(response(request_id, "persona.list.result", "ok", orchestrator.personas.list()))
+                continue
+            if message_type == "persona.get":
+                selected = await data_service.request("persona.get")
+                selected["persona"] = orchestrator.personas.load(selected.get("personaId"))
+                await socket.send_json(response(request_id, "persona.get.result", "ok", selected))
+                continue
+            if message_type == "persona.select":
+                selected = await data_service.request("persona.select", payload)
+                persona = orchestrator.select_persona(selected["personaId"])
+                runtime.set_persona(persona)
+                await socket.send_json(response(request_id, "persona.select.result", "ok", {**selected, "persona": persona}))
+                continue
             if message_type == "experience.action.result":
                 result = validate_action_result(payload.get("result") if isinstance(payload.get("result"), dict) else payload)
                 stored = await data_service.request("action.result.append", {"result": result})
+                if self_event := hub.active_event:
+                    if result.get("sourceEventId") == self_event.get("eventId") and result.get("status") in {"completed", "failed", "timeout", "cancelled"}:
+                        hub.active_event = None
                 await socket.send_json(response(request_id, "experience.action.result.ack", "ok", stored))
                 continue
             if message_type != "agent.chat":
@@ -145,6 +204,8 @@ async def websocket_endpoint(socket: WebSocket) -> None:
             try:
                 text = str(payload.get("text", ""))
                 result = await runtime.chat(text, payload.get("conversationId"))
+                selected = await data_service.request("persona.get")
+                runtime.set_persona(orchestrator.select_persona(selected.get("personaId")))
                 turn, event = orchestrator.from_turn(result, text)
                 await persist_and_publish(event)
                 result["agentTurn"] = turn

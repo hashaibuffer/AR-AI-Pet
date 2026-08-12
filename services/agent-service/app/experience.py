@@ -18,14 +18,32 @@ class ExperienceOrchestrator:
     def __init__(self, content_root: str | Path = "content/runtime") -> None:
         self.personas = PersonaLoader(content_root)
         self.rules = BehaviorRuleEngine(content_root)
+        self.persona_id: str | None = None
+
+    def ensure_persona(self) -> dict[str, Any]:
+        return self.select_persona(self.persona_id or self.personas.load()["personaId"])
+
+    def select_persona(self, persona_id: str) -> dict[str, Any]:
+        persona = self.personas.load(persona_id)
+        self.persona_id = persona["personaId"]
+        self.rules.set_behavior_weights(persona.get("behaviorWeights"))
+        return persona
+
+    def runtime_state(self) -> dict[str, Any]:
+        return self.rules.runtime_state()
+
+    def restore_runtime_state(self, state: dict[str, Any]) -> None:
+        self.rules.restore_runtime_state(state)
 
     def _event(self, *, turn: dict[str, Any], mode: str, behavior: dict[str, Any], source_event_id: str | None = None,
-               speech: str | None = None, inner_os: str | None = None) -> dict[str, Any]:
+               speech: str | None = None, inner_os: str | None = None, event_id: str | None = None,
+               action_id: str | None = None) -> dict[str, Any]:
         now = utc_now()
-        persona = self.personas.load()
+        persona = self.personas.load(self.persona_id)
         intent = str(behavior.get("robotBehaviorIntent", "nod"))
         event = {
-            "eventId": str(uuid.uuid4()),
+            "version": "0.1",
+            "eventId": event_id or str(uuid.uuid4()),
             "sourceEventId": source_event_id,
             "personaId": persona["personaId"],
             "mode": mode,
@@ -34,7 +52,7 @@ class ExperienceOrchestrator:
             "speech": {"text": speech if speech is not None else turn.get("spokenText", ""),
                        "emotion": behavior.get("emotion", turn.get("emotion", "calm")), "interruptible": True},
             "innerOs": {"text": inner_os if inner_os is not None else turn.get("innerOsText", ""), "durationMs": 4000, "anchor": "robot"},
-            "robot": {"actions": [{"intent": intent, "parameters": {}}]},
+            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": intent, "parameters": {}}]},
             "xr": {"visible": True, "mode": "inner-os"},
             "app": {"refresh": True, "section": "home"},
             "interruptible": True,
@@ -42,10 +60,12 @@ class ExperienceOrchestrator:
         return validate_experience_event(event)
 
     def from_turn(self, result: dict[str, Any], text: str) -> tuple[dict[str, Any], dict[str, Any]]:
-        behavior = self.rules.select(trigger_type="text", text=text)
-        if behavior.get("id") == "conversation":
-            behavior = self.rules.select(trigger_type="turn", text=text)
+        context = {"requiresUserPresent": True, "requiresIdle": True, "capabilities": ["nod", "wave", "dance", "farm_tend", "blink"]}
+        behavior = self.rules.select(trigger_type="text", text=text, context=context)
+        if behavior is None:
+            behavior = self.rules.select(trigger_type="turn", text=text, context=context) or {"emotion": "warm", "priority": 100, "robotBehaviorIntent": "nod"}
         turn = validate_agent_turn_result({
+            "version": "0.1",
             "turnId": str(uuid.uuid4()),
             "conversationId": result["conversationId"],
             "spokenText": result.get("text", ""),
@@ -58,10 +78,11 @@ class ExperienceOrchestrator:
             "sourceEventId": None,
             "timestamp": utc_now().isoformat(),
         })
-        return turn, self._event(turn=turn, mode="conversation", behavior=behavior)
+        event_id = result.get("experienceEventId")
+        return turn, self._event(turn=turn, mode="conversation", behavior=behavior, event_id=event_id, action_id=event_id)
 
     def reminder_event(self, reminder: dict[str, Any]) -> dict[str, Any]:
-        behavior = self.rules.select(trigger_type="schedule.triggered")
+        behavior = self.rules.select(trigger_type="schedule.triggered", context={"requiresUserPresent": True, "capabilities": ["wave"]}) or {"emotion": "warm", "priority": 80, "robotBehaviorIntent": "wave"}
         return self._event(
             turn={"spokenText": f"提醒你：{reminder.get('title', '有一项日程到时间了')}", "innerOsText": "该提醒已经到时间了。", "emotion": behavior.get("emotion")},
             mode="reminder", behavior=behavior, source_event_id=reminder.get("eventId"),
@@ -69,7 +90,7 @@ class ExperienceOrchestrator:
         )
 
     def farm_event(self, farm: dict[str, Any]) -> dict[str, Any]:
-        behavior = self.rules.select(trigger_type="companion")
+        behavior = self.rules.select(trigger_type="farm", context={"requiresUserPresent": False, "requiresIdle": True, "capabilities": ["farm_tend"]}) or {"emotion": "calm", "priority": 20}
         return self._event(
             turn={"spokenText": "我去农场看一下。", "innerOsText": "轮到我自己照顾农场了。", "emotion": "calm"},
             mode="farm", behavior={**behavior, "robotBehaviorIntent": "farm_tend", "priority": 20},
@@ -77,7 +98,7 @@ class ExperienceOrchestrator:
         )
 
     def sensor_event(self, observation: dict[str, Any]) -> dict[str, Any]:
-        behavior = self.rules.select(trigger_type="sensor.face")
+        behavior = self.rules.select(trigger_type="sensor.face", context={"requiresUserPresent": True, "capabilities": ["wave"]}) or {"emotion": "warm", "priority": 60, "robotBehaviorIntent": "wave"}
         present = bool((observation.get("value") or {}).get("present"))
         return self._event(
             turn={"spokenText": "我看到你了。" if present else "", "innerOsText": "检测到新的面对面互动。", "emotion": behavior.get("emotion", "warm")},
@@ -95,8 +116,14 @@ class ProactiveScheduler:
 
     async def tick(self) -> list[dict[str, Any]]:
         snapshot = await self.data_service.request("proactive.tick")
+        pet_state = await self.data_service.request("state.get", {"domain": "pet"})
+        self.orchestrator.restore_runtime_state((pet_state.get("data") or {}).get("behaviorRuntime") or {})
         events = [self.orchestrator.reminder_event(item) for item in snapshot.get("reminders", [])]
         if snapshot.get("farmChanged"):
+            available = await self.data_service.request("farm.get_available_actions")
+            actions = [item for item in available.get("actions", []) if item != "rest"]
+            if actions:
+                await self.data_service.request("farm.perform_action", {"action": actions[0]})
             events.append(self.orchestrator.farm_event(snapshot["farmChanged"]))
         observations = (await self.data_service.request("sensor.query_recent", {"limit": 1})).get("observations", [])
         latest = observations[0] if observations else None
@@ -105,4 +132,16 @@ class ProactiveScheduler:
         if latest:
             self._last_sensor_id = latest.get("observationId")
         self._sensor_initialized = True
+        if snapshot.get("idle"):
+            context = {"requiresUserPresent": True, "requiresIdle": True, "capabilities": ["nod", "blink"]}
+            companion = self.orchestrator.rules.select(trigger_type="companion", context=context)
+            if companion:
+                events.append(self.orchestrator._event(turn={"spokenText": "我在这里陪你。", "innerOsText": "安静陪你一会儿。"}, mode="companion", behavior=companion))
+            invite = self.orchestrator.rules.select(trigger_type="game_invite", context=context)
+            if invite:
+                events.append(self.orchestrator._event(turn={"spokenText": "要不要和我玩一局快艇骰子？", "innerOsText": "想和你来一局。"}, mode="game", behavior=invite))
+        if events:
+            state = dict(pet_state.get("data") or {})
+            state["behaviorRuntime"] = self.orchestrator.runtime_state()
+            await self.data_service.request("state.put", {"domain": "pet", "expectedRevision": pet_state["revision"], "data": state})
         return events

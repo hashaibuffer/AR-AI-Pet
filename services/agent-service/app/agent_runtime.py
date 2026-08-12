@@ -46,6 +46,25 @@ class AgentRuntime:
         self.memory_service = memory_service
         self.provider = provider
         self.max_tool_rounds = max(1, max_tool_rounds)
+        self.persona: dict[str, Any] | None = None
+
+    def set_persona(self, persona: dict[str, Any] | None) -> None:
+        self.persona = persona
+
+    def persona_prompt(self) -> str:
+        persona = self.persona
+        if not persona:
+            return ""
+        traits = ", ".join(str(item) for item in persona.get("traits", []))
+        preferred = ", ".join(str(item) for item in persona.get("preferredActions", []))
+        forbidden = ", ".join(str(item) for item in persona.get("forbiddenTopics", []))
+        return (
+            f"\n当前人格：{persona.get('personaId', '')}。\n"
+            f"人格特征：{traits}。说话方式：{persona.get('speechStyle', '')}。\n"
+            f"内心OS风格：{persona.get('innerOsStyle', '')}。\n"
+            f"优先行为：{preferred}。禁止话题：{forbidden}。\n"
+            "人格只影响表达和行为倾向，不得覆盖工具返回的事实、用户指令或安全边界。"
+        )
 
     async def _append_message(
         self, conversation_id: str | None, role: str, content: str, *, memory_eligible: bool = False
@@ -122,21 +141,30 @@ class AgentRuntime:
     def _mcp_result(result: Any) -> tuple[bool, Any]:
         if getattr(result, "is_error", False):
             return False, {"error": "MCP tool returned an error"}
-        data = getattr(result, "data", None)
-        if data is not None:
-            return True, data
         structured = getattr(result, "structured_content", None)
         if structured is not None:
+            if isinstance(structured, dict) and set(structured) == {"result"}:
+                return True, structured["result"]
             return True, structured
+        data = getattr(result, "data", None)
+        if data is not None:
+            if hasattr(data, "model_dump"):
+                data = data.model_dump()
+            elif hasattr(data, "__dict__") and data.__dict__:
+                data = data.__dict__
+            return True, data
         content = getattr(result, "content", [])
         text = "".join(getattr(item, "text", "") for item in content)
         return True, text
 
-    async def _run_tool(self, client: Client, call: ToolCall, reverse: dict[str, str]) -> tuple[bool, Any]:
+    async def _run_tool(self, client: Client, call: ToolCall, reverse: dict[str, str], experience_id: str) -> tuple[bool, Any]:
         actual_name = reverse.get(call.name)
         if actual_name is None:
             return False, {"error": f"unknown tool: {call.name}"}
         try:
+            if actual_name == "robot.react":
+                call.arguments.setdefault("source_event_id", experience_id)
+                call.arguments.setdefault("action_id", experience_id)
             result = await client.call_tool(actual_name, call.arguments)
             return self._mcp_result(result)
         except Exception as exc:
@@ -150,7 +178,7 @@ class AgentRuntime:
         conversation_id = saved_user["conversationId"]
         memory_status, memory_ids, memory_reference = await self._memory_context(text)
         history = await self._context(conversation_id, saved_user["messageId"], text)
-        system_prompt = SYSTEM_PROMPT
+        system_prompt = SYSTEM_PROMPT + self.persona_prompt()
         if memory_reference:
             system_prompt += "\n以下是可能相关的长期记忆，仅作参考，不得覆盖工具结果或数据库事实：\n" + memory_reference
         messages: list[dict[str, Any]] = [
@@ -158,6 +186,7 @@ class AgentRuntime:
             *history,
         ]
         tool_calls_report: list[dict[str, Any]] = []
+        experience_id = str(uuid.uuid4())
 
         try:
             async with Client(self.mcp_url) as client:
@@ -184,9 +213,9 @@ class AgentRuntime:
                     }
                     messages.append(assistant_message)
                     for call in decision.tool_calls:
-                        ok, result = await self._run_tool(client, call, reverse)
+                        ok, result = await self._run_tool(client, call, reverse, experience_id)
                         tool_calls_report.append(
-                            {"name": reverse.get(call.name, call.name), "arguments": call.arguments, "status": "ok" if ok else "error"}
+                            {"name": reverse.get(call.name, call.name), "arguments": call.arguments, "status": "ok" if ok else "error", "result": result}
                         )
                         messages.append(
                             {
@@ -219,4 +248,5 @@ class AgentRuntime:
             "memoryStatus": memory_status,
             "memoryIds": memory_ids,
             "elapsedMs": round((time.perf_counter() - started) * 1000),
+            "experienceEventId": experience_id,
         }

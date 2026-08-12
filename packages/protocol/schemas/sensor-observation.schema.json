@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ar-aipet.local/protocol/sensor-observation.schema.json",
   "type": "object",
-  "required": ["observationId", "deviceId", "sensorType", "observedAt", "value", "confidence", "unit", "source", "privacyClass"],
+  "required": ["version", "observationId", "deviceId", "sensorType", "observedAt", "value", "confidence", "unit", "source", "privacyClass"],
   "properties": {
+    "version": {"type": "string"},
     "observationId": {"type": "string", "format": "uuid"},
     "deviceId": {"type": "string"},
     "sensorType": {"type": "string", "enum": ["camera.face", "microphone.asr", "touch", "imu", "base.odometry"]},
