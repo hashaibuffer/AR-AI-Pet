@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ar-aipet.local/protocol/agent-turn-result.schema.json",
+  "type": "object",
+  "required": ["version", "turnId", "conversationId", "spokenText", "innerOsText", "emotion", "behaviorIntent", "priority", "interruptible", "toolCallSummaries", "timestamp"],
+  "properties": {
+    "version": {"type": "string"},
+    "turnId": {"type": "string", "format": "uuid"},
+    "conversationId": {"type": "string", "format": "uuid"},
+    "spokenText": {"type": "string"},
+    "innerOsText": {"type": "string"},
+    "emotion": {"type": "string"},
+    "behaviorIntent": {"type": "string"},
+    "priority": {"type": "integer", "minimum": 0, "maximum": 100},
+    "interruptible": {"type": "boolean"},
+    "toolCallSummaries": {"type": "array", "items": {"type": "object"}},
+    "sourceEventId": {"type": ["string", "null"]},
+    "timestamp": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

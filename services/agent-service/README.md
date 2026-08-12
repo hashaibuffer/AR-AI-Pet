@@ -168,7 +168,7 @@ MCP Hub
   → PostgreSQL
 ```
 
-MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_URL`。本地 Agent Runtime 通过 MCP Hub 获取工具，并通过数据服务保存用户和助手原文。当前只暴露四个首版工具：
+MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_URL`。本地 Agent Runtime 通过 MCP Hub 获取工具，并通过数据服务保存用户和助手原文。当前工具分为数据工具和体验编排语义工具：
 
 | 工具 | 用途 |
 |---|---|
@@ -176,6 +176,10 @@ MCP Hub 不导入 `app.server`、`app.db`、`app.farm`，也不持有 `DATABASE_
 | `pet.state.get` | 读取宠物、家园或自主农场状态 |
 | `schedule.list` | 查询有效日程 |
 | `schedule.upsert` | 新建或更新日程 |
+| `schedule.complete` / `schedule.snooze` | 完成或延后日程 |
+| `farm.*` / `game.*` | 读取和更新农场、快艇骰子语义状态 |
+| `sensor.*` / `device.capabilities` | 读取传感器观察和设备能力 |
+| `robot.react` / `robot.stop` / `robot.get_status` | 请求语义机器人反应，不暴露底层电机参数 |
 
 启动后地址为：
 
@@ -191,3 +195,23 @@ docker compose exec -T mcp-hub python scripts/mcp_smoke.py
 ```
 
 成功输出 `MCP_SMOKE_OK` 代表 MCP Hub → DataServiceClient → WebSocket 数据服务 → PostgreSQL 闭环通过；`AGENT_SMOKE_OK` 代表本地文字 Agent → MCP 工具 → 数据服务 → PostgreSQL → Agent 回复闭环通过。真实模型、语音、Mem0、机器人、底座和 Unity 仍需单独验收。
+
+## Agent 体验编排 Mock 闭环
+
+Agent 现在会加载 `content/runtime/` 中的 Persona 与行为规则，将一次对话编排为 `AgentTurnResult` 和 `ExperienceEvent`，通过 Agent WebSocket 推送给 Mock Unity/Robot；客户端回传 `ActionResult`，结果由 data-service 写入 PostgreSQL。主动调度通过 `proactive.tick` 触发日程提醒和农场事件，不阻塞普通对话。
+
+```powershell
+docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
+```
+
+成功输出 `AGENT_EXPERIENCE_SMOKE_OK` 只代表协议、规则、MCP、Mock 客户端和数据落库闭环通过；真实 Unity、StackChan、底座和真实 Mem0 仍未接入本轮。
+
+## Current PR #17 boundary fixes
+
+- Experience admission is decided before the event or robot action is written.
+- `xr.displayActionId` and each robot action ID are different; an event completes only after all required targets finish.
+- `robot.stop` sends a semantic stop command through the Agent Gateway to the Robot Bridge, then records the result.
+- Unity owns Yahtzee dice, rules and scoring. The data service stores Unity-authoritative snapshots only.
+- Farm actions mutate the selected plot; they are not only activity labels.
+- Speech and inner-OS copy comes from `content/runtime/behaviors.json` templates.
+- This PR remains Mock-only: real Unity/XREAL, StackChan and NanoDrive are separate follow-up work.

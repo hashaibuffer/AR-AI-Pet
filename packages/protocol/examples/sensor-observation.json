@@ -1,0 +1,12 @@
+{
+  "version": "0.1",
+  "observationId": "00000000-0000-4000-8000-000000000103",
+  "deviceId": "mock-robot",
+  "sensorType": "camera.face",
+  "observedAt": "2026-08-11T12:00:00Z",
+  "value": {"present": true, "yaw": 0.1},
+  "confidence": 0.98,
+  "unit": "normalized",
+  "source": "mock",
+  "privacyClass": "local"
+}

@@ -22,8 +22,11 @@ services:
       WS_HOST: 0.0.0.0
       WS_PORT: 8080
       FARM_TICK_SECONDS: ${FARM_TICK_SECONDS:-30}
+      PROTOCOL_ROOT: /app/packages/protocol
     ports:
       - "${WS_PORT:-8080}:8080"
+    volumes:
+      - ../../packages/protocol:/app/packages/protocol:ro
     healthcheck:
       test: ["CMD", "python", "scripts/ws_health.py"]
       interval: 3s
@@ -42,6 +45,7 @@ services:
       MCP_PORT: 8081
       DATA_SERVICE_WS_URL: ws://data-service:8080/ws
       DATA_SERVICE_TIMEOUT_SECONDS: 5
+      AGENT_GATEWAY_WS_URL: ws://agent-runtime:8082/ws
     ports:
       - "${MCP_PORT:-8081}:8081"
     healthcheck:
@@ -72,8 +76,14 @@ services:
       MCP_URL: http://mcp-hub:8081/mcp
       MEMORY_WS_URL: ws://memory-service:8083/ws
       MEMORY_SEARCH_TIMEOUT_SECONDS: ${MEMORY_SEARCH_TIMEOUT_SECONDS:-2}
+      PERSONA_ROOT: /app/content/runtime
+      PROTOCOL_ROOT: /app/packages/protocol
+      EXPERIENCE_TICK_SECONDS: ${EXPERIENCE_TICK_SECONDS:-5}
     ports:
       - "${AGENT_PORT:-8082}:8082"
+    volumes:
+      - ../../content/runtime:/app/content/runtime:ro
+      - ../../packages/protocol:/app/packages/protocol:ro
     healthcheck:
       test: ["CMD", "python", "scripts/agent_health.py"]
       interval: 3s

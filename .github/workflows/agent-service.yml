@@ -1,0 +1,44 @@
+name: agent-service
+
+on:
+  pull_request:
+    paths:
+      - "services/agent-service/**"
+      - "content/runtime/**"
+      - "packages/protocol/**"
+      - ".github/workflows/agent-service.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/agent-service/**"
+      - "content/runtime/**"
+      - "packages/protocol/**"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/agent-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Start local stack
+        run: docker compose up --build -d --wait --wait-timeout 120
+      - name: Run smoke tests
+        run: |
+          docker compose exec -T data-service python scripts/ws_smoke.py
+          docker compose exec -T data-service python scripts/maintenance_smoke.py
+          docker compose exec -T agent-runtime python scripts/mcp_smoke.py
+          docker compose exec -T agent-runtime python scripts/agent_smoke.py
+          docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
+          docker compose exec -T memory-service env DATA_SERVICE_WS_URL=ws://data-service:8080/ws MEMORY_URL=ws://memory-service:8083/ws AGENT_URL=ws://agent-runtime:8082/ws python scripts/memory_smoke.py
+      - name: Stop local stack
+        if: always()
+        run: docker compose down -v

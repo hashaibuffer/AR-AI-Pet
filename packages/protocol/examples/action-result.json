@@ -1,0 +1,13 @@
+{
+  "version": "0.1",
+  "actionId": "00000000-0000-4000-8000-000000000102",
+  "deviceId": "mock-robot",
+  "actionType": "nod",
+  "status": "completed",
+  "startedAt": "2026-08-11T12:00:00Z",
+  "completedAt": "2026-08-11T12:00:01Z",
+  "requestedParameters": {},
+  "measuredResult": {"simulated": true},
+  "error": null,
+  "sourceEventId": "00000000-0000-4000-8000-000000000101"
+}

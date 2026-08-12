@@ -125,6 +125,12 @@ class MockProvider:
     ) -> AssistantDecision:
         user_text = next((_message_text(item) for item in reversed(messages) if item.get("role") == "user"), "")
         has_tool_result = any(item.get("role") == "tool" for item in messages)
+        if not has_tool_result and ("跳舞" in user_text or "跳个舞" in user_text):
+            robot_tool = next((tool for tool in tools if tool["function"]["name"] == "robot_react"), None)
+            if robot_tool:
+                return AssistantDecision(None, [ToolCall("mock-dance", "robot_react", {"action_type": "dance", "parameters": {}})])
+        if has_tool_result and any(item.get("name") == "robot_react" for item in messages if item.get("role") == "tool"):
+            return AssistantDecision("好呀，我们一起跳舞。", [])
         if not has_tool_result and "提醒" in user_text:
             schedule_tool = next((tool for tool in tools if tool["function"]["name"] == "schedule_upsert"), None)
             if schedule_tool:

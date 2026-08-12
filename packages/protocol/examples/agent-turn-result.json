@@ -1,0 +1,14 @@
+{
+  "version": "0.1",
+  "turnId": "00000000-0000-4000-8000-000000000104",
+  "conversationId": "00000000-0000-4000-8000-000000000105",
+  "spokenText": "好呀，我们一起跳舞。",
+  "innerOsText": "准备开始跳舞。",
+  "emotion": "excited",
+  "behaviorIntent": "dance",
+  "priority": 100,
+  "interruptible": true,
+  "toolCallSummaries": [],
+  "sourceEventId": null,
+  "timestamp": "2026-08-11T12:00:00Z"
+}

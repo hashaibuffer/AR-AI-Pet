@@ -1,67 +1,41 @@
 # 跨端协议
 
-## 模块用途
-
-本目录是 XR 客户端、Agent 服务、StackChan 和 NanoDrive 之间跨端协议的唯一事实来源。说明文档只能引用这里的定义。
-
-## 主责人
-
-每类协议由对应模块主责人提出，受影响人员确认。责任与冻结阶段见 [`docs/04-A-B接口协议.md`](../../docs/04-A-B接口协议.md)。
+本目录是 Agent、Unity/XREAL、StackChan 和底座之间事件与动作消息的单一事实来源。
 
 ## 当前状态
 
-目录约定与消息建议已准备；正式协议均为“Day 1 待确认”，尚未冻结。`schemas/`、`examples/`、`mocks/` 随首次实际协议在同一 PR 建立，不提交空定义。
+Agent 体验编排相关协议已冻结到 `schemas/`；`examples/` 是可读样例。Python Agent 运行时直接加载这些 JSON Schema 校验，不再维护第二套手写字段规则。
+
+当前版本为 `0.1`。新增字段必须兼容旧消费者；破坏性变更需要提升协议版本并同时更新 Schema、样例、Mock 和测试。
 
 ## 文件入口
 
-- `schemas/`：正式协议定义。
-- `examples/`：与正式定义同版本的可解析示例。
-- `mocks/`：供未完成模块使用的开发 Mock。
+- `schemas/`：正式 JSON Schema。
+- `examples/`：与 Schema 同版本的有效消息样例。
+- `mocks/`：尚未建立独立目录；当前 Mock 客户端在 `services/agent-service/scripts/mock_clients.py`。
 
-Mock 和示例不得维护独立字段；状态权威、重连、重复事件和版本边界见 [`docs/04-A-B接口协议.md`](../../docs/04-A-B接口协议.md)。
+## 关键消息
 
-## 通用消息结构建议
+- `agent-turn-result`：Agent 的文字结果、内心 OS 和工具摘要。
+- `experience-event`：一次可投递给 Unity、机器人和 App 的体验事件。
+- `action-result`：设备动作的 `accepted → started → completed/failed/timeout/cancelled` 生命周期。
+- `sensor-observation`：带真实来源的传感器观察。
 
-以下字段只是一份 Day 1 待确认的最小建议：
+语义动作只描述 `dance`、`wave`、`farm_tend`、`stop` 等能力，不暴露 PWM、电压或电机细节。
+
+## 验证
+
+在 Agent 服务目录运行：
 
 ```text
-version
-messageId
-timestamp
-source
-type
-payload
+python -m unittest discover -s tests -v
+python -m json.tool ../../packages/protocol/examples/agent-turn-result.json
 ```
 
-示例（Day 1 待确认）：
+当前 Schema/Mock 验证不等于 Unity/XREAL、StackChan、NanoDrive 实机验收。
 
-```json
-{
-  "version": "0.1",
-  "messageId": "evt-001",
-  "timestamp": "2026-08-03T09:00:00Z",
-  "source": "xr-client",
-  "type": "game.action.requested",
-  "payload": {
-    "action": "roll"
-  }
-}
-```
+## PR #17 boundary notes
 
-字段命名、必填性、错误结构和版本策略由 A、B、C 在 Day 1 按实际使用方确认。
-
-## 安装或运行方式
-
-待负责人根据最终协议实现方式补充。
-
-## 配置入口
-
-待负责人补充。
-
-## 验证方式
-
-每类协议至少提供一个示例和一个 Mock，由实际使用方完成解析验证。具体命令待负责人补充。
-
-## 已知问题
-
-当前只有消息结构建议，没有已冻结的代码定义。变更时必须同步协议、示例、Mock和使用方。
+- `experience-event.xr.displayActionId` is reserved for Unity/XR display confirmation; robot actions keep separate IDs.
+- Yahtzee rules, dice and scoring are authoritative in Unity. The service stores Unity snapshots and does not generate dice or accept direct scoring inputs.
+- A Robot Bridge receives `robot.command.stop` through the Agent Gateway; database cancellation records are not a substitute for device delivery.
