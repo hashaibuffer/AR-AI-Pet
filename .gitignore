@@ -52,6 +52,7 @@ pnpm-debug.log*
 # Locally checked out upstream firmware baselines; exact revisions are recorded in module READMEs.
 /firmware/stackchan/upstream/
 /firmware/stackchan-mcp/upstream/
+/firmware/espnow-controller/build-host/
 # StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
 firmware/stackchan-mcp/artifacts/local-consistency/
 /firmware/kimito-stackchan/upstream/

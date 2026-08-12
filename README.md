@@ -20,6 +20,7 @@ services/
 └─ agent-service/  B 负责
 firmware/
 ├─ stackchan/      B 负责
+├─ espnow-controller/  B 负责的实体遥控器
 └─ nanodrive/      B 负责
 content/           C 负责
 competition/       C 负责
@@ -48,6 +49,7 @@ packages/protocol/ 按模块主责定义，受影响人员确认
 - 正式 XR 客户端：[apps/xr-client/](apps/xr-client/)
 - Agent 服务：[services/agent-service/](services/agent-service/)
 - StackChan 固件：[firmware/stackchan/](firmware/stackchan/)
+- ESP-NOW 遥控器：[firmware/espnow-controller/](firmware/espnow-controller/)
 - NanoDrive 固件：[firmware/nanodrive/](firmware/nanodrive/)
 - 跨端协议：[packages/protocol/](packages/protocol/)
 

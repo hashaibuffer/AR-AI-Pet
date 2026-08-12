@@ -1,0 +1,8 @@
+{
+  "sourceRepository": "https://github.com/m5stack/StackChan.git",
+  "sourceCommit": "b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e",
+  "sourcePath": "remote/code",
+  "target": "M5StickC Plus + Hat Mini JoyC",
+  "framework": "ESP-IDF",
+  "testedFrameworkVersion": "5.5.4"
+}
