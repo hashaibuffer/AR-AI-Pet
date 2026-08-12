@@ -170,7 +170,7 @@ class ProactiveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({event["mode"] for event in events}, {"companion", "game"})
 
     async def test_farm_proactive_action_is_executed_before_event(self) -> None:
-        orchestrator = ExperienceOrchestrator("content/runtime")
+        orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
         data = _FakeDataService({"idle": False, "reminders": [], "farmChanged": {"revision": 2}})
         events = await ProactiveScheduler(data, orchestrator).tick()
         self.assertEqual(events[0]["mode"], "farm")
