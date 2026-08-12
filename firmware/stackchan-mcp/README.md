@@ -14,7 +14,7 @@ StackChan 实体：麦克风、扬声器、触摸、屏幕、舵机和安全执�
 Kimito 行为层：表情、头部动作、陪伴反馈，不接管语音会话
 ```
 
-Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 单向串口适配已纳入本模块，但真机闭环仍待验证。
+Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 蓝牙透传和遥控器 BASE 模式已经完成实机闭环，Agent/Beam Pro 链路仍待接入。
 
 ## 固定来源
 
@@ -72,7 +72,17 @@ touch PTT   = enabled
 
 ### NanoDrive 项目变体
 
-- StackChan GPIO17（Port C 黄线）以 115200 波特率单向发送到底座 RX；两端只共地，不连接 5V 和返回线。
+#### 蓝牙透传基准（2026-08-12）
+
+StackChan BLE 接收端已通过实机最小闭环：扫描并连接目标 `JDY-23A-BLE`，使用 `FFE0/FFE1`，以无响应写入发送商家原始字符 `Z/A/E/Z`；NanoDrive 侧模块 UART 为 115200，用户确认底座轮子实际转动且方向符合预期。
+
+一次性 `MotionTest` 已关闭；BLE 写入能力已抽成 `NanoDriveBleScanner::SendCommand()`，StackChan 的 ESP-NOW `BASE` 和 MCP 底座动作入口会将语义命令翻译为商家方向字符。运动字符采用无响应写入，方向变化立即发送，相同指令按 250 ms 合并刷新，避免 30 ms 输入帧堵塞 BLE 队列。用户已确认 BASE 前后左右和松手停止的实机现象符合预期。
+
+模块的 `CONNECTED`、`+DISC:SUCCESS` 等状态文本可能被商家固件报告为 `ERR:UNKNOWN`，这是透传链路的日志噪声，不是动作失败。底座 2 秒安全超时和每轮动作末尾的 `Z` 必须保留。
+
+旧的 GPIO17 直连 UART 变体仍保留为历史/对照路径，不与当前 BLE 实机验收混用。
+
+- 旧的 GPIO17（Port C 黄线）115200 单向 UART 仅用于历史直连变体；当前已验收的 BLE 路径不使用 StackChan 与底座之间的 UART 线。
 - 每次移动先发送 `EN:1`，再发送 `FW`、`BW`、`TL`、`TR` 或 `VL`；停止发送 `ST`，底座看门狗为 2000 ms。
 - `self.robot.base_move`、`base_drive`、`base_stop` 返回成功仅表示串口已写入，不代表底座回执。
 - GPIO17 被底座占用时，本项目变体不启用 Port C WS2812。

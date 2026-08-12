@@ -1,0 +1,508 @@
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+index af816fa..70ded85 100644
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+@@ -1,12 +1,15 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <esp_gattc_api.h>
+ 
+ class NanoDriveBleScanner {
+ public:
+     static NanoDriveBleScanner& GetInstance();
+ 
+     void Start();
++    bool IsReady() const;
++    bool SendCommand(std::uint8_t command);
+ 
+ private:
+     NanoDriveBleScanner() = default;
+@@ -14,11 +17,29 @@ private:
+     NanoDriveBleScanner& operator=(const NanoDriveBleScanner&) = delete;
+ 
+     static void GapCallback(int event, void* param);
++    static void GattcCallback(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
++                              esp_ble_gattc_cb_param_t* param);
+     static void ScanTaskTrampoline(void* arg);
++    static void MotionTestTaskTrampoline(void* arg);
+     void ScanTask();
++    void MotionTestTask();
+     void HandleGapEvent(int event, void* param);
++    void HandleGattcEvent(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
++                          esp_ble_gattc_cb_param_t* param);
++    void OpenTargetIfReady();
+ 
+     bool started_ = false;
+     void* event_group_ = nullptr;
+     std::uint32_t scan_cycle_ = 0;
++    bool gattc_registered_ = false;
++    bool target_seen_ = false;
++    bool connecting_ = false;
++    bool connected_ = false;
++    esp_gatt_if_t gattc_if_ = ESP_GATT_IF_NONE;
++    std::uint16_t conn_id_ = 0;
++    std::uint16_t write_handle_ = 0;
++    bool safe_stop_sent_ = false;
++    bool motion_test_started_ = false;
++    std::uint8_t target_address_type_ = 0;
++    std::uint8_t target_address_[6]{};
+ };
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+index b926708..5111829 100644
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+@@ -3,10 +3,13 @@
+ #include <array>
+ #include <cstdio>
+ #include <cstring>
++#include <inttypes.h>
++#include <vector>
+ 
+ #include <esp_bt.h>
+ #include <esp_bt_main.h>
+ #include <esp_gap_ble_api.h>
++#include <esp_gatt_common_api.h>
+ #include <esp_log.h>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
+@@ -19,6 +22,12 @@ constexpr EventBits_t kScanComplete = BIT1;
+ constexpr std::uint32_t kScanSeconds = 5;
+ constexpr std::size_t kMaxDevicesPerCycle = 48;
+ constexpr std::size_t kAddressSize = ESP_BD_ADDR_LEN;
++// The one-shot probe is disabled after the physical transport acceptance.
++// Runtime callers use SendCommand() and retain the base firmware watchdog.
++constexpr bool kRunOneMotionTest = false;
++// FFE1 is a transparent UART characteristic.  Use no-response writes for
++// immediate direction changes; the controller coalesces refreshes to 250 ms,
++// preventing the queue saturation seen with 30 ms joystick frames.
++constexpr esp_gatt_write_type_t kMotionWriteType = ESP_GATT_WRITE_TYPE_NO_RSP;
++constexpr std::uint8_t kTargetAddress[kAddressSize] =
++    {0x90, 0x43, 0x50, 0x03, 0x90, 0x16};
+ 
+ const char* TAG = "NanoDriveBleScan";
+ 
+@@ -64,6 +73,34 @@ void BytesToHex(const std::uint8_t* data, std::size_t length, char* output,
+     output[length * 2] = '\0';
+ }
+ 
++bool IsTargetAddress(const std::uint8_t* address) {
++    return std::memcmp(address, kTargetAddress, kAddressSize) == 0;
++}
++
++bool IsTargetName(const char* name) {
++    return name != nullptr && std::strcmp(name, "JDY-23A-BLE") == 0;
++}
++
++void FormatUuid(const esp_bt_uuid_t& uuid, char* output, std::size_t output_size) {
++    if (output_size == 0) return;
++    if (uuid.len == ESP_UUID_LEN_16) {
++        std::snprintf(output, output_size, "%04X", uuid.uuid.uuid16);
++    } else if (uuid.len == ESP_UUID_LEN_32) {
++        std::snprintf(output, output_size, "%08" PRIX32, uuid.uuid.uuid32);
++    } else if (uuid.len == ESP_UUID_LEN_128) {
++        std::snprintf(output, output_size,
++                      "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
++                      uuid.uuid.uuid128[15], uuid.uuid.uuid128[14], uuid.uuid.uuid128[13],
++                      uuid.uuid.uuid128[12], uuid.uuid.uuid128[11], uuid.uuid.uuid128[10],
++                      uuid.uuid.uuid128[9], uuid.uuid.uuid128[8], uuid.uuid.uuid128[7],
++                      uuid.uuid.uuid128[6], uuid.uuid.uuid128[5], uuid.uuid.uuid128[4],
++                      uuid.uuid.uuid128[3], uuid.uuid.uuid128[2], uuid.uuid.uuid128[1],
++                      uuid.uuid.uuid128[0]);
++    } else {
++        std::snprintf(output, output_size, "<unknown>");
++    }
++}
++
+ }  // namespace
+ 
+ NanoDriveBleScanner& NanoDriveBleScanner::GetInstance() {
+@@ -139,6 +176,17 @@ void NanoDriveBleScanner::Start() {
+         return;
+     }
+ 
++    err = esp_ble_gattc_register_callback(&NanoDriveBleScanner::GattcCallback);
++    if (err != ESP_OK) {
++        ESP_LOGE(TAG, "GATTC callback registration failed: %s", esp_err_to_name(err));
++        return;
++    }
++    err = esp_ble_gattc_app_register(0);
++    if (err != ESP_OK) {
++        ESP_LOGE(TAG, "GATTC app registration failed: %s", esp_err_to_name(err));
++        return;
++    }
++
+     started_ = true;
+     if (xTaskCreate(ScanTaskTrampoline, "nanodrive_ble_scan", 4096, this, 4, nullptr) !=
+         pdPASS) {
+@@ -146,13 +194,41 @@ void NanoDriveBleScanner::Start() {
+         started_ = false;
+         return;
+     }
+-    ESP_LOGI(TAG, "BLE diagnostic scanner initialized; no device will be connected or written");
++    ESP_LOGI(TAG, "BLE scanner initialized; target auto-connect and command transport enabled");
++}
++
++bool NanoDriveBleScanner::IsReady() const {
++    return connected_ && write_handle_ != 0;
++}
++
++bool NanoDriveBleScanner::SendCommand(std::uint8_t command) {
++    if (!IsReady()) {
++        ESP_LOGW(TAG, "BLE command %c rejected: transport not ready",
++                 static_cast<char>(command));
++        return false;
++    }
++    const esp_err_t err = esp_ble_gattc_write_char(
++        gattc_if_, conn_id_, write_handle_, 1, &command,
++        kMotionWriteType, ESP_GATT_AUTH_REQ_NONE);
++    if (err != ESP_OK) {
++        ESP_LOGE(TAG, "BLE command %c write failed: %s",
++                 static_cast<char>(command), esp_err_to_name(err));
++        return false;
++    }
++    ESP_LOGD(TAG, "BLE command %c written without response", static_cast<char>(command));
++    return true;
+ }
+ 
+ void NanoDriveBleScanner::GapCallback(int event, void* param) {
+     GetInstance().HandleGapEvent(event, param);
+ }
+ 
++void NanoDriveBleScanner::GattcCallback(esp_gattc_cb_event_t event,
++                                         esp_gatt_if_t gattc_if,
++                                         esp_ble_gattc_cb_param_t* param) {
++    GetInstance().HandleGattcEvent(event, gattc_if, param);
++}
++
+ void NanoDriveBleScanner::HandleGapEvent(int event_raw, void* param_raw) {
+     if (param_raw == nullptr || event_group_ == nullptr) return;
+     const auto event = static_cast<esp_gap_ble_cb_event_t>(event_raw);
+@@ -167,6 +243,10 @@ void NanoDriveBleScanner::HandleGapEvent(int event_raw, void* param_raw) {
+         }
+         return;
+     }
++    if (event == ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
++        if (target_seen_ && !connecting_ && !connected_) OpenTargetIfReady();
++        return;
++    }
+     if (event != ESP_GAP_BLE_SCAN_RESULT_EVT) return;
+ 
+     const auto& result = param->scan_rst;
+@@ -194,6 +274,17 @@ void NanoDriveBleScanner::HandleGapEvent(int event_raw, void* param_raw) {
+         name_buffer[copy_length] = '\0';
+     }
+ 
++    const bool address_match = IsTargetAddress(result.bda);
++    const bool name_match = IsTargetName(name_buffer);
++    if ((address_match || name_match) && !target_seen_ && !connected_ && !connecting_) {
++        std::memcpy(target_address_, result.bda, kAddressSize);
++        target_address_type_ = result.ble_addr_type;
++        target_seen_ = true;
++        ESP_LOGI(TAG, "target advertisement seen by %s; waiting for scan stop before GATT connect",
++                 address_match ? "address" : "name");
++        esp_ble_gap_stop_scanning();
++    }
++
+     const std::size_t payload_length = result.adv_data_len + result.scan_rsp_len;
+     char payload_hex[ESP_BLE_ADV_DATA_LEN_MAX * 2 + 1]{};
+     BytesToHex(result.ble_adv, payload_length, payload_hex, sizeof(payload_hex));
+@@ -205,14 +296,176 @@ void NanoDriveBleScanner::HandleGapEvent(int event_raw, void* param_raw) {
+              payload_hex);
+ }
+ 
++void NanoDriveBleScanner::OpenTargetIfReady() {
++    if (!gattc_registered_ || connecting_ || connected_ || !target_seen_) return;
++    connecting_ = true;
++    const esp_err_t err = esp_ble_gattc_open(
++        gattc_if_, target_address_, static_cast<esp_ble_addr_type_t>(target_address_type_), true);
++    if (err != ESP_OK) {
++        connecting_ = false;
++        target_seen_ = false;
++        ESP_LOGE(TAG, "GATTC open failed: %s", esp_err_to_name(err));
++    } else {
++        ESP_LOGI(TAG, "GATTC open requested for confirmed target");
++    }
++}
++
++void NanoDriveBleScanner::HandleGattcEvent(esp_gattc_cb_event_t event,
++                                            esp_gatt_if_t gattc_if,
++                                            esp_ble_gattc_cb_param_t* param) {
++    if (param == nullptr) return;
++    if (event == ESP_GATTC_REG_EVT) {
++        if (param->reg.status != ESP_GATT_OK) {
++            ESP_LOGE(TAG, "GATTC registration failed status=%d", param->reg.status);
++            return;
++        }
++        gattc_if_ = gattc_if;
++        gattc_registered_ = true;
++        ESP_LOGI(TAG, "GATTC app registered if=%u", static_cast<unsigned>(gattc_if));
++        if (!target_seen_) {
++            std::memcpy(target_address_, kTargetAddress, kAddressSize);
++            target_address_type_ = BLE_ADDR_TYPE_PUBLIC;
++            target_seen_ = true;
++            ESP_LOGI(TAG, "attempting direct GATT open using previously observed address");
++        }
++        OpenTargetIfReady();
++        return;
++    }
++    if (event == ESP_GATTC_OPEN_EVT) {
++        ESP_LOGI(TAG, "GATTC open status=%d conn_id=%u mtu=%u",
++                 param->open.status,
++                 static_cast<unsigned>(param->open.conn_id),
++                 static_cast<unsigned>(param->open.mtu));
++        if (param->open.status != ESP_GATT_OK) {
++            connecting_ = false;
++            target_seen_ = false;
++        }
++        return;
++    }
++    if (event == ESP_GATTC_CONNECT_EVT) {
++        connecting_ = false;
++        connected_ = true;
++        conn_id_ = param->connect.conn_id;
++        gattc_if_ = gattc_if;
++        ESP_LOGI(TAG, "GATTC connected conn_id=%u; requesting MTU",
++                 static_cast<unsigned>(conn_id_));
++        esp_ble_gattc_send_mtu_req(gattc_if_, conn_id_);
++        return;
++    }
++    if (event == ESP_GATTC_CFG_MTU_EVT) {
++        ESP_LOGI(TAG, "GATTC MTU status=%d mtu=%u; discovering services",
++                 param->cfg_mtu.status, static_cast<unsigned>(param->cfg_mtu.mtu));
++        if (param->cfg_mtu.status == ESP_GATT_OK) {
++            esp_ble_gattc_search_service(gattc_if_, conn_id_, nullptr);
++        }
++        return;
++    }
++    if (event == ESP_GATTC_SEARCH_RES_EVT) {
++        const auto& service = param->search_res;
++        char uuid[40]{};
++            FormatUuid(service.srvc_id.uuid, uuid, sizeof(uuid));
++        ESP_LOGI(TAG, "GATT service primary=%d start=%u end=%u uuid=%s",
++                 service.is_primary ? 1 : 0,
++                 static_cast<unsigned>(service.start_handle),
++                 static_cast<unsigned>(service.end_handle), uuid);
++        return;
++    }
++    if (event == ESP_GATTC_SEARCH_CMPL_EVT) {
++        ESP_LOGI(TAG, "GATT service discovery complete status=%d", param->search_cmpl.status);
++        if (param->search_cmpl.status == ESP_GATT_OK) {
++            uint16_t count = 0;
++            esp_gatt_status_t err = esp_ble_gattc_get_attr_count(
++                gattc_if_, conn_id_, ESP_GATT_DB_CHARACTERISTIC, 1, 0xFFFF, 0, &count);
++            if (err == ESP_OK && count > 0) {
++                std::vector<esp_gattc_char_elem_t> chars(count);
++                err = esp_ble_gattc_get_all_char(gattc_if_, conn_id_, 1, 0xFFFF,
++                                                  chars.data(), &count, 0);
++                if (err == ESP_OK) {
++                    for (uint16_t i = 0; i < count; ++i) {
++                        char uuid[40]{};
++                        FormatUuid(chars[i].uuid, uuid, sizeof(uuid));
++                        ESP_LOGI(TAG, "GATT characteristic handle=%u uuid=%s properties=0x%02X",
++                                 static_cast<unsigned>(chars[i].char_handle), uuid,
++                                 static_cast<unsigned>(chars[i].properties));
++                        // This module's FFE1 is the transparent UART write
++                        // characteristic; FFE2 is reserved for its auxiliary
++                        // IO/configuration path. Prefer FFE1 for A/E/Z bytes.
++                        if (chars[i].uuid.len == ESP_UUID_LEN_16 &&
++                            chars[i].uuid.uuid.uuid16 == 0xFFE1 &&
++                            (chars[i].properties & (ESP_GATT_CHAR_PROP_BIT_WRITE |
++                                                    ESP_GATT_CHAR_PROP_BIT_WRITE_NR)) != 0) {
++                            write_handle_ = chars[i].char_handle;
++                        }
++                    }
++                    if (write_handle_ != 0 && !safe_stop_sent_) {
++                        if (SendCommand('Z')) {
++                            safe_stop_sent_ = true;
++                            ESP_LOGI(TAG, "safe stop Z write requested handle=%u",
++                                     static_cast<unsigned>(write_handle_));
++                        } else {
++                            ESP_LOGE(TAG, "safe stop Z write request failed");
++                        }
++                    }
++                }
++            }
++        }
++        return;
++    }
++    if (event == ESP_GATTC_WRITE_CHAR_EVT) {
++        ESP_LOGI(TAG, "GATT characteristic write status=%d handle=%u",
++                 param->write.status, static_cast<unsigned>(param->write.handle));
++        if (param->write.status == ESP_GATT_OK && param->write.handle == write_handle_ &&
++            safe_stop_sent_ && kRunOneMotionTest && !motion_test_started_) {
++            motion_test_started_ = true;
++            if (xTaskCreate(MotionTestTaskTrampoline, "nanodrive_motion_test", 3072, this, 4,
++                            nullptr) != pdPASS) {
++                motion_test_started_ = false;
++                ESP_LOGE(TAG, "motion test task creation failed; keeping safe stop");
++            }
++        }
++        return;
++    }
++    if (event == ESP_GATTC_DISCONNECT_EVT) {
++        ESP_LOGW(TAG, "GATTC disconnected reason=0x%02X", param->disconnect.reason);
++        connected_ = false;
++        connecting_ = false;
++        target_seen_ = false;
++        write_handle_ = 0;
++        safe_stop_sent_ = false;
++    }
++}
++
+ void NanoDriveBleScanner::ScanTaskTrampoline(void* arg) {
+     static_cast<NanoDriveBleScanner*>(arg)->ScanTask();
+ }
+ 
++void NanoDriveBleScanner::MotionTestTaskTrampoline(void* arg) {
++    static_cast<NanoDriveBleScanner*>(arg)->MotionTestTask();
++}
++
++void NanoDriveBleScanner::MotionTestTask() {
++    auto write_motion = [this](std::uint8_t command) { return SendCommand(command); };
++
++    vTaskDelay(pdMS_TO_TICKS(300));
++    write_motion('A');
++    vTaskDelay(pdMS_TO_TICKS(1000));
++    write_motion('Z');
++    vTaskDelay(pdMS_TO_TICKS(500));
++    write_motion('E');
++    vTaskDelay(pdMS_TO_TICKS(1000));
++    write_motion('Z');
++    ESP_LOGI(TAG, "one-shot motion test complete; final command Z");
++    vTaskDelete(nullptr);
++}
++
+ void NanoDriveBleScanner::ScanTask() {
+     auto event_group = static_cast<EventGroupHandle_t>(event_group_);
+     xEventGroupWaitBits(event_group, kScanParamsReady, pdFALSE, pdTRUE, portMAX_DELAY);
+     while (true) {
++        if (connecting_ || connected_) {
++            vTaskDelay(pdMS_TO_TICKS(1000));
++            continue;
++        }
+         ++scan_cycle_;
+         ResetCycle();
+         xEventGroupClearBits(event_group, kScanComplete);
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+index f30ecf5..166d03d 100644
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -557,9 +557,9 @@ private:
+     led_strip_handle_t port_c_ws2812_handle_ = nullptr;
+     static constexpr gpio_num_t PORT_C_WS2812_DATA_PIN = GPIO_NUM_17;  // CoreS3 HY2.0-4P (Port C) signal 1
+     static constexpr uint16_t PORT_C_WS2812_MAX_LEDS = 256;
+-    // NanoDrive uses Port C as a TX-only UART. RX remains disconnected until
+-    // a 5 V -> 3.3 V level shifter is available, so a successful write means
+-    // only that the command left StackChan, not that the base acknowledged it.
++    // The accepted base transport is BLE -> JDY-23A/BK3432 -> NanoDrive UART1.
++    // These UART fields remain for the historical direct-wire variant only;
++    // runtime BASE commands use NanoDriveBleScanner below.
+     bool nanodrive_uart_ok_ = false;
+     static constexpr uart_port_t NANODRIVE_UART_PORT = UART_NUM_2;
+     static constexpr gpio_num_t NANODRIVE_TX_PIN = GPIO_NUM_17;
+@@ -2509,23 +2509,49 @@ private:
+                  (unsigned)led_count, (int)PORT_C_WS2812_DATA_PIN);
+         return ESP_OK;
+     }
++
+     bool WriteNanoDriveCommand(const std::string& command) {
+-        if (!nanodrive_uart_ok_ || command.empty()) {
+-            return false;
+-        }
+-        std::string line = command;
+-        line.push_back('\n');
+-        int written = uart_write_bytes(NANODRIVE_UART_PORT, line.data(), line.size());
+-        if (written != static_cast<int>(line.size())) {
+-            ESP_LOGE(TAG, "NanoDrive UART write failed: %s", command.c_str());
+-            return false;
+-        }
+-        if (uart_wait_tx_done(NANODRIVE_UART_PORT, pdMS_TO_TICKS(100)) != ESP_OK) {
+-            ESP_LOGE(TAG, "NanoDrive UART TX timeout: %s", command.c_str());
++        if (command.empty()) return false;
++
++        // The vendor A4950 firmware is a character protocol.  Keep the
++        // existing semantic command names at the MCP/controller boundary and
++        // translate them to the corresponding vendor character here.
++        std::uint8_t vendor_command = 0;
++        if (command == "ST" || command == "EN:0") {
++            vendor_command = 'Z';
++        } else if (command == "EN:1") {
++            // The vendor firmware has no separate enable command.  Treat it as
++            // a transport readiness check; the next motion character enables
++            // motion and the base watchdog remains authoritative.
++            return NanoDriveBleScanner::GetInstance().IsReady();
++        } else if (command.rfind("FW:", 0) == 0) {
++            vendor_command = std::stoi(command.substr(3)) > 0 ? 'A' : 'Z';
++        } else if (command.rfind("BW:", 0) == 0) {
++            vendor_command = std::stoi(command.substr(3)) > 0 ? 'E' : 'Z';
++        } else if (command.rfind("TL:", 0) == 0) {
++            vendor_command = std::stoi(command.substr(3)) > 0 ? 'G' : 'Z';
++        } else if (command.rfind("TR:", 0) == 0) {
++            vendor_command = std::stoi(command.substr(3)) > 0 ? 'C' : 'Z';
++        } else if (command.rfind("VL:", 0) == 0) {
++            const auto comma = command.find(',', 3);
++            if (comma == std::string::npos) return false;
++            const int left = std::stoi(command.substr(3, comma - 3));
++            const int right = std::stoi(command.substr(comma + 1));
++            if (left == 0 && right == 0) {
++                vendor_command = 'Z';
++            } else if (left >= 0 && right >= 0) {
++                vendor_command = left == right ? 'A' : (left < right ? 'H' : 'B');
++            } else if (left <= 0 && right <= 0) {
++                vendor_command = left == right ? 'E' : (left < right ? 'D' : 'F');
++            } else {
++                vendor_command = left < 0 ? 'G' : 'C';
++            }
++        } else {
++            ESP_LOGW(TAG, "Rejected NanoDrive BLE command: %s", command.c_str());
+             return false;
+         }
+-        ESP_LOGI(TAG, "NanoDrive TX: %s", command.c_str());
+-        return true;
++
++        return NanoDriveBleScanner::GetInstance().SendCommand(vendor_command);
+     }
+ 
+     esp_err_t InitializeNanoDriveUart() {
+@@ -2573,12 +2599,10 @@ private:
+     }
+ 
+     bool SendNanoDriveMotion(const std::string& command) {
+-        return nanodrive_uart_ok_ &&
+-               WriteNanoDriveCommand("EN:1") &&
++        return WriteNanoDriveCommand("EN:1") &&
+                WriteNanoDriveCommand(command);
+     }
+ 
+-
+     void I2cDetect() {
+         uint8_t address;
+         printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\r\n");
+@@ -7386,6 +7410,7 @@ private:
+                 ESP_LOGI(TAG, "port_c.ws2812.clear ok=%d", ok ? 1 : 0);
+                 return root;
+             });
++
+         mcp_server.AddTool(
+             "self.robot.base_move",
+             "Move the NanoDrive base in one of four directions. direction must be "
+@@ -7441,7 +7466,6 @@ private:
+                 return WriteNanoDriveCommand("ST");
+             });
+ 
+-
+         ESP_LOGI(TAG, "StackChan MCP tools registered");
+     }
+ 
+@@ -7477,8 +7501,9 @@ public:
+         // usable before the avatar overlay is installed.
+         InitializeAvatar();
+         InitializeMouthSequenceTask();
++        // NanoDrive transport is owned by the BLE scanner.  Do not claim
++        // Port C GPIO17 as a direct UART in the Bluetooth configuration.
+         RegisterMcpTools();
+-        InitializeNanoDriveUart();
+     }
+ 
+     virtual AudioCodec* GetAudioCodec() override {
