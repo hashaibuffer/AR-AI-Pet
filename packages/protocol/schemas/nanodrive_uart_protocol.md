@@ -4,7 +4,25 @@
 
 ## 当前连接边界
 
-当前没有 5V→3.3V 电平转换，只启用 StackChan→NanoDrive 单向控制：
+当前实机验收路径是 BLE 透传，StackChan 不与 NanoDrive 直接接 UART 线，也不接收底座回传。下方 v0.9 行协议仅用于 NanoDrive USB 单机诊断和后续有线升级。
+
+## 传输变体
+
+当前已通过实机验收的是商家 A4950 蓝牙透传变体，不是 v0.9 直连 UART 行协议的替代版本：
+
+```text
+StackChan BLE Central
+  -> JDY-23A/BK3432 GATT service FFE0 / write characteristic FFE1
+  -> 模块 UART 115200 8N1
+  -> NanoDrive UART1
+  -> 商家 A4950 固件（原始字符 A / E / Z）
+```
+
+该变体发送商家原始单字符：`A` 前进、`E` 后退、`Z` 停止，`H/B/G/C/F/D` 对应前后左右和原地转向。模块状态文本（如 `CONNECTED`）可能同时进入 Nano 串口，商家固件将其记为 `ERR:UNKNOWN`；本次实机已确认控制字符仍能驱动底座。
+
+本文件后续的 `PING`、`EN`、`FW`、`VL` 等带换行命令仍属于 NanoDrive v0.9 直连 UART 变体，保留用于 USB 单机诊断和后续协议升级；两套变体不得混烧、混接或混写成同一个验收结论。
+
+历史 UART 直连变体没有 5V→3.3V 电平转换，只启用 StackChan→NanoDrive 单向控制：
 
 | 接线 | 当前状态 |
 |---|---|
