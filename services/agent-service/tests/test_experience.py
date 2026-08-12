@@ -10,6 +10,7 @@ from pathlib import Path
 from app.experience_protocol import ProtocolValidationError, validate_action_result, validate_experience_event
 from app.persona import BehaviorRuleEngine, PersonaConfigError, PersonaLoader
 from app.experience import ExperienceOrchestrator, ProactiveScheduler
+from app.agent_gateway import ExperienceHub
 
 
 class ExperienceProtocolTests(unittest.TestCase):
@@ -20,7 +21,7 @@ class ExperienceProtocolTests(unittest.TestCase):
             "mode": "conversation", "priority": 100, "expiresAt": now,
             "speech": {"text": "", "emotion": "calm", "interruptible": True},
             "innerOs": {"text": "", "durationMs": 0, "anchor": "robot"},
-            "robot": {"actions": []}, "xr": {"visible": True, "mode": "inner-os"},
+            "robot": {"actions": []}, "xr": {"visible": True, "mode": "inner-os", "displayActionId": str(uuid.uuid4())},
             "app": {"refresh": False, "section": "home"}, "interruptible": True,
         }
 
@@ -44,6 +45,42 @@ class ExperienceProtocolTests(unittest.TestCase):
         invalid["unexpected"] = True
         with self.assertRaises(ProtocolValidationError):
             validate_experience_event(invalid)
+
+
+class HubTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def event(priority: int) -> dict:
+        return {
+            "eventId": str(uuid.uuid4()),
+            "priority": priority,
+            "expiresAt": "2099-01-01T00:00:00+00:00",
+            "xr": {"visible": True, "displayActionId": str(uuid.uuid4())},
+            "robot": {"actions": [{"actionId": str(uuid.uuid4())}]},
+        }
+
+    async def test_admission_precedes_side_effects_and_waits_for_both_targets(self) -> None:
+        hub = ExperienceHub()
+        accepted = self.event(20)
+        high = self.event(80)
+        self.assertTrue((await hub.admit(accepted))["accepted"])
+        self.assertFalse((await hub.admit(self.event(10)))["accepted"])
+        high_admission = await hub.admit(high)
+        self.assertTrue(high_admission["accepted"])
+        display_id = high["xr"]["displayActionId"]
+        robot_id = high["robot"]["actions"][0]["actionId"]
+        await hub.record_result({"actionId": display_id, "status": "completed"})
+        self.assertIsNotNone(hub.active_event)
+        await hub.record_result({"actionId": robot_id, "status": "completed"})
+        self.assertIsNone(hub.active_event)
+
+
+class ConfiguredCopyTests(unittest.TestCase):
+    def test_behavior_copy_and_distinct_display_action_are_configured(self) -> None:
+        orchestrator = ExperienceOrchestrator("content/runtime")
+        orchestrator.select_persona("gentle-companion")
+        event = orchestrator.reminder_event({"eventId": str(uuid.uuid4()), "title": "团队会议"})
+        self.assertIn("团队会议", event["speech"]["text"])
+        self.assertNotEqual(event["xr"]["displayActionId"], event["robot"]["actions"][0]["actionId"])
 
 
 class PersonaTests(unittest.TestCase):

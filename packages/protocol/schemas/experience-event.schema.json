@@ -14,7 +14,7 @@
     "speech": {"type": "object", "required": ["text", "emotion", "interruptible"], "properties": {"text": {"type": "string"}, "emotion": {"type": "string"}, "interruptible": {"type": "boolean"}}, "additionalProperties": false},
     "innerOs": {"type": "object", "required": ["text", "durationMs", "anchor"], "properties": {"text": {"type": "string"}, "durationMs": {"type": "integer", "minimum": 0}, "anchor": {"type": "string"}}, "additionalProperties": false},
     "robot": {"type": "object", "required": ["actions"], "properties": {"actions": {"type": "array", "items": {"type": "object", "required": ["actionId", "intent", "parameters"], "properties": {"actionId": {"type": "string", "format": "uuid"}, "intent": {"type": "string"}, "parameters": {"type": "object"}}, "additionalProperties": false}}}, "additionalProperties": false},
-    "xr": {"type": "object", "required": ["visible", "mode"], "properties": {"visible": {"type": "boolean"}, "mode": {"type": "string"}}, "additionalProperties": false},
+    "xr": {"type": "object", "required": ["visible", "mode", "displayActionId"], "properties": {"visible": {"type": "boolean"}, "mode": {"type": "string"}, "displayActionId": {"type": ["string", "null"], "format": "uuid"}}, "additionalProperties": false},
     "app": {"type": "object", "required": ["refresh", "section"], "properties": {"refresh": {"type": "boolean"}, "section": {"type": "string"}}, "additionalProperties": false},
     "interruptible": {"type": "boolean"}
   },

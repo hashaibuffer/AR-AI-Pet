@@ -33,3 +33,9 @@ python -m json.tool ../../packages/protocol/examples/agent-turn-result.json
 ```
 
 当前 Schema/Mock 验证不等于 Unity/XREAL、StackChan、NanoDrive 实机验收。
+
+## PR #17 boundary notes
+
+- `experience-event.xr.displayActionId` is reserved for Unity/XR display confirmation; robot actions keep separate IDs.
+- Yahtzee rules, dice and scoring are authoritative in Unity. The service stores Unity snapshots and does not generate dice or accept direct scoring inputs.
+- A Robot Bridge receives `robot.command.stop` through the Agent Gateway; database cancellation records are not a substitute for device delivery.

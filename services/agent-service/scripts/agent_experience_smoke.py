@@ -7,12 +7,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import websockets
+from fastmcp import Client
 
 from mock_clients import MockRobot, MockUnity
 
 
 AGENT_URL = os.getenv("AGENT_URL", "ws://localhost:8082/ws")
 DATA_URL = os.getenv("DATA_SERVICE_WS_URL", "ws://localhost:8080/ws")
+MCP_URL = os.getenv("MCP_URL", "http://localhost:8081/mcp")
 
 
 async def request(socket, message_type: str, payload: dict | None = None) -> dict:
@@ -61,6 +63,7 @@ async def main() -> None:
         chat_task = asyncio.create_task(agent_chat(agent, "陪我跳舞吧"))
         unity_event, robot_event = await asyncio.gather(unity.next_event(), robot.next_event())
         assert unity_event["eventId"] == robot_event["eventId"], (unity_event, robot_event)
+        assert unity_event["xr"]["displayActionId"] != robot_event["robot"]["actions"][0]["actionId"], (unity_event, robot_event)
         assert unity_event["mode"] == "conversation", unity_event
         assert unity_event["robot"]["actions"][0]["intent"] == "dance", unity_event
         await asyncio.gather(unity.acknowledge(unity_event, "display"), robot.acknowledge(robot_event, "dance"))
@@ -86,8 +89,16 @@ async def main() -> None:
         actions = await request(data, "action.query_recent", {"limit": 20})
         statuses = {item.get("status") for item in actions.get("actions", [])}
         assert {"accepted", "started", "completed"} <= statuses, actions
-        stopped = await request(data, "robot.action.stop", {"deviceId": "mock-robot"})
-        assert stopped.get("status") == "cancelled", stopped
+        pending_chat = asyncio.create_task(agent_chat(agent, "陪我跳舞"))
+        pending_unity, pending_robot = await asyncio.gather(unity.next_event(), robot.next_event())
+        command_task = asyncio.create_task(robot.next_command())
+        async with Client(MCP_URL) as mcp:
+            stopped = await mcp.call_tool("robot.stop", {"device_id": "mock-robot", "source_event_id": pending_robot["eventId"]})
+        command = await command_task
+        assert command["actionId"] == pending_robot["robot"]["actions"][0]["actionId"], command
+        await robot.acknowledge_command(command)
+        await unity.acknowledge(pending_unity, "display")
+        await pending_chat
         await unity.socket.close()
         await robot.socket.close()
     print(f"AGENT_EXPERIENCE_SMOKE_OK {datetime.now().isoformat()}")

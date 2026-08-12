@@ -33,6 +33,15 @@ class MockExperienceClient:
             if message.get("type") == "experience.event":
                 return message["payload"]
 
+    async def next_command(self) -> dict[str, Any]:
+        assert self.socket is not None
+        while True:
+            message = json.loads(await self.socket.recv())
+            if message.get("type", "").startswith("robot.command"):
+                payload = message.get("payload") or {}
+                if payload.get("deviceId") in {None, self.device_id}:
+                    return payload
+
     async def _send_result(self, result: dict[str, Any]) -> dict[str, Any]:
         assert self.socket is not None
         request_id = f"action-{uuid.uuid4().hex}"
@@ -44,7 +53,7 @@ class MockExperienceClient:
                 return message.get("payload") or {}
 
     async def acknowledge(self, event: dict[str, Any], action_type: str, *, final_status: str = "completed") -> list[dict[str, Any]]:
-        action = (event.get("robot") or {}).get("actions", [{}])[0]
+        action = self._event_action(event)
         action_id = action.get("actionId") or str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
         results = []
@@ -61,6 +70,16 @@ class MockExperienceClient:
             }
             results.append(await self._send_result(result))
         return results
+
+    async def acknowledge_command(self, command: dict[str, Any], *, final_status: str = "cancelled") -> list[dict[str, Any]]:
+        action = {"actionId": command.get("actionId"), "parameters": {}}
+        event = {"eventId": command.get("sourceEventId"), "robot": {"actions": [action]}}
+        return await self.acknowledge(event, "stop", final_status=final_status)
+
+    def _event_action(self, event: dict[str, Any]) -> dict[str, Any]:
+        if self.device_id.startswith("mock-unity") or self.device_id.startswith("unity"):
+            return {"actionId": (event.get("xr") or {}).get("displayActionId"), "parameters": {}}
+        return (event.get("robot") or {}).get("actions", [{}])[0]
 
 
 class MockUnity(MockExperienceClient):

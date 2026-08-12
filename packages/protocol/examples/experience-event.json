@@ -9,7 +9,7 @@
   "speech": {"text": "我在这里陪你。", "emotion": "warm", "interruptible": true},
   "innerOs": {"text": "先用一句话回应，再把动作交给设备。", "durationMs": 4000, "anchor": "robot"},
   "robot": {"actions": [{"actionId": "00000000-0000-4000-8000-000000000102", "intent": "nod", "parameters": {}}]},
-  "xr": {"visible": true, "mode": "inner-os"},
+  "xr": {"visible": true, "mode": "inner-os", "displayActionId": "00000000-0000-4000-8000-000000000103"},
   "app": {"refresh": true, "section": "home"},
   "interruptible": true
 }

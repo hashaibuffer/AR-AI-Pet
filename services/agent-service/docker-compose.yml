@@ -45,6 +45,7 @@ services:
       MCP_PORT: 8081
       DATA_SERVICE_WS_URL: ws://data-service:8080/ws
       DATA_SERVICE_TIMEOUT_SECONDS: 5
+      AGENT_GATEWAY_WS_URL: ws://agent-runtime:8082/ws
     ports:
       - "${MCP_PORT:-8081}:8081"
     healthcheck:

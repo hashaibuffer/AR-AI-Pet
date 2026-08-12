@@ -196,6 +196,9 @@ def game_save(payload: dict[str, Any]) -> dict[str, Any]:
     game_type = payload.get("gameType", "yahtzee")
     status = payload.get("status", "playing")
     result = payload.get("result")
+    source_device = str(payload.get("sourceDevice", ""))
+    if (payload.get("state") or result is not None) and not (source_device.startswith("unity") or payload.get("_internal")):
+        raise ValueError("Unity is the authoritative game state and scoring client")
     started_at = parse_time(payload.get("startedAt")) or now
     ended_at = parse_time(payload.get("endedAt"))
     if game_type != "yahtzee":
@@ -238,22 +241,26 @@ def game_submit_action(payload: dict[str, Any]) -> dict[str, Any]:
     game = game_get_state({})
     if game.get("status") != "playing":
         raise ValueError("no active yahtzee game")
+    source_device = str(payload.get("sourceDevice", ""))
+    if not source_device.startswith("unity"):
+        raise ValueError("Unity is the authoritative Yahtzee rules and scoring client")
     action = payload.get("action")
-    if action not in {"roll", "keep", "score"}:
-        raise ValueError("action must be roll, keep or score")
-    state = dict(game.get("state") or {})
-    if action == "roll":
-        state["rollCount"] = int(state.get("rollCount", 0)) + 1
-        if state["rollCount"] > 3:
-            raise ValueError("turn allows at most three rolls")
-        state["dice"] = [((state["rollCount"] + index) % 6) + 1 for index in range(5)]
-    elif action == "keep":
-        state["kept"] = payload.get("indices", [])
-    else:
-        state["lastScore"] = int(payload.get("score", 0))
-        state["turn"] = "pet" if state.get("turn", "user") == "user" else "user"
-        state["rollCount"] = 0
-    return game_save({"id": game["id"], "gameType": "yahtzee", "status": "playing", "state": state})
+    if action not in {"roll", "keep", "score", "complete"}:
+        raise ValueError("action must be roll, keep, score or complete")
+    state = payload.get("state")
+    if not isinstance(state, dict):
+        raise ValueError("Unity must submit the authoritative state snapshot")
+    if "score" in payload or "indices" in payload:
+        raise ValueError("submit the Unity result/state, not client scoring inputs")
+    return game_save({
+        "id": payload.get("gameId") or game["id"],
+        "gameType": "yahtzee",
+        "status": "completed" if payload.get("status") == "completed" or action == "complete" else "playing",
+        "state": state,
+        "result": payload.get("result"),
+        "endedAt": payload.get("endedAt"),
+        "sourceDevice": source_device,
+    })
 
 
 def farm_perform_action(payload: dict[str, Any]) -> dict[str, Any]:
@@ -268,19 +275,40 @@ def farm_perform_action(payload: dict[str, Any]) -> dict[str, Any]:
             SELECT id, revision, data FROM state_documents WHERE pet_id=:pet_id AND domain='farm' FOR UPDATE
         """), {"pet_id": pet_id}).mappings().one()
         data = dict(row["data"])
+        plots = list(data.get("plots", []))
+        plot_id = payload.get("plotId")
+        candidates = [plot for plot in plots if not plot_id or plot.get("id") == plot_id]
+        target = None
+        if action == "plant":
+            target = next((plot for plot in candidates if not plot.get("cropId")), None)
+        elif action == "water":
+            target = next((plot for plot in candidates if plot.get("cropId") and plot.get("stage") != "ripe"), None)
+        elif action == "harvest":
+            target = next((plot for plot in candidates if plot.get("stage") == "ripe"), None)
+        if action != "rest" and target is None:
+            raise ValueError(f"no plot available for {action}")
+        if target is not None:
+            if action == "plant":
+                target.update({"cropId": payload.get("cropId", "crop.tomato"), "stage": "seed", "stageStartedAt": now.isoformat(), "waterCount": 0})
+            elif action == "water":
+                target["waterCount"] = int(target.get("waterCount", 0)) + 1
+                target["lastWateredAt"] = now.isoformat()
+            elif action == "harvest":
+                target.update({"cropId": None, "stage": "empty", "stageStartedAt": None, "waterCount": 0})
         data["currentActivity"] = {"water": "watering", "plant": "planting", "harvest": "harvesting", "rest": "resting"}[action]
         data["lastAction"] = action
         data["lastTickAt"] = now.isoformat()
+        data["plots"] = plots
         revision = int(row["revision"]) + 1
         conn.execute(text("""
             UPDATE state_documents SET data=CAST(:data AS jsonb), revision=:revision, updated_at=:now WHERE id=:id
         """), {"data": db.as_json(data), "revision": revision, "now": now, "id": row["id"]})
-        event_payload = db.as_json({"action": action, "revision": revision, "data": data})
+        event_payload = db.as_json({"action": action, "plotId": target.get("id") if target else None, "revision": revision, "data": data})
         conn.execute(text("""
             INSERT INTO events (id,user_id,pet_id,event_type,source,payload,occurred_at,created_at)
             VALUES (:id,:user_id,:pet_id,'farm.action.completed','agent',CAST(:payload AS jsonb),:now,:now)
         """), {"id": uuid.uuid4(), "user_id": user_id, "pet_id": pet_id, "payload": event_payload, "now": now})
-        return {"domain": "farm", "action": action, "status": "completed", "revision": revision, "data": data}
+        return {"domain": "farm", "action": action, "plotId": target.get("id") if target else None, "status": "completed", "revision": revision, "data": data}
 
 
 def farm_available_actions(_: dict[str, Any]) -> dict[str, Any]:
@@ -469,7 +497,7 @@ def robot_action_request(payload: dict[str, Any]) -> dict[str, Any]:
         "version": "0.1",
         "actionId": str(payload.get("actionId") or uuid.uuid4()), "deviceId": str(payload.get("deviceId", "mock-robot")),
         "actionType": str(payload.get("actionType", "nod")), "status": "accepted",
-        "startedAt": now.isoformat(), "completedAt": None,
+        "startedAt": None, "completedAt": None,
         "requestedParameters": payload.get("parameters") or {}, "measuredResult": {"simulated": True},
         "error": None, "sourceEventId": payload.get("sourceEventId"),
     }
@@ -502,8 +530,9 @@ def action_query(payload: dict[str, Any]) -> dict[str, Any]:
 def robot_action_stop(payload: dict[str, Any]) -> dict[str, Any]:
     action_id = payload.get("actionId")
     if not action_id:
-        latest = action_query({"limit": 1}).get("actions", [])
-        action_id = latest[0].get("actionId") if latest else None
+        device_id = str(payload.get("deviceId", "mock-robot"))
+        latest = action_query({"limit": 50, "deviceId": device_id}).get("actions", [])
+        action_id = next((item.get("actionId") for item in latest if item.get("actionType") != "stop" and item.get("status") in {"accepted", "started"}), None)
     if not action_id:
         return {"status": "idle", "cancelled": False}
     now = db.utc_now()

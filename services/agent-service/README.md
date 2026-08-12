@@ -205,3 +205,13 @@ docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
 ```
 
 成功输出 `AGENT_EXPERIENCE_SMOKE_OK` 只代表协议、规则、MCP、Mock 客户端和数据落库闭环通过；真实 Unity、StackChan、底座和真实 Mem0 仍未接入本轮。
+
+## Current PR #17 boundary fixes
+
+- Experience admission is decided before the event or robot action is written.
+- `xr.displayActionId` and each robot action ID are different; an event completes only after all required targets finish.
+- `robot.stop` sends a semantic stop command through the Agent Gateway to the Robot Bridge, then records the result.
+- Unity owns Yahtzee dice, rules and scoring. The data service stores Unity-authoritative snapshots only.
+- Farm actions mutate the selected plot; they are not only activity labels.
+- Speech and inner-OS copy comes from `content/runtime/behaviors.json` templates.
+- This PR remains Mock-only: real Unity/XREAL, StackChan and NanoDrive are separate follow-up work.

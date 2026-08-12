@@ -163,8 +163,10 @@ class AgentRuntime:
             return False, {"error": f"unknown tool: {call.name}"}
         try:
             if actual_name == "robot.react":
+                # The experience event owns the physical action id. The MCP
+                # call only records the semantic intent and must not create a
+                # device action before hub admission.
                 call.arguments.setdefault("source_event_id", experience_id)
-                call.arguments.setdefault("action_id", experience_id)
             result = await client.call_tool(actual_name, call.arguments)
             return self._mcp_result(result)
         except Exception as exc:

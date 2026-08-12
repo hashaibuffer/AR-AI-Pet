@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import os
+import uuid
 from typing import Any, Literal
+
+import websockets
 
 from fastmcp import FastMCP
 
@@ -19,6 +25,24 @@ mcp = FastMCP(
 )
 
 data_service = DataServiceClient(DATA_SERVICE_WS_URL, DATA_SERVICE_TIMEOUT_SECONDS)
+AGENT_GATEWAY_WS_URL = os.getenv("AGENT_GATEWAY_WS_URL", "")
+
+
+async def send_gateway_command(message_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if not AGENT_GATEWAY_WS_URL:
+        return {"status": "unavailable", "reason": "AGENT_GATEWAY_WS_URL is not configured"}
+    request_id = f"mcp-command-{uuid.uuid4().hex}"
+    try:
+        async with websockets.connect(AGENT_GATEWAY_WS_URL, open_timeout=2, close_timeout=2) as socket:
+            await socket.send(json.dumps({"requestId": request_id, "type": message_type, "payload": payload}))
+            while True:
+                message = json.loads(await asyncio.wait_for(socket.recv(), timeout=3))
+                if message.get("requestId") == request_id:
+                    if message.get("status") != "ok":
+                        return {"status": "error", "error": message.get("payload")}
+                    return message.get("payload") or {}
+    except Exception as exc:
+        return {"status": "unavailable", "reason": str(exc)}
 
 
 @mcp.tool(
@@ -130,21 +154,17 @@ async def game_get_state() -> dict[str, Any]:
 
 
 @mcp.tool(name="game.submit_action", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
-async def game_submit_action(action: Literal["roll", "keep", "score"], indices: list[int] | None = None, score: int | None = None) -> dict[str, Any]:
-    """Apply one semantic Yahtzee action; the data service owns the rules."""
-    payload: dict[str, Any] = {"action": action}
-    if indices is not None:
-        payload["indices"] = indices
-    if score is not None:
-        payload["score"] = score
+async def game_submit_action(game_id: str, action: Literal["roll", "keep", "score", "complete"], state: dict[str, Any], result: dict[str, Any] | None = None, source_device: str = "unity") -> dict[str, Any]:
+    """Persist a Unity-authoritative Yahtzee snapshot; Unity owns dice and scoring."""
+    payload: dict[str, Any] = {"gameId": game_id, "action": action, "state": state, "result": result, "sourceDevice": source_device}
     return await data_service.request("game.submit_action", payload)
 
 
 @mcp.tool(name="game.end", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
-async def game_end(game_id: str, result: dict[str, Any]) -> dict[str, Any]:
-    """Finish the active Yahtzee game."""
+async def game_end(game_id: str, state: dict[str, Any], result: dict[str, Any], source_device: str = "unity") -> dict[str, Any]:
+    """Finish a Unity-authoritative Yahtzee game."""
     from datetime import datetime, timezone
-    return await data_service.request("game-session.save", {"id": game_id, "gameType": "yahtzee", "status": "completed", "state": {}, "result": result, "endedAt": datetime.now(timezone.utc).isoformat()})
+    return await data_service.request("game.submit_action", {"gameId": game_id, "action": "complete", "state": state, "result": result, "sourceDevice": source_device, "status": "completed", "endedAt": datetime.now(timezone.utc).isoformat()})
 
 
 @mcp.tool(name="sensor.latest", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
@@ -170,14 +190,16 @@ async def device_capabilities(device_id: str = "mock-robot") -> dict[str, Any]:
 
 @mcp.tool(name="robot.react", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
 async def robot_react(action_type: str, parameters: dict[str, Any] | None = None, source_event_id: str | None = None, action_id: str | None = None) -> dict[str, Any]:
-    """Request one semantic robot reaction."""
-    return await data_service.request("robot.action.request", {"actionId": action_id, "actionType": action_type, "parameters": parameters or {}, "sourceEventId": source_event_id})
+    """Describe one semantic reaction; the accepted ExperienceEvent creates the device action."""
+    return {"status": "deferred", "actionId": action_id, "actionType": action_type, "parameters": parameters or {}, "sourceEventId": source_event_id}
 
 
 @mcp.tool(name="robot.stop", annotations={"readOnlyHint": False, "destructiveHint": True, "openWorldHint": False})
-async def robot_stop(source_event_id: str | None = None) -> dict[str, Any]:
-    """Request the highest-priority semantic stop action."""
-    return await data_service.request("robot.action.stop", {"sourceEventId": source_event_id})
+async def robot_stop(source_event_id: str | None = None, action_id: str | None = None, device_id: str = "mock-robot") -> dict[str, Any]:
+    """Send a stop command to the Robot Bridge and record the cancellation."""
+    command = await send_gateway_command("robot.command.stop", {"sourceEventId": source_event_id, "actionId": action_id, "deviceId": device_id})
+    stored = await data_service.request("robot.action.stop", {"sourceEventId": source_event_id, "actionId": command.get("actionId") or action_id, "deviceId": device_id})
+    return {**stored, "command": command}
 
 
 @mcp.tool(name="robot.get_status", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})

@@ -52,11 +52,11 @@ async def main() -> None:
         now = datetime.now(timezone.utc)
         schedule = await request(socket, "schedule.upsert", {"title": "Smoke reminder", "startsAt": (now + timedelta(hours=1)).isoformat(), "remindAt": (now + timedelta(minutes=55)).isoformat(), "repeatType": "none", "status": "active"})
         assert schedule["status"] == "ok", schedule
-        game = await request(socket, "game-session.save", {"gameType": "yahtzee", "status": "playing", "schemaVersion": 1, "state": {"round": 1, "isUserTurn": True, "dice": [1, 2, 3, 4, 5], "keep": [False] * 5, "rollsThisTurn": 1, "userScores": {}, "petScores": {}}})
+        game = await request(socket, "game-session.save", {"gameType": "yahtzee", "status": "playing", "schemaVersion": 1, "sourceDevice": "unity-mock", "state": {"round": 1, "isUserTurn": True, "dice": [1, 2, 3, 4, 5], "keep": [False] * 5, "rollsThisTurn": 1, "userScores": {}, "petScores": {}}})
         assert game["status"] == "ok", game
-        invalid_end = await request(socket, "game-session.save", {"id": game["payload"]["id"], "gameType": "yahtzee", "status": "completed", "schemaVersion": 1, "state": game["payload"]["state"]})
+        invalid_end = await request(socket, "game-session.save", {"id": game["payload"]["id"], "gameType": "yahtzee", "status": "completed", "schemaVersion": 1, "sourceDevice": "unity-mock", "state": game["payload"]["state"]})
         assert invalid_end["status"] == "error", invalid_end
-        ended = await request(socket, "game-session.save", {"id": game["payload"]["id"], "gameType": "yahtzee", "status": "completed", "schemaVersion": 1, "state": game["payload"]["state"], "result": {"winner": "user", "userScore": 42, "petScore": 35}, "endedAt": datetime.now(timezone.utc).isoformat()})
+        ended = await request(socket, "game-session.save", {"id": game["payload"]["id"], "gameType": "yahtzee", "status": "completed", "schemaVersion": 1, "sourceDevice": "unity-mock", "state": game["payload"]["state"], "result": {"winner": "user", "userScore": 42, "petScore": 35}, "endedAt": datetime.now(timezone.utc).isoformat()})
         assert ended["status"] == "ok", ended
         assert ended["payload"]["status"] == "completed"
         assert ended["payload"]["result"]["winner"] == "user"
