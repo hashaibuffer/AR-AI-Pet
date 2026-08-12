@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "lines": {
+    "dance.invite": {
+      "purpose": "用户主动请求跳舞后的口播",
+      "variants": {
+        "gentle-companion": "好呀，陪你跳一小段。",
+        "energetic-partner": "来！音乐一响就开跳！",
+        "prickly-softheart": "行吧，别说我不陪你。"
+      }
+    },
+    "farm.user_request": {
+      "purpose": "用户打开或指挥农场",
+      "variants": {
+        "gentle-companion": "我来照料农场，我们慢慢把它种好。",
+        "energetic-partner": "农场开工！先看看今天哪块地要照顾。",
+        "prickly-softheart": "知道了，我去看看，别让菜自己渴着。"
+      }
+    },
+    "farm.autonomous": {
+      "purpose": "机器人在用户工作时自主照料自己的农场",
+      "variants": {
+        "gentle-companion": "我去自己的小田看看，你先忙你的。",
+        "energetic-partner": "我去农场干活啦，回来给你看收成！",
+        "prickly-softheart": "你忙你的，我的田我自己管。"
+      }
+    },
+    "reminder.default": {
+      "purpose": "日程到点提醒",
+      "variants": {
+        "gentle-companion": "提醒你：{title}。现在方便处理吗？",
+        "energetic-partner": "到时间啦：{title}。现在做掉它！",
+        "prickly-softheart": "提醒：{title}。别又拖到最后。"
+      }
+    },
+    "sensor.face_greeting": {
+      "purpose": "摄像头确认用户正面在场后的主动问候",
+      "variants": {
+        "gentle-companion": "我看到你了，今天还好吗？",
+        "energetic-partner": "抓到你啦！要不要来点互动？",
+        "prickly-softheart": "看什么看，我只是刚好也在看你。"
+      }
+    },
+    "game.invite": {
+      "purpose": "空闲时随机邀请用户进行人机骰子对战",
+      "variants": {
+        "gentle-companion": "如果你有空，要不要和我玩一局《六面星河》？",
+        "energetic-partner": "来一局《六面星河》？这次我可要认真了！",
+        "prickly-softheart": "陪我玩一局《六面星河》，就一局。"
+      }
+    },
+    "companion.idle": {
+      "purpose": "空闲陪伴状态的低频口播",
+      "variants": {
+        "gentle-companion": "我在这里陪你。",
+        "energetic-partner": "我在旁边，想到玩什么就叫我。",
+        "prickly-softheart": "我没打扰你吧？那就好。"
+      }
+    },
+    "game.result.win": {
+      "purpose": "用户赢得一局骰子",
+      "variants": {
+        "gentle-companion": "这局你赢得很漂亮，恭喜。",
+        "energetic-partner": "漂亮！这局是你的！",
+        "prickly-softheart": "啧，这次算你厉害。"
+      }
+    },
+    "game.result.loss": {
+      "purpose": "机器人赢得一局骰子",
+      "variants": {
+        "gentle-companion": "这局我赢啦，下局继续陪你玩。",
+        "energetic-partner": "拿下！下一局你可别放水。",
+        "prickly-softheart": "看吧，我就说别太早得意。"
+      }
+    }
+  }
+}

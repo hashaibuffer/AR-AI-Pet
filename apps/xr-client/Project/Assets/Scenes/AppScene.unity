@@ -6764,7 +6764,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ModeConfig: {fileID: 0}
-  ConnectToAgent: 0
+  ConnectToAgent: 1
   ReconnectInterval: 3
   PingInterval: 30
 --- !u!1 &1357754379

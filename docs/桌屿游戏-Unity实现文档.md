@@ -61,7 +61,7 @@ public class YuJianColors : ScriptableObject
 
 ## 1. 公共组件 — 顶部信息栏
 
-三个页面共用一个顶部信息栏（桌屿主岛、农场全显；六合星河隐去部分元素）。
+三个页面共用一个顶部信息栏（桌屿主岛、农场全显；六面星河隐去部分元素）。
 
 ### 1.1 GameObject 层级
 
@@ -151,7 +151,7 @@ public class BackButton : MonoBehaviour
 
 ---
 
-## 2. 六合星河（酒馆骰子）
+## 2. 六面星河（酒馆骰子）
 
 ### 2.1 页面结构
 
@@ -162,7 +162,7 @@ Canvas
 │   └── 【隐藏 RightInfoGroup，只保留返回+标题+帮助】
 ├── TurnCounter (空节点)
 │   └── Panel (Image, 白底细边框)
-│       └── Txt (TextMeshPro "当前回合: 1/12")
+│       └── Txt (TextMeshPro "当前回合: 1/11")
 ├── DiceZone (Image, 大椭圆)
 ├── ScorePanel (空节点，右侧)
 │   ├── HeaderRow (空节点，3列标题)
@@ -177,7 +177,7 @@ Canvas
 │   └── TotalRow ("总分")
 └── BottomBar (空节点)
     ├── Btn_Reroll (Button)
-    ├── DiceSlots (空节点，6个方形)
+    ├── DiceSlots (空节点，5个方形)
     └── Txt_Hint (TextMeshPro "点击保留骰子")
 ```
 
@@ -195,7 +195,7 @@ Canvas
 
 **TurnCounter / Txt**
 - Stretch 全屏（在 Panel 内部）
-- Text: "当前回合: 1/12"
+- Text: "当前回合: 1/11"
 - FontSize: 16, Alignment: Center, Color: `#3D3D3D`
 
 **DiceZone**
@@ -250,7 +250,7 @@ Canvas
 - Flexible width（占据 BottomBar 中间剩余空间）
 - 挂 HorizontalLayoutGroup：ChildAlignment = MiddleCenter, Spacing = 12
 
-**DiceSlot_x（单个，6个）**
+**DiceSlot_x（单个，5个）**
 - SizeDelta: (64, 64)
 - Image: Color = white, 边框 1px `#CCCCCC`
 - 空状态：内部无内容，或显示浅灰骰子轮廓
@@ -277,16 +277,16 @@ public class TavernGame : MonoBehaviour
     public Button rerollButton;
     public TextMeshProUGUI rerollText;
     public Transform diceSlotsParent;
-    public List<Image> diceSlotImages; // 6个骰子槽位的Image
+    public List<Image> diceSlotImages; // 5个骰子槽位的Image
     public List<TextMeshProUGUI> scoreRows; // 分数行占位
 
     [Header("游戏数据")]
-    public int maxTurns = 12;
+    public int maxTurns = 11;
     public int maxRerolls = 2;
     private int currentTurn = 1;
     private int remainingRerolls;
-    private int[] currentDice = new int[6]; // 6个骰子的当前点数
-    private bool[] diceLocked = new bool[6]; // 是否被保留
+    private int[] currentDice = new int[5]; // 5个骰子的当前点数
+    private bool[] diceLocked = new bool[5]; // 是否被保留
 
     [Header("骰子素材")]
     public Sprite[] diceFaces; // 索引0=1点, 1=2点... 共6个Sprite
@@ -330,7 +330,7 @@ public class TavernGame : MonoBehaviour
 
     void RollDice()
     {
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (!diceLocked[i])
                 currentDice[i] = Random.Range(1, 7);
@@ -357,7 +357,7 @@ public class TavernGame : MonoBehaviour
         currentTurn++;
         remainingRerolls = maxRerolls;
         // 重置保留状态
-        for (int i = 0; i < 6; i++) diceLocked[i] = false;
+        for (int i = 0; i < 5; i++) diceLocked[i] = false;
         RollDice();
     }
 }
@@ -851,7 +851,7 @@ public class GamePageManager : MonoBehaviour
 - [ ] 挂 IslandEntrance 脚本，绑定页面跳转
 - [ ] 调整标签文字位置和颜色
 
-### Day 3：六合星河
+### Day 3：六面星河
 - [ ] 创建 TavernGame Canvas 页面
 - [ ] 按 §2.2 参数摆 UI（椭圆骰子区 + 右侧计分表 + 底部重投+骰子槽）
 - [ ] 导入骰子点数 Sprite（1-6点）

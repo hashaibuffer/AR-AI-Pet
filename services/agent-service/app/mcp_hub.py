@@ -11,7 +11,8 @@ import websockets
 from fastmcp import FastMCP
 
 from .data_service_client import DataServiceClient
-from .settings import MCP_HOST, MCP_PORT
+from .persona import PersonaLoader
+from .settings import MCP_HOST, MCP_PORT, PERSONA_ROOT
 from .settings import DATA_SERVICE_TIMEOUT_SECONDS, DATA_SERVICE_WS_URL
 
 
@@ -225,16 +226,13 @@ async def action_query_recent(limit: int = 10, action_type: str | None = None) -
     return result.get("actions", [])
 
 
-_PERSONAS = {
-    "gentle-companion": {"personaId": "gentle-companion", "version": "0.1"},
-    "energetic-partner": {"personaId": "energetic-partner", "version": "0.1"},
-}
+_PERSONA_LOADER = PersonaLoader(PERSONA_ROOT)
 
 
 @mcp.tool(name="persona.list", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
 async def persona_list() -> list[dict[str, Any]]:
     """List the built-in single-user personas."""
-    return list(_PERSONAS.values())
+    return _PERSONA_LOADER.list()
 
 
 @mcp.tool(name="persona.get", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
@@ -244,7 +242,7 @@ async def persona_get() -> dict[str, Any]:
 
 
 @mcp.tool(name="persona.select", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
-async def persona_select(persona_id: Literal["gentle-companion", "energetic-partner"], persona_version: str = "0.1") -> dict[str, Any]:
+async def persona_select(persona_id: Literal["gentle-companion", "energetic-partner", "prickly-softheart"], persona_version: str = "1.0") -> dict[str, Any]:
     """Persist the active persona selection."""
     return await data_service.request("persona.select", {"personaId": persona_id, "personaVersion": persona_version})
 

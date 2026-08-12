@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "rules": {
+    "maxChars": 28,
+    "defaultDurationMs": 4000,
+    "mustNotExpose": ["chain_of_thought", "hidden_prompt", "tool_credentials", "unobserved_sensor_fact"]
+  },
+  "lines": {
+    "dance.prepare": {
+      "variants": {
+        "gentle-companion": "把节奏交给我一会儿。",
+        "energetic-partner": "音乐和动作都准备好了！",
+        "prickly-softheart": "就陪你跳，不许笑我。"
+      }
+    },
+    "farm.plan": {
+      "variants": {
+        "gentle-companion": "先看水分，再安排今天的照料。",
+        "energetic-partner": "今天的农场任务，马上排起来。",
+        "prickly-softheart": "先把最缺水的那块处理掉。"
+      }
+    },
+    "farm.autonomous_os": {
+      "variants": {
+        "gentle-companion": "你专心工作，我把自己的小田照顾好。",
+        "energetic-partner": "趁你忙，我要把这片田变得更漂亮！",
+        "prickly-softheart": "别以为我只会陪玩，我也会干活。"
+      }
+    },
+    "reminder.os": {
+      "variants": {
+        "gentle-companion": "提醒已经到时间了。",
+        "energetic-partner": "现在是把这件事推进一步的时候。",
+        "prickly-softheart": "我只是帮你记着，别误会。"
+      }
+    },
+    "sensor.face_os": {
+      "variants": {
+        "gentle-companion": "确认到面对面互动。",
+        "energetic-partner": "检测到主人回到视线里。",
+        "prickly-softheart": "嗯，人在这儿。"
+      }
+    },
+    "game.invite_os": {
+      "variants": {
+        "gentle-companion": "现在邀请一局，应该不会打扰太久。",
+        "energetic-partner": "气氛正好，发起一局！",
+        "prickly-softheart": "想玩就直说，别等我催。"
+      }
+    },
+    "companion.idle_os": {
+      "variants": {
+        "gentle-companion": "安静陪你一会儿。",
+        "energetic-partner": "先不打断，等一个合适的时机。",
+        "prickly-softheart": "我在，只是懒得说。"
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "gameId": "yahtzee",
+  "displayName": "六面星河",
+  "mode": "single_player_vs_pet",
+  "players": ["user", "pet"],
+  "diceCount": 5,
+  "sides": 6,
+  "roundsPerPlayer": 11,
+  "rollsPerRound": 3,
+  "playerStarts": true,
+  "robotDoesNotRollPhysically": true,
+  "petAiRolls": true,
+  "categories": [
+    {"id": "one", "label": "ONE", "type": "upper", "score": "sum_of_ones", "max": 5},
+    {"id": "double", "label": "DOUBLE", "type": "upper", "score": "sum_of_twos", "max": 10},
+    {"id": "triple", "label": "TRIPLE", "type": "upper", "score": "sum_of_threes", "max": 15},
+    {"id": "quad", "label": "QUAD", "type": "upper", "score": "sum_of_fours", "max": 20},
+    {"id": "penta", "label": "PENTA", "type": "upper", "score": "sum_of_fives", "max": 25},
+    {"id": "hex", "label": "HEX", "type": "upper", "score": "sum_of_sixes", "max": 30},
+    {"id": "three_match", "label": "3-MATCH", "type": "lower", "condition": "at_least_three_equal", "score": "sum_all", "max": 30},
+    {"id": "four_match", "label": "4-MATCH", "type": "lower", "condition": "at_least_four_equal", "score": "sum_all", "max": 30},
+    {"id": "streak_four", "label": "STREAK 4", "type": "lower", "condition": "at_least_four_consecutive", "score": "fixed", "value": 30},
+    {"id": "all_in", "label": "ALL IN!", "type": "lower", "condition": "all_equal", "score": "fixed", "value": 50},
+    {"id": "free_roll", "label": "FREE ROLL", "type": "lower", "condition": "always", "score": "sum_all", "max": 30}
+  ],
+  "upperBonus": {"threshold": 63, "value": 35},
+  "rules": [
+    "每个计分格每方只能使用一次；没有合适组合也必须选择一个空格",
+    "四连同可填三连同；五同可填四连同、三连同或自由投，但不能填四连",
+    "系统负责双方投掷、合法性和计分；实体机器人不做物理掷骰，Agent 只负责引导、反馈和宠物表现",
+    "机器人是对手和陪伴者，不额外生成裁判或 NPC"
+  ],
+  "ai": {
+    "defaultDifficulty": "normal",
+    "levels": {
+      "easy": "随机保留 2-3 颗，优先完成可用组合",
+      "normal": "按目标牌型和剩余计分格选择保留与填格",
+      "hard": "预留为后续版本，不进入首版演示"
+    }
+  }
+}

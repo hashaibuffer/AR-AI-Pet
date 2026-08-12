@@ -13,7 +13,13 @@ from app.experience import ExperienceOrchestrator, ProactiveScheduler
 from app.agent_gateway import ExperienceHub
 
 
-CONTENT_ROOT = Path(__file__).resolve().parents[3] / "content" / "runtime"
+_HOST_CONTENT = (
+    Path(__file__).resolve().parents[3] / "content" / "runtime"
+    if len(Path(__file__).resolve().parents) > 3
+    else Path("/__missing_content__")
+)
+_CONTENT_CANDIDATES = (Path("/app/content/runtime"), _HOST_CONTENT)
+CONTENT_ROOT = next((path for path in _CONTENT_CANDIDATES if path.exists()), _CONTENT_CANDIDATES[-1])
 
 
 class ExperienceProtocolTests(unittest.TestCase):
@@ -78,12 +84,25 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ConfiguredCopyTests(unittest.TestCase):
+    def test_formal_content_catalog_has_personas_and_inner_os(self) -> None:
+        orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
+        self.assertEqual(
+            {item["personaId"] for item in orchestrator.personas.list()},
+            {"gentle-companion", "energetic-partner", "prickly-softheart"},
+        )
+        orchestrator.select_persona("prickly-softheart")
+        event = orchestrator.reminder_event({"eventId": str(uuid.uuid4()), "title": "喝水"})
+        self.assertIn("喝水", event["speech"]["text"])
+        self.assertTrue(event["innerOs"]["text"])
+
     def test_behavior_copy_and_distinct_display_action_are_configured(self) -> None:
         orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
         orchestrator.select_persona("gentle-companion")
         event = orchestrator.reminder_event({"eventId": str(uuid.uuid4()), "title": "团队会议"})
         self.assertIn("团队会议", event["speech"]["text"])
         self.assertNotEqual(event["xr"]["displayActionId"], event["robot"]["actions"][0]["actionId"])
+        self.assertEqual(event["xr"]["expression"], {"emotion": "warm", "face": "smile", "emoji": "😊", "intensity": 1.0})
+        self.assertEqual(event["robot"]["actions"][0]["parameters"]["face"], "smile")
 
 
 class PersonaTests(unittest.TestCase):

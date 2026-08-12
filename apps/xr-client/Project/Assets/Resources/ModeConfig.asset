@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ModeConfig
   m_EditorClassIdentifier: 
   UseMock: 1
-  MockAgentUrl: ws://localhost:8080/mock-agent
-  MockDeviceUrl: ws://localhost:8080/mock-device
-  RealAgentUrl: ws://192.168.1.100:8080/agent
-  RealDeviceUrl: ws://192.168.1.100:8080/device
+  MockAgentUrl: ws://127.0.0.1:8082/ws
+  MockDeviceUrl: ws://127.0.0.1:8082/ws
+  RealAgentUrl: ws://192.168.50.133:8082/ws
+  RealDeviceUrl: ws://192.168.50.133:8082/ws

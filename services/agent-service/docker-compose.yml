@@ -46,8 +46,11 @@ services:
       DATA_SERVICE_WS_URL: ws://data-service:8080/ws
       DATA_SERVICE_TIMEOUT_SECONDS: 5
       AGENT_GATEWAY_WS_URL: ws://agent-runtime:8082/ws
+      PERSONA_ROOT: /app/content/runtime
     ports:
       - "${MCP_PORT:-8081}:8081"
+    volumes:
+      - ../../content/runtime:/app/content/runtime:ro
     healthcheck:
       test: ["CMD", "python", "scripts/mcp_health.py"]
       interval: 3s
@@ -92,6 +95,18 @@ services:
       start_period: 5s
     depends_on:
       mcp-hub:
+        condition: service_healthy
+
+  robot-bridge:
+    build:
+      context: ../robot-bridge
+    environment:
+      AGENT_GATEWAY_WS_URL: ws://agent-runtime:8082/ws
+      ROBOT_DEVICE_ID: ${ROBOT_DEVICE_ID:-mock-robot}
+      MOCK_ACTION_DELAY_MS: ${MOCK_ACTION_DELAY_MS:-50}
+      BRIDGE_RETRY_SECONDS: ${BRIDGE_RETRY_SECONDS:-2}
+    depends_on:
+      agent-runtime:
         condition: service_healthy
 
   qdrant:

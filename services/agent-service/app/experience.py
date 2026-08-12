@@ -6,6 +6,7 @@ from typing import Any
 import uuid
 
 from .data_service_client import DataServiceClient
+from .content_lines import ContentCatalog
 from .experience_protocol import validate_agent_turn_result, validate_experience_event
 from .persona import BehaviorRuleEngine, PersonaLoader
 
@@ -18,6 +19,7 @@ class ExperienceOrchestrator:
     def __init__(self, content_root: str | Path = "content/runtime") -> None:
         self.personas = PersonaLoader(content_root)
         self.rules = BehaviorRuleEngine(content_root)
+        self.content = ContentCatalog(content_root)
         self.persona_id: str | None = None
 
     def ensure_persona(self) -> dict[str, Any]:
@@ -59,8 +61,17 @@ class ExperienceOrchestrator:
         now = utc_now()
         persona = self.personas.load(self.persona_id)
         context = {**turn, "title": turn.get("title", ""), "action": turn.get("action", "")}
-        spoken = speech if speech is not None else self._render(behavior.get("speechPrompt"), str(turn.get("spokenText", "")), context)
-        thought = inner_os if inner_os is not None else self._render(behavior.get("innerOsPrompt"), str(turn.get("innerOsText", "")), context)
+        speech_fallback = self._render(behavior.get("speechPrompt"), str(turn.get("spokenText", "")), context)
+        inner_os_fallback = self._render(behavior.get("innerOsPrompt"), str(turn.get("innerOsText", "")), context)
+        spoken = speech if speech is not None else self.content.resolve(
+            "dialogue", behavior.get("dialogueKey"), persona["personaId"], context, speech_fallback
+        )
+        thought = inner_os if inner_os is not None else self.content.resolve(
+            "innerOs", behavior.get("innerOsKey"), persona["personaId"], context, inner_os_fallback
+        )
+        emotion = str(behavior.get("emotion", turn.get("emotion", "calm")))
+        face = str((persona.get("expressionMapping") or {}).get(emotion, "blink"))
+        emoji = str((persona.get("emojiMapping") or {}).get(emotion, "🙂"))
         event = {
             "version": "0.1",
             "eventId": event_id or str(uuid.uuid4()),
@@ -69,10 +80,15 @@ class ExperienceOrchestrator:
             "mode": mode,
             "priority": int(behavior.get("priority", turn.get("priority", 20))),
             "expiresAt": (now + timedelta(seconds=30)).isoformat(),
-            "speech": {"text": spoken, "emotion": behavior.get("emotion", turn.get("emotion", "calm")), "interruptible": True},
+            "speech": {"text": spoken, "emotion": emotion, "interruptible": True},
             "innerOs": {"text": thought, "durationMs": 4000, "anchor": "robot"},
-            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {}}]},
-            "xr": {"visible": True, "mode": "inner-os", "displayActionId": str(uuid.uuid4())},
+            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {"emotion": emotion, "face": face}}]},
+            "xr": {
+                "visible": True,
+                "mode": "inner-os",
+                "displayActionId": str(uuid.uuid4()),
+                "expression": {"emotion": emotion, "face": face, "emoji": emoji, "intensity": 1.0},
+            },
             "app": {"refresh": True, "section": "home"},
             "interruptible": True,
         }

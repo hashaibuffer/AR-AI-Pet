@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "gameId": "farming",
+  "displayName": "一寸春",
+  "mode": "shared_world_robot_owns_farm",
+  "turnUnit": "day",
+  "seasonTurns": 14,
+  "operationsPerTurn": "unlimited",
+  "playerFarm": {"initialSize": [2, 2], "initialPlots": 4},
+  "robotFarm": {"initialSize": [2, 2], "autonomous": true, "userCanAssist": true},
+  "turnResolution": [
+    "grow_watered_crops",
+    "mark_mature_crops",
+    "resolve_robot_farm_action",
+    "update_commissions",
+    "advance_season_turn",
+    "check_level_unlocks",
+    "publish_summary"
+  ],
+  "robotActions": ["plant", "water", "harvest", "rest"],
+  "currentActivityValues": ["idle", "planting", "watering", "harvesting", "resting"],
+  "designRules": [
+    "农场没有失败惩罚，不设置体力和倒计时",
+    "用户工作或不在眼镜前时，机器人仍可照料自己的小田",
+    "服务端推进事实状态；机器人动作是异步表现，不阻塞农场结算",
+    "用户提供种子或授权后，机器人才能使用对应种子"
+  ],
+  "mvp": {"include": ["plant", "water", "harvest", "robot_autonomous_farm"], "exclude": ["fishing", "multiplayer", "marketplace"]}
+}

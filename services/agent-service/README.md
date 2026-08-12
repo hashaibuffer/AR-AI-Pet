@@ -133,7 +133,7 @@ python scripts/agent_smoke.py
 
 ```powershell
 docker compose exec -T memory-service python scripts/memory_health.py
-python scripts/memory_smoke.py
+docker compose exec -T -e DATA_SERVICE_WS_URL=ws://data-service:8080/ws -e MEMORY_URL=ws://memory-service:8083/ws -e AGENT_URL=ws://agent-runtime:8082/ws agent-runtime python scripts/memory_smoke.py
 ```
 
 `memory_smoke.py` 验证偏好对话产生任务、Worker 写入 Mock 记忆、`memory_refs` 生成、`conversation.get` 顺序和 Agent 跨会话检索。真实 Mem0 需要可用的 LLM 与 Embedding 凭据；本环境未提供，因此真实 Mem0 仍是待验证项。
@@ -201,10 +201,23 @@ docker compose exec -T mcp-hub python scripts/mcp_smoke.py
 Agent 现在会加载 `content/runtime/` 中的 Persona 与行为规则，将一次对话编排为 `AgentTurnResult` 和 `ExperienceEvent`，通过 Agent WebSocket 推送给 Mock Unity/Robot；客户端回传 `ActionResult`，结果由 data-service 写入 PostgreSQL。主动调度通过 `proactive.tick` 触发日程提醒和农场事件，不阻塞普通对话。
 
 ```powershell
-docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
+docker compose exec -T -e DATA_SERVICE_WS_URL=ws://data-service:8080/ws -e AGENT_URL=ws://agent-runtime:8082/ws agent-runtime python scripts/agent_experience_smoke.py
 ```
 
 成功输出 `AGENT_EXPERIENCE_SMOKE_OK` 只代表协议、规则、MCP、Mock 客户端和数据落库闭环通过；真实 Unity、StackChan、底座和真实 Mem0 仍未接入本轮。
+
+Robot Bridge 的 Mock 执行器位于 [`services/robot-bridge/`](../robot-bridge/)。它通过 Agent Gateway 订阅 `experience.event`，执行语义动作并回传 `experience.action.result`，不连接数据库、不承担业务决策：
+
+```powershell
+docker compose up -d --build robot-bridge
+docker compose exec -T robot-bridge python scripts/bridge_smoke.py
+```
+
+单元测试不安装进正式运行镜像。需要在容器内复验时使用一次性容器：
+
+```powershell
+docker compose run --rm --no-deps -w /app agent-runtime sh -c "pip install -q pytest && PYTHONPATH=/app pytest -q"
+```
 
 ## Current PR #17 boundary fixes
 
@@ -213,5 +226,5 @@ docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
 - `robot.stop` sends a semantic stop command through the Agent Gateway to the Robot Bridge, then records the result.
 - Unity owns Yahtzee dice, rules and scoring. The data service stores Unity-authoritative snapshots only.
 - Farm actions mutate the selected plot; they are not only activity labels.
-- Speech and inner-OS copy comes from `content/runtime/behaviors.json` templates.
-- This PR remains Mock-only: real Unity/XREAL, StackChan and NanoDrive are separate follow-up work.
+- Speech and inner-OS copy first resolve persona variants from `content/runtime/dialogue-lines.json` and `content/runtime/inner-os-lines.json`, then fall back to templates in `behaviors.json`.
+- 当前阶段已通过 PC Unity WebSocket 和 Mock Robot Bridge；Beam Pro/XREAL 实机、StackChan/NanoDrive 实体适配器和真实 Mem0 仍是后续验收项。

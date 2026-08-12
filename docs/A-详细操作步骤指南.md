@@ -823,7 +823,7 @@ public class YahtzeeGame
     {
         // 这里实现 13 个组合的计分逻辑（标准快艇骰子规则）
         // 示例：ones = 骰子中 1 的点数和
-        // 完整实现见 content/快艇骰子.xlsx 规则
+        // 完整规则见 docs/docx/GDD_六面星河_骰子.md 与 content/runtime/yahtzee.json
         return 0; // 占位，Day 3 下午补完
     }
 

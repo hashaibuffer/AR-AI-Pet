@@ -10,7 +10,7 @@ C。A、B确认内容能否由各自模块实现和读取。
 
 ## 当前状态
 
-交付格式已定义；具体规则和资源待 C 提交。
+首版正式人格、触发规则、内心 OS、快艇骰子与农场运行时基线已建立，位于 `design/` 与 `runtime/`。C 后续仍可按同一格式修订内容，但不需要等待内容文件才能启动 Agent Mock 闭环。
 
 ## 文件格式
 
@@ -19,15 +19,20 @@ C。A、B确认内容能否由各自模块实现和读取。
 - CSV 或 JSON：与 Markdown/XLSX 在同一 PR 成对交付，供程序运行时读取。
 - PNG、SVG、音频、模型：正式资源。
 
-运行时文件固定放在 `content/runtime/`，随实际内容任务创建，不预先提交空文件：
+运行时文件固定放在 `content/runtime/`：
 
-- `pet-personality.json`
-- `yahtzee.json`
-- `farming.json`
-- `virtual-life.json`
-- `emotion-actions.json`
-- `interaction-lines.json`
-- `resources.json`：正式资源清单
+| 文件 | 用途 |
+|---|---|
+| `personas.json` | 正式人格与行为权重，供 PersonaLoader 读取 |
+| `behaviors.json` | 触发条件、优先级、冷却与行为意图 |
+| `dialogue-lines.json` | 口播文案及人格变体 |
+| `inner-os-lines.json` | XR/Beam Pro 内心 OS 文案及约束 |
+| `emotion-actions.json` | 情绪、语义动作与 XR 表现映射 |
+| `yahtzee.json` | 《六面星河》固定规则与 AI 难度边界 |
+| `farming.json` | 《一寸春》回合结算与机器人自主农场规则 |
+| `virtual-life.json` | 机器人独立生活状态与主动活动 |
+| `virtual-life.json` | 家园/生活扩展配置（接入后新增） |
+| `resources.json` | 正式资源清单（接入资产后新增） |
 
 A、B 的运行时代码只读取 CSV 或 JSON，不直接读取 Markdown 或 XLSX。
 
@@ -39,7 +44,7 @@ A、B 的运行时代码只读取 CSV 或 JSON，不直接读取 Markdown 或 XL
 
 ## 安装或运行方式
 
-无独立运行命令。Markdown/XLSX 到 CSV/JSON 的导出方式待 C 与使用方确认。
+无独立运行命令。Agent 服务通过 `PERSONA_ROOT` 读取 `runtime/`；内容 JSON 必须可被 UTF-8 解析。编辑源可以是 Markdown/XLSX，但不能作为程序唯一数据源。
 
 ## 配置入口
 
@@ -53,10 +58,9 @@ A、B 的运行时代码只读取 CSV 或 JSON，不直接读取 Markdown 或 XL
 
 A、B验证程序可读取的 CSV 或 JSON；C验证规则、文案和资源表现。
 
-## 已知问题
+## 运行时约束
 
-当前没有正式规则、内容数据或资产，不应由开发人员自行补写。
-
-## 当前运行时样例
-
-`runtime/personas.json` 和 `runtime/behaviors.json` 是本轮可运行的最小样例，供 PersonaLoader、RuleEngine 和 Mock 闭环使用。它们只提供结构与测试文案，不替代 C 后续提交的正式人格、规则和资源内容；运行时通过稳定的 `personaId` 与行为 `id` 引用配置。
+- A、B 只读取 `runtime/`，不从 Markdown/XLSX 推断规则。
+- 规则计算、农场结算和骰子计分由确定性代码负责；Agent 不能覆盖结果。
+- 文案缺失时使用固定 fallback；动作能力不足时返回失败，不伪造完成。
+- 资源尚未提交时，运行时可使用文本或占位表现，但稳定 `resourceId` 不能省略。

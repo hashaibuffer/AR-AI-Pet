@@ -49,8 +49,8 @@ async def main() -> None:
         await unity.connect()
         await robot.connect()
         personas = await request(agent, "persona.list")
-        assert {item["personaId"] for item in personas} >= {"gentle-companion", "energetic-partner"}, personas
-        selected = await request(agent, "persona.select", {"personaId": "energetic-partner", "personaVersion": "0.1"})
+        assert {item["personaId"] for item in personas} >= {"gentle-companion", "energetic-partner", "prickly-softheart"}, personas
+        selected = await request(agent, "persona.select", {"personaId": "energetic-partner", "personaVersion": "1.0"})
         assert selected["personaId"] == "energetic-partner", selected
         await request(data, "schedule.upsert", {
             "title": f"体验编排 smoke {uuid.uuid4().hex[:6]}",

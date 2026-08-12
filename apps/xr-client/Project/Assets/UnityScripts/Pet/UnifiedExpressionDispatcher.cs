@@ -5,9 +5,8 @@ using ARAIPet.Net;
 namespace ARAIPet.Pet
 {
     /// <summary>
-    /// 统一表现分发器 — 同时驱动 AR 宠物和物理设备（如 StackChan）。
-    /// D4 创建。收到表情事件后，一方面驱动 AR 宠物 BlendShape，
-    /// 另一方面通过 DeviceClient 发送设备指令。
+    /// 统一表现分发器。当前只负责 Unity 内的 AR 表现。
+    /// 物理机器人由 Agent Gateway → Robot Bridge 驱动，避免 Unity 重复下发动作。
     /// </summary>
     public class UnifiedExpressionDispatcher : MonoBehaviour
     {
@@ -21,7 +20,7 @@ namespace ARAIPet.Pet
 
         [Header("选项")]
         [Tooltip("是否同时驱动设备")]
-        public bool DriveDevice = true;
+        public bool DriveDevice = false;
 
         /// <summary>设置表情 — 统一入口</summary>
         public void SetEmotion(string emotion, float intensity = 1f)
