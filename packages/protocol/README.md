@@ -18,7 +18,7 @@ Agent 体验编排相关协议已冻结到 `schemas/`；`examples/` 是可读样
 
 - `agent-turn-result`：Agent 的文字结果、内心 OS 和工具摘要。
 - `experience-event`：一次可投递给 Unity、机器人和 App 的体验事件。
-- `action-result`：设备动作的 `accepted → started → completed/failed/timeout/cancelled` 生命周期。
+- `action-result`：设备动作的 `accepted → started → dispatched/completed/failed/timeout/cancelled` 生命周期；`dispatched` 只表示真实网关已接收写入，不表示实体动作已完成。
 - `sensor-observation`：带真实来源的传感器观察。
 
 语义动作只描述 `dance`、`wave`、`farm_tend`、`stop` 等能力，不暴露 PWM、电压或电机细节。

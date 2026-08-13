@@ -8,7 +8,7 @@
     "actionId": {"type": "string", "format": "uuid"},
     "deviceId": {"type": "string"},
     "actionType": {"type": "string"},
-    "status": {"type": "string", "enum": ["accepted", "started", "completed", "failed", "cancelled", "timeout"]},
+    "status": {"type": "string", "enum": ["accepted", "started", "dispatched", "completed", "failed", "cancelled", "timeout"]},
     "startedAt": {"type": ["string", "null"], "format": "date-time"},
     "completedAt": {"type": ["string", "null"], "format": "date-time"},
     "requestedParameters": {"type": "object"},

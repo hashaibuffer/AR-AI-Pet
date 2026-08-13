@@ -107,7 +107,7 @@ class ExperienceHub:
                     self.active_event = None
 
     async def record_result(self, result: dict[str, Any]) -> None:
-        if result.get("status") not in {"completed", "failed", "timeout", "cancelled"}:
+        if result.get("status") not in {"dispatched", "completed", "failed", "timeout", "cancelled"}:
             return
         action_id = str(result.get("actionId", ""))
         async with self._lock:

@@ -43,6 +43,16 @@ class ExperienceProtocolTests(unittest.TestCase):
         }
         self.assertEqual(validate_action_result(action)["status"], "completed")
 
+    def test_dispatched_action_result_represents_gateway_delivery(self) -> None:
+        action = {
+            "version": "1.0", "actionId": str(uuid.uuid4()), "deviceId": "stackchan-robot", "actionType": "base_move", "status": "dispatched",
+            "startedAt": datetime.now(timezone.utc).isoformat(), "completedAt": datetime.now(timezone.utc).isoformat(),
+            "requestedParameters": {"direction": "forward"},
+            "measuredResult": {"transportAccepted": True, "physicalConfirmed": False},
+            "error": None, "sourceEventId": None,
+        }
+        self.assertEqual(validate_action_result(action)["status"], "dispatched")
+
     def test_invalid_event_is_rejected(self) -> None:
         with self.assertRaises(ProtocolValidationError):
             validate_experience_event({"mode": "conversation"})
@@ -79,7 +89,7 @@ class HubTests(unittest.IsolatedAsyncioTestCase):
         robot_id = high["robot"]["actions"][0]["actionId"]
         await hub.record_result({"actionId": display_id, "status": "completed"})
         self.assertIsNotNone(hub.active_event)
-        await hub.record_result({"actionId": robot_id, "status": "completed"})
+        await hub.record_result({"actionId": robot_id, "status": "dispatched"})
         self.assertIsNone(hub.active_event)
 
 
