@@ -57,5 +57,5 @@
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive BLE 透明串口 v0.9 | 通过（实体） | StackChan 连接 `FFE0/FFE1`，遥控器 BASE 模式驱动底座前后左右；松手停止与底座超时停车已现场确认。BLE 暂无设备状态回传。 |
-| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 真实 Adapter 的软件协议闭环已具备；仍需先补齐当前固件的 8080/8765/8767 路径证据，再现场确认 Agent 指令实际驱动 StackChan 和底座，并记录 `dispatched` 与实体确认边界。 |
+| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 2026-08-13 COM7 日志确认 StackChan—BLE—NanoDrive 近端连接，但同次启动未连上 Wi-Fi，尚未建立动作网关会话；仍需补齐 8080/8765/8767 路径证据，再现场确认 Agent 指令实际驱动 StackChan 和底座，并记录 `dispatched` 与实体确认边界。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |

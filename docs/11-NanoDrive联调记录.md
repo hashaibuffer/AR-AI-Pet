@@ -26,6 +26,18 @@ Scheme B：StackChan ── ws://电脑:8765 ──> stackchan-mcp Gateway
 
 待补证据：当前刷入固件的动作网关地址、设备与电脑的实际局域网 IP、8765/8767 监听情况、网关设备会话日志，以及一次由项目 Agent 发起的头部动作和底座短动作。补齐前，`ROBOT_BRIDGE_SMOKE_OK` 只能作为 Mock 证据，不能写成实体闭环通过。
 
+### 2026-08-13 现场串口探测
+
+| 检查 | 结果 | 结论 |
+|---|---|---|
+| COM7 启动日志 | 通过读取到启动日志 | StackChan 固件正常启动，MCP 工具已注册，包含 `self.robot.set_head_angles`、`base_move`、`base_stop`。 |
+| StackChan → 底座 BLE | 通过 | 日志确认 GATT 连接、发现 `FFE0/FFE1`，并向 `FFE1` 写入安全停止 `ST`。 |
+| StackChan → Wi-Fi | 未通过 | 本次启动连续出现 `Haven't to connect to a suitable AP now!`，未获得设备 IP。 |
+| StackChan → 动作网关 | 未建立 | 因未连上 Wi-Fi，无法验证固件配置的 `8765` 网关地址；电脑端也不能据此宣称 8080 或 8767 已连通。 |
+| COM9 USB → NanoDrive | 未形成证据 | 仅做过只读/停止探测，没有把 USB 串口当作正式运行链路，也未执行移动。 |
+
+本次探测只证明“StackChan 与底座的近端 BLE 已连上”，没有改变上表中 Agent/Robot Bridge 实体待验证状态。下一次联调应先让 StackChan 连接与动作网关同一局域网，再记录设备 IP、网关监听和设备会话后，才允许做短时头部动作；底座移动仍需在头部动作成功后单独进行。
+
 ## 当前运行协议
 
 ```text
