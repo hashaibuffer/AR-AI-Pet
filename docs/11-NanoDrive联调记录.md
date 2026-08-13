@@ -14,6 +14,18 @@
 | 项目 Agent/Robot Bridge | 软件适配器已接入，实体待验证 | `StackChanWebSocketAdapter` 已将语义动作转换为 StackChan MCP JSON-RPC，并保留速度/时长限制；尚未在现场由项目 Agent 触发并观察动作。 |
 | Beam Pro / Unity / BLE 状态回传 | 待验证 | Beam Pro/XREAL 实机显示、Unity 完整链路以及底座实际状态回传仍未完成。 |
 
+### 现场链路断点（待改善）
+
+当前已确认“底座—BLE—StackChan”实体子链路，但还没有把它与项目 Agent 的控制入口配成同一条可复现链路。原因是仓库同时记录了两种方案：
+
+```text
+直接设备方案：Agent/Robot Bridge ── ws://StackChan:8080/ws ──> StackChan
+Scheme B：StackChan ── ws://电脑:8765 ──> stackchan-mcp Gateway
+          Agent/Robot Bridge ── http://电脑:8767/mcp ──> Gateway
+```
+
+待补证据：当前刷入固件的动作网关地址、设备与电脑的实际局域网 IP、8765/8767 监听情况、网关设备会话日志，以及一次由项目 Agent 发起的头部动作和底座短动作。补齐前，`ROBOT_BRIDGE_SMOKE_OK` 只能作为 Mock 证据，不能写成实体闭环通过。
+
 ## 当前运行协议
 
 ```text

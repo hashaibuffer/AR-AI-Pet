@@ -38,7 +38,7 @@
 | Xiaozhi 联网、语音上传和服务器回答 | 通过（StackChan × Xiaozhi 子项） | 主语音 WebSocket 负责 ASR、会话和自动轮次；该结果仍不等于 AR、Unity、底座完整端到端闭环。 |
 | 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
 | 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
-| 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
+| 电脑—StackChan 控制 | 通过（历史/指定固件子链路） | 旧/指定固件曾由电脑经 `ws://<设备IP>:8080/ws` 完成两轮 MCP 调用；当前刷入的 Scheme B 固件需先确认是否采用设备主动连接 `ws://<电脑IP>:8765/`，不能直接复用 8080 结论。 |
 | Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
 | MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
 | MCP Hub 启动门槛 | 通过 | data-service 和 mcp-hub 均通过 WebSocket/MCP healthcheck 后进入 healthy。 |
@@ -57,5 +57,5 @@
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive BLE 透明串口 v0.9 | 通过（实体） | StackChan 连接 `FFE0/FFE1`，遥控器 BASE 模式驱动底座前后左右；松手停止与底座超时停车已现场确认。BLE 暂无设备状态回传。 |
-| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 真实 Adapter 的软件协议闭环已具备；仍需现场确认 Agent 指令实际驱动 StackChan 和底座，并记录 `dispatched` 与实体确认边界。 |
+| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 真实 Adapter 的软件协议闭环已具备；仍需先补齐当前固件的 8080/8765/8767 路径证据，再现场确认 Agent 指令实际驱动 StackChan 和底座，并记录 `dispatched` 与实体确认边界。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |

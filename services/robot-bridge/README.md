@@ -29,6 +29,17 @@ python -m app.main
 
 实际地址应按现场设备填写，不要把局域网 IP 写进代码。完整变量见 [`.env.example`](.env.example)。
 
+### 当前现场链路待改善
+
+仓库同时保留两种 StackChan 控制路径，不能混用：
+
+| 路径 | 连接方向 | 端口/入口 | 当前状态 |
+| --- | --- | --- | --- |
+| 直接设备 MCP | Robot Bridge → StackChan | `ws://设备IP:8080/ws` | 适配器已实现；需确认当前刷入固件是否启用该服务 |
+| Scheme B 网关 | StackChan → 局域网 Gateway；Robot Bridge → Gateway | 设备侧 `ws://电脑IP:8765/`；网关 MCP `http://电脑IP:8767/mcp` | 当前 Kimito/stackchan-mcp 固件采用此方向；项目侧桥接尚未切换到此入口 |
+
+因此，不能只看到 StackChan 已联网就判定 Robot Bridge 已接入。现场排查必须先记录：设备 IP、电脑局域网 IP、固件配置的动作网关 URL、8765/8767 监听状态和网关日志中的设备连接状态。当前缺少这组配对证据，列为后续实机联调待办；在确认前不要让底座执行移动动作。
+
 ## 语义动作映射
 
 | Agent 动作 | StackChan MCP 工具 | 说明 |
