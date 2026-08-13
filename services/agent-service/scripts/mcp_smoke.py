@@ -41,7 +41,10 @@ async def main() -> None:
         assert synced.data["state"]["rollCount"] == 1, synced
         assert synced.data["state"]["dice"] == [1, 2, 3, 4, 5], synced
         latest = await client.call_tool("action.latest", {})
-        assert isinstance(latest.data, dict), latest
+        latest_data = latest.data
+        if latest_data is None and isinstance(latest.structured_content, dict):
+            latest_data = latest.structured_content
+        assert isinstance(latest_data, dict), latest
 
         now = datetime.now(timezone.utc)
         saved = await client.call_tool(
