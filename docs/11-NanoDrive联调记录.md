@@ -11,7 +11,8 @@
 | BLE 链路 | 通过（实体） | BK3432/JDY-23A 类模块，`FFE0/FFE1`，模块 UART 为 115200；StackChan 已连接并可写入。 |
 | StackChan / 遥控器 | 通过（实体） | ESP-IDF 5.5.4 完整构建并烧录至 COM7；BASE 模式前后左右与松手停止由用户确认。 |
 | 当前安全 | 通过（实体） | 连接后先 `ST`；首次运动将 `EN:1` 与首条 `VL` 合并写入；松手、退出 BASE、失联均发 `ST`；遥控器 300 ms 输入超时与底座 2 s 看门狗共同兜底。 |
-| 未接入 | 待验证 | Beam Pro、Unity/AR、项目 Agent/Robot Bridge 对此实体链路的调用，以及 BLE 状态回传。 |
+| 项目 Agent/Robot Bridge | 软件适配器已接入，实体待验证 | `StackChanWebSocketAdapter` 已将语义动作转换为 StackChan MCP JSON-RPC，并保留速度/时长限制；尚未在现场由项目 Agent 触发并观察动作。 |
+| Beam Pro / Unity / BLE 状态回传 | 待验证 | Beam Pro/XREAL 实机显示、Unity 完整链路以及底座实际状态回传仍未完成。 |
 
 ## 当前运行协议
 

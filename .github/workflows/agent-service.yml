@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "services/agent-service/**"
+      - "services/robot-bridge/**"
       - "content/runtime/**"
       - "packages/protocol/**"
       - ".github/workflows/agent-service.yml"
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "services/agent-service/**"
+      - "services/robot-bridge/**"
       - "content/runtime/**"
       - "packages/protocol/**"
 
@@ -29,6 +31,10 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Unit tests
         run: python -m unittest discover -s tests -v
+      - name: Robot Bridge adapter tests
+        run: |
+          python -m pip install -r ../robot-bridge/requirements.txt
+          python -m unittest discover -s ../robot-bridge/tests -v
       - name: Start local stack
         run: docker compose up --build -d --wait --wait-timeout 120
       - name: Run smoke tests
@@ -38,6 +44,7 @@ jobs:
           docker compose exec -T agent-runtime python scripts/mcp_smoke.py
           docker compose exec -T agent-runtime python scripts/agent_smoke.py
           docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
+          docker compose exec -T robot-bridge python scripts/bridge_smoke.py
           docker compose exec -T memory-service env DATA_SERVICE_WS_URL=ws://data-service:8080/ws MEMORY_URL=ws://memory-service:8083/ws AGENT_URL=ws://agent-runtime:8082/ws python scripts/memory_smoke.py
       - name: Stop local stack
         if: always()

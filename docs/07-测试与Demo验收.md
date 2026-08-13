@@ -1,6 +1,6 @@
 # 测试与 Demo 验收
 
-## 本轮阶段验收记录（2026-08-12）
+## 本轮阶段验收记录（2026-08-13）
 
 | 项目 | 状态 | 证据与边界 |
 | --- | --- | --- |
@@ -9,7 +9,7 @@
 | Unity PC Play Mode → Agent Gateway WebSocket | 通过（PC Mock） | `Project/Library/AgentPlayModeSmokeResult.json` 为 `passed=true`；覆盖订阅、聊天、ExperienceEvent、显示层 ActionResult。 |
 | Agent Gateway → Mock Robot Bridge | 通过（Mock） | `ROBOT_BRIDGE_SMOKE_OK`；覆盖语义动作执行、结果回传和数据服务查询。 |
 | Beam Pro Android 运行与 XREAL 实机显示 | 待验证 | Windows Editor 的 `XREALXRPlugin` 缺失警告属于预期限制，不替代 Android/眼镜实机验收。 |
-| Robot Bridge → StackChan / NanoDrive 实体动作 | 待验证 | 当前仍使用 MockRobotAdapter；实体适配器和底座安全链路另行验收。 |
+| Robot Bridge → StackChan / NanoDrive 实体动作 | 软件适配器待实机 | `StackChanWebSocketAdapter` 已加入并以假 StackChan WebSocket 验证 JSON-RPC 映射、限速、限时和停止；StackChan/NanoDrive 现场动作仍待观察确认。 |
 
 状态和证据或问题为空，表示待验证；只记录实际运行结果。延迟和性能指标统一在实测后冻结。
 
@@ -57,5 +57,5 @@
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
 | StackChan—NanoDrive BLE 透明串口 v0.9 | 通过（实体） | StackChan 连接 `FFE0/FFE1`，遥控器 BASE 模式驱动底座前后左右；松手停止与底座超时停车已现场确认。BLE 暂无设备状态回传。 |
-| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
+| 完整 AR—Agent—机器人端到端闭环 | 待验证 | 真实 Adapter 的软件协议闭环已具备；仍需现场确认 Agent 指令实际驱动 StackChan 和底座，并记录 `dispatched` 与实体确认边界。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |
