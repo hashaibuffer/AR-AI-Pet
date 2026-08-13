@@ -38,4 +38,4 @@ powershell -ExecutionPolicy Bypass -File .\firmware\espnow-controller\scripts\te
 
 ## 实机边界
 
-遥控器工程已经接入模式显示、在线状态、双向 ESP-NOW 收发和 30 ms 输入帧，并通过 ESP-IDF 5.5.4 全量编译。StackChan 接收端已烧录，BASE 模式已通过 BLE 底座实机验证：前后左右、方向切换和松手停止符合预期。Agent 自动切换、Beam Pro 链路和游戏按键语义仍待后续接入；未进行过的链路不以编译成功代替实机验收。
+遥控器工程已经接入模式显示、在线状态、双向 ESP-NOW 收发和 30 ms 输入帧，并通过 ESP-IDF 5.5.4 全量编译。StackChan 接收端已烧录，BASE 模式已通过 NanoDrive v0.9 BLE 底座实机验证：前后左右、方向切换、松手停止和输入超时符合预期。Agent 自动切换、Beam Pro 链路和游戏按键语义仍待后续接入；未进行过的链路不以编译成功代替实机验收。

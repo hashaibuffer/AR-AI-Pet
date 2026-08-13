@@ -12,7 +12,7 @@ B。
 
 已在本机检出官方 StackChan 上游工作副本。2026-08-07 已完成 ESP-IDF 5.5.4 + ESP32-S3 全量构建、COM7 烧录和串口启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网、语音上传和服务器回答已在实机日志中观察到。项目 MCP 动作适配器和电脑 → 官方 WebSocket → StackChan 控制子链路已完成实机复测。
 
-本目录继续保存官方 M5Stack StackChan 的硬件基线和历史补丁，不再代表当前产品语音固件。2026-08-09 通过四项真机验收的 StackChan × Kimito × Xiaozhi 双通道产品基线、锁定源码和成员复现脚本位于 [`../stackchan-mcp/`](../stackchan-mcp/)。Beam Pro、NanoDrive 与完整 AR 端到端闭环仍待验证。
+本目录继续保存官方 M5Stack StackChan 的硬件基线和历史补丁，不再代表当前产品语音固件。2026-08-09 通过四项真机验收的 StackChan × Kimito × Xiaozhi 双通道产品基线、锁定源码和成员复现脚本位于 [`../stackchan-mcp/`](../stackchan-mcp/)。其中 StackChan—BLE—NanoDrive v0.9 的基础移动闭环已实体通过；Beam Pro 与完整 AR—Agent—机器人端到端闭环仍待验证。
 
 下列配置是 2026-08-05 官方固件实验的历史基线：
 
@@ -149,6 +149,6 @@ git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3
 ## 已知问题
 
 - `cmake` 已通过用户级 Python 包安装；若普通终端仍找不到 `ctest`，将用户 Python 的 `Scripts/` 目录加入 `PATH`，或使用 ESP-IDF 自带的 CMake。
-- Beam Pro—StackChan 局域网控制尚未实测；项目 `adapter/` 的电脑控制子链路已通过，NanoDrive 串口转发仍待验证。
-- NanoDrive 串口转发待验证，不阻塞 StackChan 主体能力验证。
+- Beam Pro—StackChan 局域网控制尚未实测；项目 `adapter/` 的电脑控制子链路已通过。
+- NanoDrive 的历史直连 UART 转发不作为当前路径；已验收路径是 `../stackchan-mcp/` 的 BLE 透明串口 v0.9。
 - 官方固件历史实验中的 MultiNet 差异仍有研究价值，但不阻塞当前产品基线；如出现明确中文识别回归，再按 `../stackchan-mcp/` 的可复现配置矩阵比较。

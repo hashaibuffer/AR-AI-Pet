@@ -20,7 +20,7 @@
 | 快艇骰子完成一局                   | A、C   | 用户与宠物完成一局，合法操作和计分由游戏系统执行并正确结算     |     |       |
 | 种菜完成完整闭环                   | A、B、C | 用户与宠物共同完成播种、照料、成长和收获，状态正确推进并保存    |     |       |
 | 语音交互完整闭环                   | A、B、C | 完成语音输入、Agent 回答、字幕、播放和打断；延迟待实测后冻结 |     |       |
-| NanoDrive 基础移动与保护          | B     | 完成基础移动、停止、指令超时停止和断连保护             |     |       |
+| NanoDrive 基础移动与保护          | B     | 完成基础移动、停止、指令超时停止和断连保护             | 通过（实体） | StackChan—BLE—NanoDrive v0.9；前后左右、松手停止与超时停车由现场确认。 |
 | 服务或设备重启后的状态恢复              | A、B   | 重启后恢复约定的宠物、游戏、虚拟生活和设备状态，不产生重复事件   |     |       |
 | 完整 Demo 连续运行三次             | B     | 按冻结脚本连续完成三次，不出现阻塞演示的问题            |     |       |
 
@@ -50,12 +50,12 @@
 | 真实 Mem0—Qdrant—LLM/Embedding | 待验证 | 当前环境没有真实 LLM 与 Embedding 凭据，不宣称真实 Mem0 已通过。 |
 | 正式内容 JSON 加载 | 通过（本地/容器单元测试） | 三种人格、触发规则、口播、内心 OS、情绪动作、快艇骰子和农场配置可被 Agent Runtime 读取；固定文案缺失时有 fallback。 |
 | 内容规则与 GDD 对齐 | 通过（静态审查） | 快艇骰子为五骰、双方各 11 回合、每回合最多 3 次投掷；农场含机器人自主小田；真实 Unity 规则执行仍待联调。 |
-| Agent 体验编排—PC Unity/Mock Robot Bridge | 通过（分层闭环） | `AGENT_EXPERIENCE_SMOKE_OK`、`UNITY_AGENT_SMOKE_OK`、`ROBOT_BRIDGE_SMOKE_OK` 已分别验证 Persona、ExperienceEvent、PC Unity 显示回传、语义机器人动作和 PostgreSQL 事件落库；StackChan/NanoDrive 实体仍未接入。 |
+| Agent 体验编排—PC Unity/Mock Robot Bridge | 通过（分层闭环） | `AGENT_EXPERIENCE_SMOKE_OK`、`UNITY_AGENT_SMOKE_OK`、`ROBOT_BRIDGE_SMOKE_OK` 已分别验证 Persona、ExperienceEvent、PC Unity 显示回传、语义机器人动作和 PostgreSQL 事件落库；该 Agent 链路尚未接入已验收的 StackChan/NanoDrive 实体链路。 |
 | Unity 干净环境打开 | 通过（本机） | XREAL SDK 3.1.0 已按脚本安装；Unity 2022.3.62f3 脚本编译通过。官方包体不提交仓库，其他机器需自行安装。 |
 | Unity—Agent Gateway WebSocket | 通过（PC Play Mode） | 已验证真实 WebSocket 连接、订阅确认、`ExperienceEvent` 消费、XR `ActionResult` 回传；Beam Pro 仍待验证。 |
 | 人格—表情—Emoji—内心 OS | 部分通过（PC Mock） | Unity 已消费统一 `xr.expression`、创建覆盖层并回传显示结果；Emoji 字形、中文字体、空间锚点和 Beam Pro 实机视觉效果仍待验证。 |
 | Xiaozhi Agent—AR-AIPet MCP Hub | 待验证 | Hub 已可运行，但尚未挂载到当前 Xiaozhi Agent 配置并完成语音工具调用。 |
 | 触摸 PTT | 通过（当前产品子链路） | LCD 触摸可开始/停止手动发言，自动 Xiaozhi 会话轮次仍由会话状态机所有。 |
-| StackChan—NanoDrive 串口 | 待验证 | NanoDrive 实物、串口运动指令和安全停止尚未实测。 |
+| StackChan—NanoDrive BLE 透明串口 v0.9 | 通过（实体） | StackChan 连接 `FFE0/FFE1`，遥控器 BASE 模式驱动底座前后左右；松手停止与底座超时停车已现场确认。BLE 暂无设备状态回传。 |
 | 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |

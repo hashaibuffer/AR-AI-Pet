@@ -13,7 +13,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0003-espnow-controller-receiver.patch"),
     (Join-Path $moduleRoot "patches/0004-nanodrive-ble-scanner.patch"),
     (Join-Path $moduleRoot "patches/0005-nanodrive-ble-runtime.patch"),
-    (Join-Path $moduleRoot "patches/0006-nanodrive-ble-rate-limit.patch")
+    (Join-Path $moduleRoot "patches/0006-nanodrive-ble-rate-limit.patch"),
+    (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch")
 )
 
 function Stop-WithError {
@@ -47,7 +48,13 @@ function Test-PatchMarker {
             return (Select-String -LiteralPath $scanner -SimpleMatch "bool NanoDriveBleScanner::SendCommand" -Quiet)
         }
         "0006-nanodrive-ble-rate-limit.patch" {
-            return (Select-String -LiteralPath $stackchan -SimpleMatch "controller_last_base_command_" -Quiet)
+            return ((Select-String -LiteralPath $stackchan -SimpleMatch "controller_last_base_command_" -Quiet) -or
+                    (Select-String -LiteralPath $stackchan -SimpleMatch "controller_last_base_left_" -Quiet))
+        }
+        "0007-nanodrive-v09-ble-protocol.patch" {
+            $scanner = Join-Path $checkout "firmware/main/boards/stackchan/nanodrive_ble_scanner.cc"
+            return ((Select-String -LiteralPath $scanner -SimpleMatch "bool NanoDriveBleScanner::IsMotionEnabled" -Quiet) -and
+                    (Select-String -LiteralPath $stackchan -SimpleMatch "controller_last_base_left_" -Quiet))
         }
         default { return $false }
     }
