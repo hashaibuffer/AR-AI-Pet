@@ -4,16 +4,25 @@
 
 ## 当前连接边界
 
-当前没有 5V→3.3V 电平转换，只启用 StackChan→NanoDrive 单向控制：
+当前运行路径使用 BLE 透明串口传输 v0.9 行协议。StackChan 不与 NanoDrive 直接接 UART 线，也不订阅底座回传；NanoDrive 的回复仍可通过 USB 单机诊断查看。
 
-| 接线 | 当前状态 |
-|---|---|
-| StackChan TX（黄）→ NanoDrive RX | 使用 |
-| GND（黑）↔ GND | 使用 |
-| NanoDrive TX（绿）→ StackChan RX | 不接 |
-| 5V（红） | 不接，两端分别供电 |
+## 传输变体
 
-因此 StackChan 只能确认 UART 写入成功，不能确认 NanoDrive 已收到或返回状态。协议保留返回消息，供 NanoDrive USB 单机测试和以后增加电平转换后使用。
+正式运行变体：
+
+```text
+StackChan BLE Central
+  -> JDY-23A/BK3432 GATT service FFE0 / write characteristic FFE1
+  -> 模块 UART 115200 8N1
+  -> NanoDrive UART1
+  -> NanoDrive v0.9 固件（EN / VL / ST 等换行指令）
+```
+
+StackChan 使用 FFE1 无响应写入。首次运动或急停后，将 `EN:1` 与首条运动命令合并在同一个 BLE 包内；后续直接发送 `VL:left,right`。停止发送 `ST`，遥控器输入按 250 ms 刷新，底座 2000 ms 看门狗兜底。
+
+商家 `A/E/Z/H/B/G/C/F/D` 单字符固件只保留为 A4950 电机方向和蓝牙透传的基准验证，不再作为正式运行协议。
+
+当前 BLE 应用层仍是单向控制：StackChan 只能确认 FFE1 写入请求已接受，不能把它表述为 NanoDrive 回执。协议保留返回消息，供 USB 单机测试和未来增加 BLE 通知后使用。
 
 ## 指令
 

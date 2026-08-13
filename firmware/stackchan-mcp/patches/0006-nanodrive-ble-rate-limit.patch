@@ -1,0 +1,50 @@
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -515,6 +515,8 @@
+     bool controller_espnow_ok_ = false;
+     bool controller_armed_ = false;
+     bool controller_base_active_ = false;
++    std::uint8_t controller_last_base_command_ = 0;
++    std::uint32_t controller_last_base_attempt_ms_ = 0;
+     uint32_t controller_rx_count_ = 0;
+     uint32_t controller_raw_rx_count_ = 0;
+@@ -2303,6 +2305,8 @@
+             WriteNanoDriveCommand("ST");
+             controller_base_active_ = false;
+         }
++        controller_last_base_command_ = 0;
++        controller_last_base_attempt_ms_ = 0;
+     }
+@@ -2362,8 +2366,26 @@
+             const int right = std::clamp(static_cast<int>(controller_state_.base_right) *
+                                              NANODRIVE_MAX_SPEED / 1000,
+                                          -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
+-            controller_base_active_ = SendNanoDriveMotion(
+-                "VL:" + std::to_string(left) + "," + std::to_string(right));
++            // The vendor BLE protocol uses fixed-speed direction characters.
++            // Do not enqueue the same no-response write on every 30 ms input
++            // frame: coalesce it and refresh at 250 ms, while direction
++            // changes remain immediate. This avoids BLE queue saturation and
++            // still keeps the NanoDrive watchdog continuously refreshed.
++            const std::uint8_t command =
++                (left == 0 && right == 0) ? 'Z' :
++                (left >= 0 && right >= 0) ? (left == right ? 'A' : (left < right ? 'H' : 'B')) :
++                (left <= 0 && right <= 0) ? (left == right ? 'E' : (left < right ? 'D' : 'F')) :
++                (left < 0 ? 'G' : 'C');
++            const std::uint32_t now_ms = ControllerNowMs();
++            const bool changed = command != controller_last_base_command_;
++            const bool refresh_due =
++                static_cast<std::uint32_t>(now_ms - controller_last_base_attempt_ms_) >= 250;
++            // A failed BLE write must not turn the 30 ms ESP-NOW input rate
++            // into an unbounded retry stream.  Retry an inactive transport on
++            // the same 250 ms cadence as refreshes; direction changes remain
++            // immediate so the joystick still feels responsive.
++            if (changed || refresh_due ||
++                (!controller_base_active_ && refresh_due)) {
++                controller_last_base_command_ = command;
++                controller_last_base_attempt_ms_ = now_ms;
++                controller_base_active_ = SendNanoDriveMotion(
++                    "VL:" + std::to_string(left) + "," + std::to_string(right));
++            }
+             return;

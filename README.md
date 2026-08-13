@@ -61,4 +61,4 @@ packages/protocol/ 按模块主责定义，受影响人员确认
 
 StackChan 基础固件和实体子链路已有独立验证记录；PostgreSQL、Alembic、WebSocket 数据服务和 MCP Hub 已完成独立验收。当前项目自有本地 Agent Runtime 的 Mock 文字输入与 MCP 工具调用闭环已通过。QwenPaw 已废弃，当前 Agent 运行时与机器人固件的验证边界见开源验证清单。
 
-本地 Agent 的 Mock 记忆链路已通过。Unity 已完成官方 XREAL SDK 3.1.0 安装、Unity 脚本编译，以及 PC Play Mode 的 Agent Gateway WebSocket、`ExperienceEvent`、人格表情/Emoji/内心 OS 和显示结果回传闭环。Beam Pro/XREAL 实机、真实模型、真实 Mem0、语音协议网关、StackChan—NanoDrive 串口和完整 AR—Agent—机器人闭环仍待验证。具体证据和边界见 [XR 客户端 README](apps/xr-client/README.md)、[Agent 服务 README](services/agent-service/README.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。
+本地 Agent 的 Mock 记忆链路已通过。Unity 已完成官方 XREAL SDK 3.1.0 安装、Unity 脚本编译，以及 PC Play Mode 的 Agent Gateway WebSocket、`ExperienceEvent`、人格表情/Emoji/内心 OS 和显示结果回传闭环。StackChan—BLE—NanoDrive v0.9 的基础移动、停止和超时保护已完成实体验收；Beam Pro/XREAL 实机、真实模型、真实 Mem0、语音协议网关，以及完整 AR—Agent—机器人闭环仍待验证。具体证据和边界见 [XR 客户端 README](apps/xr-client/README.md)、[NanoDrive 联调记录](docs/11-NanoDrive联调记录.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。

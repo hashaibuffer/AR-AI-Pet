@@ -110,6 +110,28 @@ static void receiver_never_moves_outside_base_and_times_out() {
     assert(receiver.base_left == 0 && receiver.base_right == 0);
 }
 
+static void receiver_dead_zone_stops_residual_stick_noise() {
+    ar_receiver_state_t receiver;
+    ar_receiver_state_init(&receiver);
+    ar_controller_packet_t packet{};
+    packet.kind = AR_PACKET_INPUT;
+    packet.mode = AR_MODE_BASE;
+    packet.sequence = 1;
+    packet.joystick_x = 120;
+    packet.joystick_y = -160;
+
+    assert(ar_receiver_accept_input(&receiver, &packet, 10));
+    assert(receiver.stopped);
+    assert(receiver.base_left == 0 && receiver.base_right == 0);
+
+    packet.sequence = 2;
+    packet.joystick_x = 0;
+    packet.joystick_y = 260;
+    assert(ar_receiver_accept_input(&receiver, &packet, 20));
+    assert(!receiver.stopped);
+    assert(receiver.base_left == 260 && receiver.base_right == 260);
+}
+
 static void offline_status() {
     ar_controller_state_t controller;
     ar_controller_state_init(&controller);
@@ -130,6 +152,7 @@ int main() {
     agent_command_round_trip();
     button_is_one_shot();
     receiver_never_moves_outside_base_and_times_out();
+    receiver_dead_zone_stops_residual_stick_noise();
     offline_status();
     std::cout << "ESPNOW_CONTROLLER_TEST_OK\n";
     return 0;

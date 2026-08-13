@@ -1,0 +1,278 @@
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+index 70ded85..b4cc0bc 100644
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+@@ -1,5 +1,6 @@
+ #pragma once
+
++#include <cstddef>
+ #include <cstdint>
+ #include <esp_gattc_api.h>
+
+@@ -9,7 +10,8 @@ public:
+
+     void Start();
+     bool IsReady() const;
+-    bool SendCommand(std::uint8_t command);
++    bool IsMotionEnabled() const;
++    bool SendCommand(const char* command);
+
+ private:
+     NanoDriveBleScanner() = default;
+@@ -39,6 +41,7 @@ private:
+     std::uint16_t conn_id_ = 0;
+     std::uint16_t write_handle_ = 0;
+     bool safe_stop_sent_ = false;
++    bool motion_enabled_ = false;
+     bool motion_test_started_ = false;
+     std::uint8_t target_address_type_ = 0;
+     std::uint8_t target_address_[6]{};
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+index 7d9cb40..157ccb6 100644
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+@@ -23,12 +23,14 @@ constexpr std::uint32_t kScanSeconds = 5;
+ constexpr std::size_t kMaxDevicesPerCycle = 48;
+ constexpr std::size_t kAddressSize = ESP_BD_ADDR_LEN;
+ // The one-shot probe is disabled after the physical transport acceptance.
+-// Runtime callers use SendCommand() and retain the base firmware watchdog.
++// Runtime callers use SendCommand() and retain the v0.9 base firmware watchdog.
+ constexpr bool kRunOneMotionTest = false;
+-// FFE1 is a transparent UART characteristic.  Use no-response writes for
+-// immediate direction changes; the controller coalesces refreshes to 250 ms,
+-// preventing the queue saturation seen with 30 ms joystick frames.
++// FFE1 is a transparent UART characteristic.  v0.9 commands fit within the
++// default 20-byte ATT payload and are written without response.  The controller
++// coalesces refreshes to 250 ms, preventing the queue saturation seen with
++// 30 ms joystick frames.
+ constexpr esp_gatt_write_type_t kMotionWriteType = ESP_GATT_WRITE_TYPE_NO_RSP;
++constexpr std::size_t kMaxCommandBytes = 20;
+ constexpr std::uint8_t kTargetAddress[kAddressSize] =
+     {0x90, 0x43, 0x50, 0x03, 0x90, 0x16};
+
+@@ -204,21 +206,38 @@ bool NanoDriveBleScanner::IsReady() const {
+     return connected_ && write_handle_ != 0;
+ }
+
+-bool NanoDriveBleScanner::SendCommand(std::uint8_t command) {
++bool NanoDriveBleScanner::IsMotionEnabled() const {
++    return IsReady() && motion_enabled_;
++}
++
++bool NanoDriveBleScanner::SendCommand(const char* command) {
++    if (command == nullptr) return false;
++    const std::size_t length = std::strlen(command);
++    if (length == 0 || length > kMaxCommandBytes) {
++        ESP_LOGW(TAG, "BLE command rejected: invalid length=%u",
++                 static_cast<unsigned>(length));
++        return false;
++    }
+     if (!IsReady()) {
+-        ESP_LOGW(TAG, "BLE command %c rejected: transport not ready",
+-                 static_cast<char>(command));
++        ESP_LOGW(TAG, "BLE command rejected: transport not ready");
+         return false;
+     }
+     const esp_err_t err = esp_ble_gattc_write_char(
+-        gattc_if_, conn_id_, write_handle_, 1, &command,
++        gattc_if_, conn_id_, write_handle_, static_cast<std::uint16_t>(length),
++        reinterpret_cast<std::uint8_t*>(const_cast<char*>(command)),
+         kMotionWriteType, ESP_GATT_AUTH_REQ_NONE);
+     if (err != ESP_OK) {
+-        ESP_LOGE(TAG, "BLE command %c write failed: %s",
+-                 static_cast<char>(command), esp_err_to_name(err));
++        ESP_LOGE(TAG, "BLE command write failed: %s", esp_err_to_name(err));
+         return false;
+     }
+-    ESP_LOGD(TAG, "BLE command %c written without response", static_cast<char>(command));
++    if (std::strncmp(command, "EN:1\n", 5) == 0) {
++        motion_enabled_ = true;
++    } else if (std::strcmp(command, "ST\n") == 0 ||
++               std::strcmp(command, "EN:0\n") == 0) {
++        motion_enabled_ = false;
++    }
++    ESP_LOGD(TAG, "BLE command written without response length=%u",
++             static_cast<unsigned>(length));
+     return true;
+ }
+
+@@ -392,7 +411,7 @@ void NanoDriveBleScanner::HandleGattcEvent(esp_gattc_cb_event_t event,
+                                  static_cast<unsigned>(chars[i].properties));
+                         // This module's FFE1 is the transparent UART write
+                         // characteristic; FFE2 is reserved for its auxiliary
+-                        // IO/configuration path. Prefer FFE1 for A/E/Z bytes.
++                        // IO/configuration path. Prefer FFE1 for v0.9 lines.
+                         if (chars[i].uuid.len == ESP_UUID_LEN_16 &&
+                             chars[i].uuid.uuid.uuid16 == 0xFFE1 &&
+                             (chars[i].properties & (ESP_GATT_CHAR_PROP_BIT_WRITE |
+@@ -401,12 +420,12 @@ void NanoDriveBleScanner::HandleGattcEvent(esp_gattc_cb_event_t event,
+                         }
+                     }
+                     if (write_handle_ != 0 && !safe_stop_sent_) {
+-                        if (SendCommand('Z')) {
++                        if (SendCommand("ST\n")) {
+                             safe_stop_sent_ = true;
+-                            ESP_LOGI(TAG, "safe stop Z write requested handle=%u",
++                            ESP_LOGI(TAG, "safe stop ST write requested handle=%u",
+                                      static_cast<unsigned>(write_handle_));
+                         } else {
+-                            ESP_LOGE(TAG, "safe stop Z write request failed");
++                            ESP_LOGE(TAG, "safe stop ST write request failed");
+                         }
+                     }
+                 }
+@@ -435,6 +454,7 @@ void NanoDriveBleScanner::HandleGattcEvent(esp_gattc_cb_event_t event,
+         target_seen_ = false;
+         write_handle_ = 0;
+         safe_stop_sent_ = false;
++        motion_enabled_ = false;
+     }
+ }
+
+@@ -447,17 +467,17 @@ void NanoDriveBleScanner::MotionTestTaskTrampoline(void* arg) {
+ }
+
+ void NanoDriveBleScanner::MotionTestTask() {
+-    auto write_motion = [this](std::uint8_t command) { return SendCommand(command); };
+-
+     vTaskDelay(pdMS_TO_TICKS(300));
+-    write_motion('A');
++    SendCommand("EN:1\nFW:80\n");
+     vTaskDelay(pdMS_TO_TICKS(1000));
+-    write_motion('Z');
++    SendCommand("ST\n");
+     vTaskDelay(pdMS_TO_TICKS(500));
+-    write_motion('E');
++    SendCommand("EN:1\nBW:80\n");
+     vTaskDelay(pdMS_TO_TICKS(1000));
+-    write_motion('Z');
+-    ESP_LOGI(TAG, "one-shot motion test complete; final command Z");
++    SendCommand("ST\n");
++    ESP_LOGI(TAG, "one-shot motion test complete; final command ST");
+     vTaskDelete(nullptr);
+ }
+
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+index f2462f4..99041ac 100644
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -520,7 +520,8 @@ private:
+     bool controller_espnow_ok_ = false;
+     bool controller_armed_ = false;
+     bool controller_base_active_ = false;
+-    std::uint8_t controller_last_base_command_ = 0;
++    int controller_last_base_left_ = std::numeric_limits<int>::min();
++    int controller_last_base_right_ = std::numeric_limits<int>::min();
+     std::uint32_t controller_last_base_attempt_ms_ = 0;
+     uint32_t controller_rx_count_ = 0;
+     uint32_t controller_raw_rx_count_ = 0;
+@@ -2310,7 +2311,8 @@ private:
+             WriteNanoDriveCommand("ST");
+             controller_base_active_ = false;
+         }
+-        controller_last_base_command_ = 0;
++        controller_last_base_left_ = std::numeric_limits<int>::min();
++        controller_last_base_right_ = std::numeric_limits<int>::min();
+         controller_last_base_attempt_ms_ = 0;
+     }
+
+@@ -2371,18 +2373,14 @@ private:
+             const int right = std::clamp(static_cast<int>(controller_state_.base_right) *
+                                              NANODRIVE_MAX_SPEED / 1000,
+                                          -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
+-            // The vendor BLE protocol uses fixed-speed direction characters.
+-            // Do not enqueue the same no-response write on every 30 ms input
+-            // frame: coalesce it and refresh at 250 ms, while direction
+-            // changes remain immediate. This avoids BLE queue saturation and
+-            // still keeps the NanoDrive watchdog continuously refreshed.
+-            const std::uint8_t command =
+-                (left == 0 && right == 0) ? 'Z' :
+-                (left >= 0 && right >= 0) ? (left == right ? 'A' : (left < right ? 'H' : 'B')) :
+-                (left <= 0 && right <= 0) ? (left == right ? 'E' : (left < right ? 'D' : 'F')) :
+-                (left < 0 ? 'G' : 'C');
++            // Keep the 30 ms ESP-NOW input rate away from the BLE queue while
++            // preserving immediate direction and meaningful speed changes.
++            // A 250 ms refresh remains well below the NanoDrive 2 s watchdog.
+             const std::uint32_t now_ms = ControllerNowMs();
+-            const bool changed = command != controller_last_base_command_;
++            const bool changed =
++                controller_last_base_left_ == std::numeric_limits<int>::min() ||
++                std::abs(left - controller_last_base_left_) >= 8 ||
++                std::abs(right - controller_last_base_right_) >= 8;
+             const bool refresh_due =
+                 static_cast<std::uint32_t>(now_ms - controller_last_base_attempt_ms_) >= 250;
+             // A failed BLE write must not turn the 30 ms ESP-NOW input rate
+@@ -2391,7 +2389,8 @@ private:
+             // immediate so the joystick still feels responsive.
+             if (changed || refresh_due ||
+                 (!controller_base_active_ && refresh_due)) {
+-                controller_last_base_command_ = command;
++                controller_last_base_left_ = left;
++                controller_last_base_right_ = right;
+                 controller_last_base_attempt_ms_ = now_ms;
+                 controller_base_active_ = SendNanoDriveMotion(
+                     "VL:" + std::to_string(left) + "," + std::to_string(right));
+@@ -2539,46 +2538,8 @@ private:
+
+     bool WriteNanoDriveCommand(const std::string& command) {
+         if (command.empty()) return false;
+-
+-        // The vendor A4950 firmware is a character protocol.  Keep the
+-        // existing semantic command names at the MCP/controller boundary and
+-        // translate them to the corresponding vendor character here.
+-        std::uint8_t vendor_command = 0;
+-        if (command == "ST" || command == "EN:0") {
+-            vendor_command = 'Z';
+-        } else if (command == "EN:1") {
+-            // The vendor firmware has no separate enable command.  Treat it as
+-            // a transport readiness check; the next motion character enables
+-            // motion and the base watchdog remains authoritative.
+-            return NanoDriveBleScanner::GetInstance().IsReady();
+-        } else if (command.rfind("FW:", 0) == 0) {
+-            vendor_command = std::stoi(command.substr(3)) > 0 ? 'A' : 'Z';
+-        } else if (command.rfind("BW:", 0) == 0) {
+-            vendor_command = std::stoi(command.substr(3)) > 0 ? 'E' : 'Z';
+-        } else if (command.rfind("TL:", 0) == 0) {
+-            vendor_command = std::stoi(command.substr(3)) > 0 ? 'G' : 'Z';
+-        } else if (command.rfind("TR:", 0) == 0) {
+-            vendor_command = std::stoi(command.substr(3)) > 0 ? 'C' : 'Z';
+-        } else if (command.rfind("VL:", 0) == 0) {
+-            const auto comma = command.find(',', 3);
+-            if (comma == std::string::npos) return false;
+-            const int left = std::stoi(command.substr(3, comma - 3));
+-            const int right = std::stoi(command.substr(comma + 1));
+-            if (left == 0 && right == 0) {
+-                vendor_command = 'Z';
+-            } else if (left >= 0 && right >= 0) {
+-                vendor_command = left == right ? 'A' : (left < right ? 'H' : 'B');
+-            } else if (left <= 0 && right <= 0) {
+-                vendor_command = left == right ? 'E' : (left < right ? 'D' : 'F');
+-            } else {
+-                vendor_command = left < 0 ? 'G' : 'C';
+-            }
+-        } else {
+-            ESP_LOGW(TAG, "Rejected NanoDrive BLE command: %s", command.c_str());
+-            return false;
+-        }
+-
+-        return NanoDriveBleScanner::GetInstance().SendCommand(vendor_command);
++        const std::string line = command.back() == '\n' ? command : command + "\n";
++        return NanoDriveBleScanner::GetInstance().SendCommand(line.c_str());
+     }
+
+     esp_err_t InitializeNanoDriveUart() {
+@@ -2626,8 +2587,12 @@ private:
+     }
+
+     bool SendNanoDriveMotion(const std::string& command) {
+-        return WriteNanoDriveCommand("EN:1") &&
+-               WriteNanoDriveCommand(command);
++        auto& transport = NanoDriveBleScanner::GetInstance();
++        if (!transport.IsReady()) return false;
++        if (!transport.IsMotionEnabled()) {
++            return WriteNanoDriveCommand("EN:1\n" + command);
++        }
++        return WriteNanoDriveCommand(command);
+     }
+
+     void I2cDetect() {

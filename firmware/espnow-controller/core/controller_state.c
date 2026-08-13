@@ -10,6 +10,12 @@
 #define Y_MIN 310
 #define Y_MAX 3460
 
+// The vendor A4950 Bluetooth protocol is direction based: any non-zero
+// command selects a fixed motor-speed preset.  Ignore small residual joystick
+// values before differential mixing so a released stick cannot start a full
+// preset motion.
+#define BASE_INPUT_DEAD_ZONE 200
+
 static int32_t clamp_i32(int32_t value, int32_t low, int32_t high) {
     return value < low ? low : (value > high ? high : value);
 }
@@ -24,6 +30,13 @@ static int16_t map_i16(int32_t value, int32_t in_min, int32_t in_max,
 
 static int16_t clamp_axis(int32_t value) {
     return (int16_t)clamp_i32(value, -1000, 1000);
+}
+
+static int16_t apply_base_dead_zone(int32_t value) {
+    if (value >= -BASE_INPUT_DEAD_ZONE && value <= BASE_INPUT_DEAD_ZONE) {
+        return 0;
+    }
+    return clamp_axis(value);
 }
 
 static bool is_game_mode(ar_controller_mode_t mode) {
@@ -134,8 +147,10 @@ bool ar_receiver_accept_input(ar_receiver_state_t* state,
     state->head_pitch = packet->head_pitch;
 
     if (packet->mode == AR_MODE_BASE && !(packet->flags & AR_FLAG_STOP)) {
-        state->base_left = clamp_axis(packet->joystick_y + packet->joystick_x);
-        state->base_right = clamp_axis(packet->joystick_y - packet->joystick_x);
+        const int16_t x = apply_base_dead_zone(packet->joystick_x);
+        const int16_t y = apply_base_dead_zone(packet->joystick_y);
+        state->base_left = apply_base_dead_zone(y + x);
+        state->base_right = apply_base_dead_zone(y - x);
         state->stopped = state->base_left == 0 && state->base_right == 0;
     } else {
         state->base_left = 0;

@@ -1,5 +1,5 @@
 diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
-index 97b1a50..ebd3e9f 100644
+index 97b1a50..2ca8197 100644
 --- a/firmware/main/boards/stackchan/stackchan.cc
 +++ b/firmware/main/boards/stackchan/stackchan.cc
 @@ -528,0 +529,8 @@ private:
@@ -11,7 +11,7 @@ index 97b1a50..ebd3e9f 100644
 +    static constexpr gpio_num_t NANODRIVE_TX_PIN = GPIO_NUM_17;
 +    static constexpr int NANODRIVE_BAUD = 115200;
 +    static constexpr int NANODRIVE_MAX_SPEED = 180;
-@@ -2227,0 +2236,69 @@ private:
+@@ -2275,0 +2284,69 @@ private:
 +    bool WriteNanoDriveCommand(const std::string& command) {
 +        if (!nanodrive_uart_ok_ || command.empty()) {
 +            return false;
@@ -81,12 +81,7 @@ index 97b1a50..ebd3e9f 100644
 +               WriteNanoDriveCommand(command);
 +    }
 +
-@@ -2228,0 +2306,4 @@ private:
-+        if (nanodrive_uart_ok_) {
-+            ESP_LOGW(TAG, "Port C GPIO17 is reserved by NanoDrive UART");
-+            return ESP_ERR_INVALID_STATE;
-+        }
-@@ -7084,0 +7166,55 @@ private:
+@@ -7083,0 +7161,55 @@ private:
 +        mcp_server.AddTool(
 +            "self.robot.base_move",
 +            "Move the NanoDrive base in one of four directions. direction must be "
@@ -142,5 +137,5 @@ index 97b1a50..ebd3e9f 100644
 +                return WriteNanoDriveCommand("ST");
 +            });
 +
-@@ -7109,0 +7246 @@ public:
+@@ -7117,0 +7251 @@ public:
 +        InitializeNanoDriveUart();
