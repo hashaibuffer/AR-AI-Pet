@@ -19,6 +19,11 @@ class DeviceSession:
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     protocol: str = "device-v1"
     session_id: str | None = None
+    # StackChan's MCP implementation accepts numeric JSON-RPC ids. Keep the
+    # project action UUID separately so the database/event lifecycle remains
+    # stable while the wire id stays firmware-compatible.
+    next_rpc_id: int = 1
+    rpc_to_action: dict[str, str] = field(default_factory=dict)
 
 
 class DeviceSessionManager:
@@ -69,7 +74,10 @@ class DeviceSessionManager:
             return {"status": "failed", "error": "device_not_connected", "measuredResult": {"transportAccepted": False, "physicalConfirmed": False}}
         action_id = str(action.get("actionId") or uuid.uuid4())
         if session.protocol == "scheme-b":
-            rpc = self._scheme_b_call(action_id, action)
+            rpc_id = session.next_rpc_id
+            session.next_rpc_id += 1
+            session.rpc_to_action[str(rpc_id)] = action_id
+            rpc = self._scheme_b_call(rpc_id, action)
             message = {"type": "mcp", "session_id": session.session_id, "payload": rpc}
         else:
             message = {"version": "1.0", "requestId": str(uuid.uuid4()), "type": "robot.action.request", "timestamp": datetime.now(timezone.utc).isoformat(), "payload": {**action, "actionId": action_id}}
@@ -88,15 +96,34 @@ class DeviceSessionManager:
             return {"status": "failed", "error": str(exc), "measuredResult": {"transportAccepted": False, "physicalConfirmed": False}}
         finally:
             session.pending.pop(action_id, None)
+            if session.protocol == "scheme-b":
+                for rpc_id, mapped_action_id in list(session.rpc_to_action.items()):
+                    if mapped_action_id == action_id:
+                        session.rpc_to_action.pop(rpc_id, None)
 
     @staticmethod
-    def _scheme_b_call(action_id: str, action: dict[str, Any]) -> dict[str, Any]:
+    def _scheme_b_call(rpc_id: int, action: dict[str, Any]) -> dict[str, Any]:
         intent = str(action.get("intent", ""))
         parameters = action.get("parameters") if isinstance(action.get("parameters"), dict) else {}
         if intent == "nod":
-            name, arguments = "self.robot.set_head_angles", {"yaw": 0, "pitch": 15, "speed": int(parameters.get("speed", 300))}
+            name, arguments = "self.robot.set_head_angles", {"yaw": 0, "pitch": 15, "speed_dps": int(parameters.get("speed_dps", 60))}
         elif intent in {"dance", "celebrate", "wave", "farm_tend"}:
-            name, arguments = "self.robot.play_motion", {"name": str(parameters.get("motion", "happy"))}
+            # The installed StackChan firmware exposes head motion, display
+            # and base tools, but no generic play_motion tool. Preserve the
+            # semantic action and translate it to a safe, observable head
+            # pose until a richer motion tool is added to the firmware.
+            poses = {
+                "dance": (25, 18),
+                "celebrate": (25, 18),
+                "wave": (30, 10),
+                "farm_tend": (-25, 10),
+            }
+            yaw, pitch = poses[intent]
+            name, arguments = "self.robot.set_head_angles", {
+                "yaw": int(parameters.get("yaw", yaw)),
+                "pitch": int(parameters.get("pitch", pitch)),
+                "speed_dps": int(parameters.get("speed_dps", 60)),
+            }
         elif intent in {"base_move", "base_turn"}:
             name, arguments = "self.robot.base_move", {"direction": str(parameters.get("direction", "forward")), "speed": min(180, int(parameters.get("speed", 100)))}
         elif intent == "base_drive":
@@ -105,7 +132,7 @@ class DeviceSessionManager:
             name, arguments = "self.robot.base_stop", {}
         else:
             name, arguments = "self.robot.set_head_angles", {"yaw": int(parameters.get("yaw", 0)), "pitch": int(parameters.get("pitch", 0)), "speed": 300}
-        return {"jsonrpc": "2.0", "id": action_id, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
+        return {"jsonrpc": "2.0", "id": rpc_id, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
 
     async def stop(self, device_id: str, reason: str = "stop") -> dict[str, Any]:
         return await self.dispatch(device_id, {"actionId": str(uuid.uuid4()), "intent": "stop", "parameters": {"reason": reason}})
@@ -141,7 +168,8 @@ class DeviceSessionManager:
                         future.set_result(result)
                 elif message_type == "mcp" and session is not None:
                     result = payload if isinstance(payload, dict) else {}
-                    action_id = str(result.get("id", ""))
+                    rpc_id = str(result.get("id", ""))
+                    action_id = session.rpc_to_action.get(rpc_id, rpc_id)
                     future = session.pending.get(action_id)
                     if future is not None and not future.done():
                         future.set_result({"status": "dispatched", "error": None, "measuredResult": {"transportAccepted": True, "physicalConfirmed": False, "gatewayResponse": result}})
