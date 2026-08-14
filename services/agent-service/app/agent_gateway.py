@@ -31,8 +31,20 @@ from .settings import (
     MEMORY_SEARCH_TIMEOUT_SECONDS,
     MEMORY_WS_URL,
     MCP_URL,
+    AGENT_TOOL_MODE,
     PERSONA_ROOT,
+    ROBOT_ADAPTER,
+    ROBOT_DEVICE_ID,
+    ROBOT_DISPATCH_MODE,
+    STACKCHAN_MAX_DURATION_SECONDS,
+    STACKCHAN_MAX_SPEED,
+    STACKCHAN_TOKEN,
+    STACKCHAN_WS_URL,
+    DEVICE_ACTION_TIMEOUT_SECONDS,
 )
+from .tool_registry import InternalToolRegistry
+from .devices.adapter import ActionDispatcher, MockRobotAdapter, StackChanWebSocketAdapter
+from .devices.session import DeviceSessionManager, DeviceSessionRobotAdapter
 
 
 def response(request_id: str | None, message_type: str, status: str, payload: Any = None) -> dict[str, Any]:
@@ -156,7 +168,25 @@ provider = create_provider(
     timezone_name=AGENT_TIMEZONE,
     timeout_seconds=AGENT_LLM_TIMEOUT_SECONDS,
 )
-runtime = AgentRuntime(mcp_url=MCP_URL, data_service=data_service, memory_service=memory_service, provider=provider, max_tool_rounds=AGENT_MAX_TOOL_ROUNDS)
+device_sessions = DeviceSessionManager(action_timeout_seconds=DEVICE_ACTION_TIMEOUT_SECONDS)
+if ROBOT_DISPATCH_MODE == "internal":
+    if ROBOT_ADAPTER == "device":
+        _adapter = DeviceSessionRobotAdapter(device_sessions, ROBOT_DEVICE_ID)
+    elif ROBOT_ADAPTER == "stackchan":
+        _adapter = StackChanWebSocketAdapter(STACKCHAN_WS_URL, token=STACKCHAN_TOKEN, max_speed=STACKCHAN_MAX_SPEED, max_duration_seconds=STACKCHAN_MAX_DURATION_SECONDS)
+    else:
+        _adapter = MockRobotAdapter()
+    action_dispatcher: ActionDispatcher | None = ActionDispatcher(_adapter, ROBOT_DEVICE_ID)
+else:
+    action_dispatcher = None
+
+tool_registry = None
+if AGENT_TOOL_MODE == "internal":
+    tool_registry = InternalToolRegistry(
+        data_service,
+        robot_stop_handler=action_dispatcher.stop if action_dispatcher is not None else None,
+    )
+runtime = AgentRuntime(mcp_url=MCP_URL, data_service=data_service, memory_service=memory_service, provider=provider, max_tool_rounds=AGENT_MAX_TOOL_ROUNDS, tool_registry=tool_registry)
 orchestrator = ExperienceOrchestrator(PERSONA_ROOT)
 hub = ExperienceHub()
 scheduler = ProactiveScheduler(data_service, orchestrator)
@@ -179,6 +209,12 @@ async def persist_and_publish(event: dict[str, Any]) -> bool:
                     "sourceEventId": event.get("eventId"),
                 })
         await hub.publish_admitted(event, admission.get("cancellation"))
+        if action_dispatcher is not None:
+            for action in (event.get("robot") or {}).get("actions", []):
+                result = await action_dispatcher.dispatch(action, event.get("eventId"))
+                await data_service.request("action.result.append", {"result": result})
+                await hub.record_result(result)
+                await hub._broadcast({"type": "experience.action.result", "status": "ok", "payload": {"result": result}})
         if admission.get("cancellation"):
             await data_service.request("experience.event.cancel", {"cancellation": admission["cancellation"]})
         return True
@@ -215,9 +251,15 @@ async def lifespan(_: FastAPI):
     finally:
         stop.set()
         await task
+        if action_dispatcher is not None:
+            await action_dispatcher.close()
 
 
 app.router.lifespan_context = lifespan
+
+
+async def device_websocket_endpoint(socket: WebSocket) -> None:
+    await device_sessions.handle(socket)
 
 
 @app.websocket("/ws")
@@ -240,7 +282,13 @@ async def websocket_endpoint(socket: WebSocket) -> None:
                 continue
             if message_type == "robot.command.stop":
                 result = await hub.broadcast_stop(payload)
-                await socket.send_json(response(request_id, "robot.command.stop.result", "ok", result))
+                stop_status = "ok"
+                if action_dispatcher is not None:
+                    dispatch_result = await action_dispatcher.stop("remote_stop")
+                    result["dispatch"] = dispatch_result
+                    if isinstance(dispatch_result, dict) and dispatch_result.get("status") == "failed":
+                        stop_status = "error"
+                await socket.send_json(response(request_id, "robot.command.stop.result", stop_status, result))
                 continue
             if message_type == "persona.list":
                 await socket.send_json(response(request_id, "persona.list.result", "ok", orchestrator.personas.list()))

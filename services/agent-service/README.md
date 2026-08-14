@@ -26,6 +26,7 @@ QwenPaw 已废弃。`services/db/generated-runtime/qwenpaw/` 只保留历史验�
 - StackChan 的 Xiaozhi 会话、Kimito 行为 MCP 和实体头部动作子链路已通过。
 - AR-AIPet MCP Hub 已建立首批项目工具；本地 Agent Runtime 的 Mock 文字闭环已通过。真实模型、语音协议网关、真实自托管 Mem0、Beam Pro 数据接入和完整端到端 Demo 尚未完成。
 - Mock 长期记忆链路已通过：对话完成事件 → memory_jobs → Memory Worker → memory_refs → memory.search。
+- 统一入口 `ar-aipet-server` 已通过内部工具、外部 `/mcp`、`device-v1` Mock 设备和 Scheme B `hello`/`mcp` 兼容 smoke；实体动作和 Beam Pro/XREAL 实机仍未验收。
 
 ## 配置入口
 
@@ -228,3 +229,47 @@ docker compose run --rm --no-deps -w /app agent-runtime sh -c "pip install -q py
 - Farm actions mutate the selected plot; they are not only activity labels.
 - Speech and inner-OS copy first resolve persona variants from `content/runtime/dialogue-lines.json` and `content/runtime/inner-os-lines.json`, then fall back to templates in `behaviors.json`.
 - 当前阶段已通过 PC Unity WebSocket 和 Mock Robot Bridge；Beam Pro/XREAL 实机、StackChan/NanoDrive 实体适配器和真实 Mem0 仍是后续验收项。
+
+## 统一服务入口（当前迁移方案）
+
+`ar-aipet-server` 是后续局域网部署的单进程入口。它把 Agent、数据服务、记忆服务、MCP 兼容入口和设备会话放在同一台电脑/家庭服务器上；PostgreSQL 仍是业务事实来源，Mem0 仍通过异步记忆服务使用，不增加第二套业务状态。
+
+```text
+Beam Pro / Unity  ── ws://server:8090/ws/app
+StackChan/设备端  ── ws://server:8090/ws/device
+                         │
+                  Agent + 内置工具注册表
+                         │
+             PostgreSQL / Memory(Mem0) / 设备适配器
+                         │
+                    /mcp（兼容入口）
+```
+
+运行统一入口：
+
+```powershell
+docker compose --profile unified up --build -d
+docker compose --profile unified exec -T ar-aipet-server python scripts/unified_smoke.py
+docker compose --profile unified exec -T ar-aipet-server python scripts/mcp_smoke.py
+```
+
+统一入口的主要地址：
+
+| 地址 | 用途 |
+|---|---|
+| `ws://localhost:8090/ws/app` | Unity/Beam Pro 的 Agent 会话、体验事件和结果 |
+| `ws://localhost:8090/ws/device` | 设备注册、动作请求和动作结果；兼容 Scheme B `hello`/`mcp` |
+| `ws://localhost:8090/ws/data` | 现有数据服务兼容入口 |
+| `ws://localhost:8090/mcp` | 外部 FastMCP 客户端兼容入口 |
+| `http://localhost:8090/health` | 统一服务健康检查 |
+
+本地 Agent 默认使用内置工具注册表（`AGENT_TOOL_MODE=internal`），直接复用数据服务语义函数；`/mcp` 只作为外部客户端兼容层。旧的 `agent-runtime`、`mcp-hub`、`robot-bridge` Compose 服务仍保留，用于回滚和对照验证，不再作为目标部署拓扑。
+
+设备接入分两档：`ROBOT_ADAPTER=mock` 用于软件闭环，`ROBOT_ADAPTER=device` 通过 `/ws/device` 连接设备；设备端可发送项目 `device-v1` 消息，也可复用现有 Scheme B `hello` + `mcp` 消息。当前动作结果中的 `physicalConfirmed=false` 只表示网关收到/转发，不等同于实体动作已观察通过。
+
+### 迁移边界
+
+- 内置工具、外部 MCP 和旧 Robot Bridge 共享语义工具名，不共享第二份业务数据。
+- 设备动作只使用 `nod`、`dance`、`base_move`、`base_drive`、`stop` 等语义意图；速度、持续时间和方向在适配器内做安全限制。
+- 现有 Scheme B 的 `McpActionClient` 作为设备端兼容协议继续复用；正式 Mooncake/Kimito 固件源码收敛和实体动作观察仍是独立硬件阶段。
+- `unified_smoke.py` 只证明统一服务、Mock 设备和数据落库闭环；不代表 Beam Pro、StackChan 或 NanoDrive 实机验收。

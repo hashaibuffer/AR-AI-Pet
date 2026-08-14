@@ -37,6 +37,82 @@ services:
       postgres:
         condition: service_healthy
 
+  # Migration target: Agent, data WebSocket, memory worker, external MCP and
+  # device WebSocket run in one application process. The legacy services
+  # below remain available until the unified smoke is accepted.
+  ar-aipet-server:
+    profiles: ["unified"]
+    build: .
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8080"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
+      WS_HOST: 0.0.0.0
+      WS_PORT: 8080
+      AGENT_HOST: 0.0.0.0
+      AGENT_PORT: 8080
+      AGENT_PROVIDER: ${AGENT_PROVIDER:-mock}
+      AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-https://api.openai.com/v1}
+      AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:-}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-gpt-4o-mini}
+      AGENT_LLM_TIMEOUT_SECONDS: ${AGENT_LLM_TIMEOUT_SECONDS:-30}
+      AGENT_MAX_TOOL_ROUNDS: ${AGENT_MAX_TOOL_ROUNDS:-3}
+      AGENT_TIMEZONE: ${AGENT_TIMEZONE:-Asia/Shanghai}
+      AGENT_TOOL_MODE: internal
+      AGENT_GATEWAY_WS_URL: ws://127.0.0.1:8080/ws/app
+      DATA_SERVICE_WS_URL: ws://127.0.0.1:8080/ws/data
+      DATA_SERVICE_TIMEOUT_SECONDS: ${DATA_SERVICE_TIMEOUT_SECONDS:-5}
+      MCP_URL: http://127.0.0.1:8080/mcp
+      MEMORY_WS_URL: ws://127.0.0.1:8080/ws/memory
+      MEMORY_SEARCH_TIMEOUT_SECONDS: ${MEMORY_SEARCH_TIMEOUT_SECONDS:-2}
+      MEMORY_PROVIDER: ${MEMORY_PROVIDER:-mock}
+      MEMORY_WORKER_INTERVAL_SECONDS: ${MEMORY_WORKER_INTERVAL_SECONDS:-2}
+      MEMORY_MAX_ATTEMPTS: ${MEMORY_MAX_ATTEMPTS:-3}
+      MEMORY_JOB_LEASE_SECONDS: ${MEMORY_JOB_LEASE_SECONDS:-60}
+      MEMORY_RETRY_BASE_SECONDS: ${MEMORY_RETRY_BASE_SECONDS:-5}
+      MEMORY_MOCK_PATH: /data/mock_memories.json
+      MEM0_ENABLED: ${MEM0_ENABLED:-false}
+      MEM0_QDRANT_URL: http://qdrant:6333
+      MEM0_COLLECTION: ${MEM0_COLLECTION:-araipet_memories}
+      MEM0_HISTORY_DB_PATH: /data/mem0-history.db
+      MEM0_LLM_PROVIDER: ${MEM0_LLM_PROVIDER:-openai}
+      MEM0_LLM_BASE_URL: ${MEM0_LLM_BASE_URL:-https://api.openai.com/v1}
+      MEM0_LLM_API_KEY: ${MEM0_LLM_API_KEY:-}
+      MEM0_LLM_MODEL: ${MEM0_LLM_MODEL:-gpt-4o-mini}
+      MEM0_EMBEDDER_PROVIDER: ${MEM0_EMBEDDER_PROVIDER:-openai}
+      MEM0_EMBEDDER_BASE_URL: ${MEM0_EMBEDDER_BASE_URL:-https://api.openai.com/v1}
+      MEM0_EMBEDDER_API_KEY: ${MEM0_EMBEDDER_API_KEY:-}
+      MEM0_EMBEDDER_MODEL: ${MEM0_EMBEDDER_MODEL:-text-embedding-3-small}
+      MEM0_EMBEDDING_DIMS: ${MEM0_EMBEDDING_DIMS:-1536}
+      PERSONA_ROOT: /app/content/runtime
+      PROTOCOL_ROOT: /app/packages/protocol
+      EXPERIENCE_TICK_SECONDS: ${EXPERIENCE_TICK_SECONDS:-5}
+      FARM_TICK_SECONDS: ${FARM_TICK_SECONDS:-30}
+      ROBOT_DISPATCH_MODE: internal
+      ROBOT_ADAPTER: ${ROBOT_ADAPTER:-device}
+      ROBOT_DEVICE_ID: ${ROBOT_DEVICE_ID:-stackchan-robot}
+      STACKCHAN_WS_URL: ${STACKCHAN_WS_URL:-ws://127.0.0.1:8080/ws}
+      STACKCHAN_TOKEN: ${STACKCHAN_TOKEN:-}
+      STACKCHAN_MAX_SPEED: ${STACKCHAN_MAX_SPEED:-180}
+      STACKCHAN_MAX_DURATION_SECONDS: ${STACKCHAN_MAX_DURATION_SECONDS:-1.5}
+      DEVICE_ACTION_TIMEOUT_SECONDS: ${DEVICE_ACTION_TIMEOUT_SECONDS:-0.8}
+    ports:
+      - "${UNIFIED_PORT:-8090}:8080"
+    volumes:
+      - ../../content/runtime:/app/content/runtime:ro
+      - ../../packages/protocol:/app/packages/protocol:ro
+      - mem0-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health').read()"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 8s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
   mcp-hub:
     build: .
     command: ["python", "-m", "app.mcp_hub"]

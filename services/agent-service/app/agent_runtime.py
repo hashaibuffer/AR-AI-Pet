@@ -11,6 +11,7 @@ from fastmcp import Client
 from .data_service_client import DataServiceClient
 from .memory_client import MemoryServiceClient
 from .llm_provider import AssistantDecision, LLMProvider, ToolCall
+from .tool_registry import InternalToolRegistry
 
 
 SYSTEM_PROMPT = (
@@ -40,12 +41,14 @@ class AgentRuntime:
         memory_service: MemoryServiceClient | None = None,
         provider: LLMProvider,
         max_tool_rounds: int = 3,
+        tool_registry: InternalToolRegistry | None = None,
     ) -> None:
         self.mcp_url = mcp_url
         self.data_service = data_service
         self.memory_service = memory_service
         self.provider = provider
         self.max_tool_rounds = max(1, max_tool_rounds)
+        self.tool_registry = tool_registry
         self.persona: dict[str, Any] | None = None
 
     def set_persona(self, persona: dict[str, Any] | None) -> None:
@@ -158,7 +161,7 @@ class AgentRuntime:
         text = "".join(getattr(item, "text", "") for item in content)
         return True, text
 
-    async def _run_tool(self, client: Client, call: ToolCall, reverse: dict[str, str], experience_id: str) -> tuple[bool, Any]:
+    async def _run_tool(self, client: Any, call: ToolCall, reverse: dict[str, str], experience_id: str) -> tuple[bool, Any]:
         actual_name = reverse.get(call.name)
         if actual_name is None:
             return False, {"error": f"unknown tool: {call.name}"}
@@ -192,7 +195,16 @@ class AgentRuntime:
         experience_id = str(uuid.uuid4())
 
         try:
-            async with Client(self.mcp_url) as client:
+            if self.tool_registry is not None:
+                class _InternalSession:
+                    async def __aenter__(inner_self):
+                        return self.tool_registry
+                    async def __aexit__(inner_self, *_: Any) -> None:
+                        return None
+                tool_session = _InternalSession()
+            else:
+                tool_session = Client(self.mcp_url)
+            async with tool_session as client:
                 available = await client.list_tools()
                 model_tools, reverse = self._tool_specs(available)
                 answer: str | None = None
