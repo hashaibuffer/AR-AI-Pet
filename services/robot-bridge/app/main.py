@@ -12,6 +12,8 @@ from typing import Any
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
+from .scene_mapper import SceneStepMapper
+
 
 LOG = logging.getLogger("robot-bridge")
 logging.basicConfig(
@@ -55,6 +57,7 @@ class MockRobotAdapter:
 
     def __init__(self, delay_ms: int = 50) -> None:
         self.delay_ms = max(0, delay_ms)
+        self.scene_mapper = SceneStepMapper()
 
     async def execute(self, intent: str, parameters: dict[str, Any]) -> dict[str, Any]:
         if intent not in self.supported:
@@ -63,8 +66,7 @@ class MockRobotAdapter:
         if intent == "dance":
             delay = max(delay, 0.5)
         if intent == "scene.play":
-            # Mock only models admission/completion. A physical adapter owns
-            # the timeline and safety stop for the named scene.
+            commands = self.scene_mapper.map_scene(parameters)
             requested = int(parameters.get("durationMs", 0) or 0)
             delay = max(delay, min(1.0, max(0, requested) / 1000))
         await asyncio.sleep(delay)
@@ -76,6 +78,8 @@ class MockRobotAdapter:
                 "intent": intent,
                 "sceneId": parameters.get("sceneId"),
                 "parameters": parameters,
+                "mappedCommands": [command.as_dict() for command in commands],
+                "mappedCommandCount": len(commands),
             },
         }
 

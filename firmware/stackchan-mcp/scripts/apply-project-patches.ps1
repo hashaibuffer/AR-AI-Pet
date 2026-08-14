@@ -15,7 +15,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0005-nanodrive-ble-runtime.patch"),
     (Join-Path $moduleRoot "patches/0006-nanodrive-ble-rate-limit.patch"),
     (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch"),
-    (Join-Path $moduleRoot "patches/0008-voice-emoji-profile.patch")
+    (Join-Path $moduleRoot "patches/0008-voice-emoji-profile.patch"),
+    (Join-Path $moduleRoot "patches/0009-scene-emoji-tool.patch")
 )
 
 function Stop-WithError {
@@ -66,6 +67,9 @@ function Test-PatchMarker {
                     (Select-String -LiteralPath $kconfig -SimpleMatch "config STACKCHAN_AVATAR_OVERLAY" -Quiet) -and
                     (Select-String -LiteralPath $script -SimpleMatch '"xiaozhi-voice-only"' -Quiet) -and
                     (Select-String -LiteralPath $report -SimpleMatch "optional action gateway may be empty" -Quiet))
+        }
+        "0009-scene-emoji-tool.patch" {
+            return (Select-String -LiteralPath $stackchan -SimpleMatch '"self.display.set_emotion"' -Quiet)
         }
         default { return $false }
     }

@@ -1,0 +1,49 @@
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -5836,2 +5836,53 @@
+             });
++        // Expose the existing LVGL/Twemoji renderer to the semantic scene
++        // adapter.  This is deliberately separate from the optional Avatar
++        // overlay: scene.play must continue to use the official Emoji layer.
++        mcp_server.AddTool(
++            "self.display.set_emotion",
++            "Set one of the built-in StackChan Emoji expressions. Supported "
++            "values include neutral, happy, laughing, funny, sad, angry, "
++            "crying, loving, embarrassed, surprised, shocked, thinking, "
++            "winking, cool, relaxed, delicious, kissy, confident, sleepy, "
++            "silly and confused.",
++            PropertyList({Property("emotion", kPropertyTypeString)}),
++            [this](const PropertyList& properties) -> ReturnValue {
++                const std::string emotion = properties["emotion"].value<std::string>();
++                static const char* const supported[] = {
++                    "neutral", "happy", "laughing", "funny", "sad", "angry",
++                    "crying", "loving", "embarrassed", "surprised", "shocked",
++                    "thinking", "winking", "cool", "relaxed", "delicious",
++                    "kissy", "confident", "sleepy", "silly", "confused"
++                };
++                bool valid = false;
++                for (const char* candidate : supported) {
++                    if (emotion == candidate) {
++                        valid = true;
++                        break;
++                    }
++                }
++                cJSON* root = cJSON_CreateObject();
++                cJSON_AddStringToObject(root, "emotion", emotion.c_str());
++                if (!valid) {
++                    cJSON_AddBoolToObject(root, "ok", false);
++                    cJSON_AddStringToObject(root, "error", "Unsupported StackChan Emoji");
++                    return root;
++                }
++                if (display_ == nullptr) {
++                    cJSON_AddBoolToObject(root, "ok", false);
++                    cJSON_AddStringToObject(root, "error", "Display not ready");
++                    return root;
++                }
++                display_->SetEmotion(emotion.c_str());
++                cJSON_AddBoolToObject(root, "ok", true);
++                return root;
++            });
+
+         // Set head angles (yaw, pitch in degrees)

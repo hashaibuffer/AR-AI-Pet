@@ -78,7 +78,7 @@ touch PTT   = enabled
 .\firmware\stackchan-mcp\scripts\build-voice-emoji.ps1
 ```
 
-该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；本地 StackChan 动作工具仍注册给主会话，可调用 Emoji、灯光和舵机；但本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。ESP-NOW 遥控与 NanoDrive BLE 也不由该开关关闭。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
+该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；本地 StackChan 动作工具仍注册给主会话，可调用 `self.display.set_emotion`（内置 LVGL Emoji）、灯光和舵机；但本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。ESP-NOW 遥控与 NanoDrive BLE 也不由该开关关闭。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
 
 这条配置只证明“主语音 + 本体动作工具 + Emoji”基线；它不启动独立动作网关。需要第二条动作 WebSocket 或 Avatar 覆盖层时，继续使用上面的 `xiaozhi-plus-action` 配置。
 
