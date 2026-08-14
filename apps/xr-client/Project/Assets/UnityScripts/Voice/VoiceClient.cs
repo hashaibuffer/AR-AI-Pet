@@ -119,6 +119,16 @@ namespace ARAIPet.Voice
 
         // ── 播放 ──
 
+        // ── 降级/占位说明 ──
+        // 本方法 (SimulateAgentResponse) 是 Unity 侧 PC 麦克风语音上行的占位骨架：
+        //   - 录音后未发送 PCM 给 Agent（无真实 STT 上行）
+        //   - TTS 回放是播放录音回声，非 Agent 返回的 TTS 音频
+        //   - 不作为 Demo 语音能力验收依据
+        // Demo 语音通道 = StackChan 侧 Xiaozhi 语音会话（ASR/TTS 经 AI.AGENT/Xiaozhi 主语音
+        // WebSocket，已按 docs/10-方案B验证记录.md 验收：中文唤醒、连续追问、触摸 PTT）。
+        // Unity 侧 PC 麦克风 STT/TTS 为 Demo 后降级路径。
+        // 技术决策记录见 docs/08-首版实现边界与技术决策.md "Demo 语音通道" 节。
+        // 下面保持占位逻辑，不做语音管线重构。
         IEnumerator SimulateAgentResponse()
         {
             yield return new WaitForSeconds(1f);
