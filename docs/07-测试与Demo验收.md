@@ -10,6 +10,9 @@
 | Agent Gateway → Mock Robot Bridge | 通过（Mock） | `ROBOT_BRIDGE_SMOKE_OK`；覆盖语义动作执行、结果回传和数据服务查询。 |
 | Beam Pro Android 运行与 XREAL 实机显示 | 待验证 | Windows Editor 的 `XREALXRPlugin` 缺失警告属于预期限制，不替代 Android/眼镜实机验收。 |
 | Robot Bridge → StackChan / NanoDrive 实体动作 | 软件适配器待实机 | `StackChanWebSocketAdapter` 已加入并以假 StackChan WebSocket 验证 JSON-RPC 映射、限速、限时和停止；StackChan/NanoDrive 现场动作仍待观察确认。 |
+| 统一服务 → Mock 设备 → 数据落库 | 通过（软件） | `docker compose --profile unified` 下 `UNIFIED_SMOKE_OK`；覆盖 `/ws/app`、`/ws/device`、动作结果回传和 PostgreSQL。 |
+| 统一服务 `/mcp` 兼容入口 | 通过（软件） | `MCP_SMOKE_OK`；FastMCP 生命周期与 `/mcp` 挂载已验证，外部客户端仍使用同一套语义工具。 |
+| 统一服务 → Scheme B `hello`/`mcp` | 通过（协议兼容） | `SCHEME_B_UNIFIED_OK`；仅证明协议消息和网关适配，不代表当前实体固件已观察动作。 |
 
 状态和证据或问题为空，表示待验证；只记录实际运行结果。延迟和性能指标统一在实测后冻结。
 
@@ -27,6 +30,15 @@
 ## StackChan 实机子项
 
 以下只记录 StackChan 自身及其当前语音链路的实机结果，不代表完整 AR、Agent 或底座闭环通过。
+
+## 固件源码收敛记录（2026-08-13）
+
+| 项目 | 状态 | 证据与边界 |
+| --- | --- | --- |
+| 官方 Mooncake 源码 | 部分确认 | `firmware/stackchan/source.lock.json` 固定 `m5stack/StackChan` 的 `b72b3ede...`；`D:\stackchan-patch-check-final\firmware` 与该提交逐文件一致，但该目录 Git 元数据已失效。 |
+| 当前设备与官方源码一致 | 未证明 | 已知设备 ELF SHA256 为 `121813e1116c74603b20bfdc67b059b85c966c72f7912344069d67d6fe9e551e`；日志出现的 `base_move`、`base_drive`、`base_stop` 不在官方锁定源码中。 |
+| Scheme B 源码 | 通过（参考基线） | `firmware/stackchan-mcp/` 可复现独立动作客户端、NanoDrive BLE 与底座工具；该结果不能替代当前设备源码对应性。 |
+| 固件源码复现入口 | 已提供 | `scripts/verify-source.ps1` 只检查锁定 Git 来源、依赖和文件哈希；`scripts/build-source.ps1` 只构建，不刷机。 |
 
 | 子项 | 状态 | 证据或边界 |
 | --- | --- | --- |

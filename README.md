@@ -49,6 +49,7 @@ packages/protocol/ 按模块主责定义，受影响人员确认
 - 正式 XR 客户端：[apps/xr-client/](apps/xr-client/)
 - Agent 服务：[services/agent-service/](services/agent-service/)
 - StackChan 固件：[firmware/stackchan/](firmware/stackchan/)
+- StackChan 官方来源锁定：[firmware/stackchan/source.lock.json](firmware/stackchan/source.lock.json)
 - ESP-NOW 遥控器：[firmware/espnow-controller/](firmware/espnow-controller/)
 - NanoDrive 固件：[firmware/nanodrive/](firmware/nanodrive/)
 - 跨端协议：[packages/protocol/](packages/protocol/)
@@ -59,6 +60,8 @@ packages/protocol/ 按模块主责定义，受影响人员确认
 
 ## 当前状态
 
-StackChan 基础固件和实体子链路已有独立验证记录；PostgreSQL、Alembic、WebSocket 数据服务和 MCP Hub 已完成独立验收。当前项目自有本地 Agent Runtime 的 Mock 文字输入与 MCP 工具调用闭环已通过。QwenPaw 已废弃，当前 Agent 运行时与机器人固件的验证边界见开源验证清单。
+StackChan 基础固件和实体子链路已有独立验证记录；PostgreSQL、Alembic、WebSocket 数据服务和 MCP Hub 已完成独立验收。当前项目自有本地 Agent Runtime 的 Mock 文字输入与 MCP 工具调用闭环已通过。QwenPaw 已废弃；官方 Mooncake 源码与 Scheme B 参考固件已分开记录，当前设备固件与官方源码的完全对应仍待补齐，边界见开源验证清单和固件 README。
 
 本地 Agent 的 Mock 记忆链路已通过。Unity 已完成官方 XREAL SDK 3.1.0 安装、Unity 脚本编译，以及 PC Play Mode 的 Agent Gateway WebSocket、`ExperienceEvent`、人格表情/Emoji/内心 OS 和显示结果回传闭环。StackChan—BLE—NanoDrive v0.9 的基础移动、停止和超时保护已完成实体验收；Robot Bridge 的真实 StackChan WebSocket Adapter 已完成软件映射和假网关测试，真实实体动作仍需现场确认。Beam Pro/XREAL 实机、真实模型、真实 Mem0、语音协议网关，以及完整 AR—Agent—机器人闭环仍待验证。具体证据和边界见 [XR 客户端 README](apps/xr-client/README.md)、[NanoDrive 联调记录](docs/11-NanoDrive联调记录.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。
+
+当前已增加可选统一部署入口：`services/agent-service` 的 `unified` profile 将 Agent、数据服务、记忆服务、MCP 兼容入口和设备会话收敛到同一局域网服务；软件层已通过 Mock 设备、外部 `/mcp` 和 Scheme B 兼容 smoke，实体设备仍按实测结果更新。

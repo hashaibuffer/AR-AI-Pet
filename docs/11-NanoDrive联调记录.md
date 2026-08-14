@@ -38,6 +38,8 @@ Scheme B：StackChan ── ws://电脑:8765 ──> stackchan-mcp Gateway
 
 本次探测只证明“StackChan 与底座的近端 BLE 已连上”，没有改变上表中 Agent/Robot Bridge 实体待验证状态。下一次联调应先让 StackChan 连接与动作网关同一局域网，再记录设备 IP、网关监听和设备会话后，才允许做短时头部动作；底座移动仍需在头部动作成功后单独进行。
 
+补充：当前刷入固件采用 Mooncake 应用结构，`AI.AGENT` 应用的 `onOpen()` 才会调用 `requestXiaozhiStart()`。因此“StackChan 已连 Wi‑Fi”只代表网络层已就绪；必须打开 `AI.AGENT`（或启用其开机启动配置）后，才会启动语音/Agent WebSocket 会话。未打开应用时，8765 网关没有设备会话是预期现象，不应误判为 Wi‑Fi 或 BLE 故障。
+
 ## 当前运行协议
 
 ```text
@@ -86,3 +88,9 @@ StackChan 启动日志确认发现 `FFE0` 服务与 `FFE1` 写特征、成功连
 - 2026-08-11 的 StackChan GPIO17 → NanoDrive RX 直连 UART 仅保留为排障记录；当前产品运行不接 StackChan 与底座之间的 UART 线。
 - 2026-08-12 的商家 `A/E/Z/H/B/G/C/F/D` 单字符固件用于确认 A4950 方向和蓝牙透明传输；不再作为正式运行协议。
 - 本记录不把“编译通过”“GATT 写入成功”表述为物理运动通过；本次物理运动结论来自用户现场确认。
+
+## 固件来源边界（2026-08-13）
+
+- 官方 Mooncake/StackChan 来源见 [`firmware/stackchan/source.lock.json`](../firmware/stackchan/source.lock.json)，可复现检查不会包含底座工具。
+- `base_move`、`base_drive`、`base_stop` 和 NanoDrive BLE 运行实现来自 [`firmware/stackchan-mcp/`](../firmware/stackchan-mcp/) 的 Scheme B 参考补丁；当前设备虽有对应日志，源码与设备 ELF 尚未完全匹配。
+- 下一阶段若要移植动作客户端，必须在官方 Mooncake 基线上建立独立补丁，不直接把 Scheme B 整棵源码覆盖进来。
