@@ -129,7 +129,29 @@ class MockProvider:
             robot_tool = next((tool for tool in tools if tool["function"]["name"] == "robot_react"), None)
             if robot_tool:
                 return AssistantDecision(None, [ToolCall("mock-dance", "robot_react", {"action_type": "dance", "parameters": {}})])
+        if not has_tool_result and any(word in user_text for word in ("前进", "后退", "左转", "右转")):
+            robot_tool = next((tool for tool in tools if tool["function"]["name"] == "robot_react"), None)
+            if robot_tool:
+                direction = next(
+                    word for word in ("前进", "后退", "左转", "右转") if word in user_text
+                )
+                return AssistantDecision(
+                    None,
+                    [ToolCall(
+                        "mock-base-move",
+                        "robot_react",
+                        {"action_type": "base_move", "parameters": {"direction": direction, "speed": 100}},
+                    )],
+                )
         if has_tool_result and any(item.get("name") == "robot_react" for item in messages if item.get("role") == "tool"):
+            if "前进" in user_text:
+                return AssistantDecision("好，我让它前进。", [])
+            if "后退" in user_text:
+                return AssistantDecision("好，我让它后退。", [])
+            if "左转" in user_text:
+                return AssistantDecision("好，我让它左转。", [])
+            if "右转" in user_text:
+                return AssistantDecision("好，我让它右转。", [])
             return AssistantDecision("好呀，我们一起跳舞。", [])
         if not has_tool_result and "提醒" in user_text:
             schedule_tool = next((tool for tool in tools if tool["function"]["name"] == "schedule_upsert"), None)

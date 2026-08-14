@@ -114,6 +114,24 @@ class ConfiguredCopyTests(unittest.TestCase):
         self.assertEqual(event["xr"]["expression"], {"emotion": "warm", "face": "smile", "emoji": "😊", "intensity": 1.0})
         self.assertEqual(event["robot"]["actions"][0]["parameters"]["face"], "smile")
 
+    def test_agent_robot_tool_intent_survives_generic_text_rule(self) -> None:
+        orchestrator = ExperienceOrchestrator(CONTENT_ROOT)
+        orchestrator.select_persona("energetic-partner")
+        _, event = orchestrator.from_turn(
+            {
+                "conversationId": str(uuid.uuid4()),
+                "text": "好，我让它前进。",
+                "toolCalls": [{
+                    "name": "robot.react",
+                    "arguments": {"action_type": "base_move", "parameters": {"direction": "前进", "speed": 100}},
+                    "result": {"actionType": "base_move", "parameters": {"direction": "前进", "speed": 100}},
+                }],
+            },
+            "前进",
+        )
+        self.assertEqual(event["robot"]["actions"][0]["intent"], "base_move")
+        self.assertEqual(event["robot"]["actions"][0]["parameters"]["direction"], "前进")
+
 
 class PersonaTests(unittest.TestCase):
     def test_loader_and_rule_engine(self) -> None:

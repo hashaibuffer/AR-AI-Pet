@@ -125,7 +125,9 @@ class DeviceSessionManager:
                 "speed_dps": int(parameters.get("speed_dps", 60)),
             }
         elif intent in {"base_move", "base_turn"}:
-            name, arguments = "self.robot.base_move", {"direction": str(parameters.get("direction", "forward")), "speed": min(180, int(parameters.get("speed", 100)))}
+            direction = str(parameters.get("direction", "forward"))
+            direction = {"前进": "forward", "后退": "backward", "左转": "left", "右转": "right"}.get(direction, direction)
+            name, arguments = "self.robot.base_move", {"direction": direction, "speed": min(180, int(parameters.get("speed", 100)))}
         elif intent == "base_drive":
             name, arguments = "self.robot.base_drive", {"left": max(-180, min(180, int(parameters.get("left", 0)))), "right": max(-180, min(180, int(parameters.get("right", 0))))}
         elif intent in {"stop", "base_stop"}:

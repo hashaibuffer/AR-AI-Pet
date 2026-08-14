@@ -57,6 +57,7 @@ class ExperienceOrchestrator:
         inner_os: str | None = None,
         event_id: str | None = None,
         action_id: str | None = None,
+        action_parameters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         persona = self.personas.load(self.persona_id)
@@ -82,7 +83,7 @@ class ExperienceOrchestrator:
             "expiresAt": (now + timedelta(seconds=30)).isoformat(),
             "speech": {"text": spoken, "emotion": emotion, "interruptible": True},
             "innerOs": {"text": thought, "durationMs": 4000, "anchor": "robot"},
-            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {"emotion": emotion, "face": face}}]},
+            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {"emotion": emotion, "face": face, **(action_parameters or {})}}]},
             "xr": {
                 "visible": True,
                 "mode": "inner-os",
@@ -99,6 +100,24 @@ class ExperienceOrchestrator:
         behavior = self.rules.select(trigger_type="text", text=text, context=context)
         if behavior is None:
             behavior = self.rules.select(trigger_type="turn", text=text, context=context) or {"emotion": "warm", "priority": 100, "robotBehaviorIntent": "nod"}
+        # A tool call is the Agent's explicit action decision. Text rules still
+        # own presentation (dialogue, emotion and inner OS), but a generic
+        # conversation fallback must not replace a concrete device intent
+        # such as base_move with the default nod.
+        action_parameters: dict[str, Any] = {}
+        tool_action: str | None = None
+        for call in result.get("toolCalls", []):
+            if call.get("name") != "robot.react":
+                continue
+            arguments = call.get("arguments") if isinstance(call.get("arguments"), dict) else {}
+            tool_result = call.get("result") if isinstance(call.get("result"), dict) else {}
+            tool_action = str(tool_result.get("actionType") or arguments.get("action_type") or "") or None
+            raw_parameters = tool_result.get("parameters") or arguments.get("parameters")
+            if isinstance(raw_parameters, dict):
+                action_parameters = dict(raw_parameters)
+            break
+        if tool_action:
+            behavior = {**behavior, "robotBehaviorIntent": tool_action}
         turn = validate_agent_turn_result({
             "version": "0.1",
             "turnId": str(uuid.uuid4()),
@@ -113,7 +132,7 @@ class ExperienceOrchestrator:
             "sourceEventId": None,
             "timestamp": utc_now().isoformat(),
         })
-        return turn, self._event(turn=turn, mode="conversation", behavior=behavior, event_id=result.get("experienceEventId"))
+        return turn, self._event(turn=turn, mode="conversation", behavior=behavior, event_id=result.get("experienceEventId"), action_parameters=action_parameters)
 
     def reminder_event(self, reminder: dict[str, Any]) -> dict[str, Any]:
         behavior = self.rules.select(trigger_type="schedule.triggered", context={"requiresUserPresent": True, "capabilities": ["wave"]}) or {"emotion": "warm", "priority": 80, "robotBehaviorIntent": "wave", "speechPrompt": "提醒你：{title}", "innerOsPrompt": "这个提醒到时间了。"}
