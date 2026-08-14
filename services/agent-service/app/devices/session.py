@@ -49,6 +49,20 @@ class DeviceSessionManager:
             if not pending.done():
                 pending.set_result({"status": "failed", "error": "device_disconnected"})
 
+    async def snapshot(self) -> list[dict[str, Any]]:
+        """Return connection metadata without exposing sockets or pending payloads."""
+        async with self.lock:
+            return [
+                {
+                    "deviceId": session.device_id,
+                    "protocol": session.protocol,
+                    "sessionId": session.session_id,
+                    "capabilities": list(session.capabilities),
+                    "pendingActionCount": len(session.pending),
+                }
+                for session in self.sessions.values()
+            ]
+
     async def dispatch(self, device_id: str, action: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
         session = self.sessions.get(device_id)
         if session is None:

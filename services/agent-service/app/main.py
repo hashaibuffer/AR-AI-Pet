@@ -54,6 +54,17 @@ async def data_health() -> dict[str, str]:
     return {"status": "ok", "service": "data-layer", "version": server.PROTOCOL_VERSION}
 
 
+@app.get("/health/device")
+async def device_health() -> dict[str, object]:
+    sessions = await agent_gateway.device_sessions.snapshot()
+    return {
+        "status": "ok",
+        "service": "device-gateway",
+        "sessionCount": len(sessions),
+        "deviceSessions": sessions,
+    }
+
+
 # FastMCP's HTTP app already exposes the ``/mcp`` route.  Mount it at the
 # application root *after* the explicit routes so the same process owns the
 # exact `/mcp` endpoint without Starlette's `/mcp` -> `/mcp/` redirect.
