@@ -1,8 +1,8 @@
-# StackChan × Kimito × Xiaozhi 正式固件基线
+# StackChan × Kimito × Xiaozhi Scheme B 参考固件
 
 ## 作用与边界
 
-本模块固定已经通过真机验收的产品链：
+本模块固定已经通过真机验收的 Scheme B 产品链，作为当前 Mooncake 官方基线的参考实现：
 
 ```text
 AI.AGENT / Xiaozhi：语音、ASR、会话和自动轮次的唯一所有者
@@ -14,7 +14,7 @@ StackChan 实体：麦克风、扬声器、触摸、屏幕、舵机和安全执�
 Kimito 行为层：表情、头部动作、陪伴反馈，不接管语音会话
 ```
 
-Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 蓝牙透传和遥控器 BASE 模式已经完成实机闭环，Agent/Beam Pro 链路仍待接入。
+Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 蓝牙透传和遥控器 BASE 模式已经完成实机闭环，Agent/Beam Pro 链路仍待接入。该目录不证明当前设备固件一定由本锁定源码构建。
 
 ## 固定来源
 

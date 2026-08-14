@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "product": "StackChan Mooncake/Kimito official baseline",
+  "sourceRepository": "https://github.com/m5stack/StackChan.git",
+  "sourceCommit": "b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e",
+  "projectVersion": "1.4.3",
+  "toolchain": {
+    "espIdf": "v5.5.4",
+    "target": "esp32s3",
+    "board": "stackchan"
+  },
+  "sourceFiles": {
+    "firmware/main/hal/hal_mcp.cpp": "A4C672DD3E89B563200D8356098CCA78BC57C0EE8447DFF643E32E4544491225",
+    "firmware/main/apps/app_ai_agent/app_ai_agent.cpp": "A32E4E42E67249B737DF73C0CB6DEF16A533E9CDA7AEE27B45E92F1873C1BC34",
+    "firmware/main/hal/hal_ws_avatar.cpp": "0985949C4BDDD3D0DFF74C89C97C41F09D9B81C1AA3A55FF6DC80B4867CD5F30"
+  },
+  "dependencies": [
+    { "repository": "https://github.com/Forairaaaaa/mooncake.git", "ref": "v2.3.3", "path": "components/mooncake" },
+    { "repository": "https://github.com/Forairaaaaa/mooncake_log.git", "ref": "v1.5.0", "path": "components/mooncake_log" },
+    { "repository": "https://github.com/Forairaaaaa/smooth_ui_toolkit.git", "ref": "v2.12.0", "path": "components/smooth_ui_toolkit" },
+    { "repository": "https://github.com/78/xiaozhi-esp32.git", "ref": "v2.2.4", "path": "xiaozhi-esp32", "patch": "patches/xiaozhi-esp32.patch" },
+    { "repository": "https://github.com/bblanchon/ArduinoJson.git", "ref": "v7.4.2", "path": "components/ArduinoJson" },
+    { "repository": "https://github.com/espressif/esp-now.git", "ref": "c33383de97f3ed2fc52117f5ef04f71990432e5d", "path": "components/esp-now" }
+  ],
+  "projectChanges": {
+    "officialMooncakeSource": "project patches are applied after the locked upstream source",
+    "robotActionAdapter": "patches/0003-stackchan-control-adapter.patch adds fixed StackChan motion tools",
+    "nanoDriveBleAndBaseTools": "not present; see ../stackchan-mcp/",
+    "mcpActionClient": "patches/0005-mcp-action-client.patch adds an optional second action WebSocket",
+    "xiaozhiMcpReplyRouting": "patches/0004-xiaozhi-mcp-reply-routing.patch supports an explicit action reply handler",
+    "robotBridge": "not part of firmware source"
+  },
+  "deviceIdentity": {
+    "status": "partially-confirmed",
+    "knownElfSha256": "121813e1116c74603b20bfdc67b059b85c966c72f7912344069d67d6fe9e551e",
+    "sourceMatch": "not proven",
+    "reason": "Serial evidence includes base tools that are absent from the locked official source."
+  },
+  "historicalSchemeB": {
+    "sourceLock": "../stackchan-mcp/source.lock.json",
+    "status": "reference-only; do not treat as this product source"
+  }
+}

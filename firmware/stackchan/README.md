@@ -8,11 +8,15 @@
 
 B。
 
-## 当前状态
+## 当前状态（源码收敛阶段）
 
-已在本机检出官方 StackChan 上游工作副本。2026-08-07 已完成 ESP-IDF 5.5.4 + ESP32-S3 全量构建、COM7 烧录和串口启动验证；屏幕、摄像头、触摸、IMU、RTC、三麦和双舵机初始化通过，联网、语音上传和服务器回答已在实机日志中观察到。项目 MCP 动作适配器和电脑 → 官方 WebSocket → StackChan 控制子链路已完成实机复测。
+本目录是官方 StackChan Mooncake 硬件基线。正式来源、依赖和设备对应边界写在 [`source.lock.json`](source.lock.json)；验证入口是 [`scripts/verify-source.ps1`](scripts/verify-source.ps1)。官方锁定提交可以构建，但不包含项目 Scheme B 的 `McpActionClient`、NanoDrive BLE 或 `base_move`/`base_drive`/`base_stop`。
 
-本目录继续保存官方 M5Stack StackChan 的硬件基线和历史补丁，不再代表当前产品语音固件。2026-08-09 通过四项真机验收的 StackChan × Kimito × Xiaozhi 双通道产品基线、锁定源码和成员复现脚本位于 [`../stackchan-mcp/`](../stackchan-mcp/)。其中 StackChan—BLE—NanoDrive v0.9 的基础移动闭环已实体通过；Beam Pro 与完整 AR—Agent—机器人端到端闭环仍待验证。
+已有串口证据证明当前设备具备 Mooncake 菜单、AI.AGENT、Xiaozhi 中文语音、屏幕/表情/声音/舵机和 BLE 底座能力；同时日志中的底座工具不在官方锁定源码中。因此当前设备固件来源只能记为**部分确认**，不能把设备日志直接归因于本目录源码。待后续找到对应混合源码后，再更新锁文件和补丁。
+
+`../stackchan-mcp/` 是历史/参考 Scheme B 固件，包含独立动作客户端和 NanoDrive 实现；它不是本目录的官方 Mooncake 源码，也不应覆盖本目录。当前阶段不移植动作客户端、不修改 Robot Bridge、不刷机。
+
+外部来源检查结果：`D:\stackchan-patch-check-final\firmware` 与官方锁定提交逐文件一致，但其 Git 元数据已失效，不能作为复现入口；有效复现应使用一个干净的 Git 克隆。
 
 下列配置是 2026-08-05 官方固件实验的历史基线：
 
@@ -36,9 +40,12 @@ CONFIG_SR_MN_CN_MULTINET6_QUANT=y
 
 `upstream/` 只用于追踪、构建和验证原厂能力。后续项目代码放在同级的 `adapter/`，不得在没有明确记录的情况下直接修改上游源码。
 
-### 可复现补丁与一键主机测试
+### 可复现来源与一键主机测试
 
-- 补丁：`patches/0001-host-tests-cxx20-pi.patch`
+- 来源锁定：`source.lock.json`
+- 来源检查：`scripts/verify-source.ps1 -SourceRoot <有效的StackChan克隆>`
+- 独立构建：`scripts/build-source.ps1 -SourceRoot <有效的StackChan克隆>`（只构建，不刷机）
+- 历史主机补丁：`patches/0001-host-tests-cxx20-pi.patch`
 - Windows UTF-8 补丁：`patches/0002-xiaozhi-sdkconfig-utf8.patch`（应用于 `upstream/firmware/xiaozhi-esp32/`）
 - 验证脚本：`scripts/test-upstream-host.ps1`
 - 一键运行（在仓库根目录执行）：
@@ -47,7 +54,7 @@ CONFIG_SR_MN_CN_MULTINET6_QUANT=y
   powershell -ExecutionPolicy Bypass -File .\firmware\stackchan\scripts\test-upstream-host.ps1
   ```
 
-`upstream/` 是被忽略的官方源码工作副本，不上传到 AR-AIPet Git。补丁文件来自固定 SHA `b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e` 相对于当前上游工作区的实际 diff，并且只包含主机测试 C++ 标准和 π 常量的三处修改。脚本会检查 upstream 目录和 SHA，判断补丁是否已经应用，必要时安全应用补丁，然后运行 CMake 构建和 CTest；补丁冲突或任意命令失败都会退出非零。
+`upstream/` 是被忽略的源码工作副本，不上传到 AR-AIPet Git。新增验证脚本不会覆盖本地修改，并会拒绝非锁定提交或脏工作区。官方源码的主机测试补丁只用于历史测试兼容；它不代表底座或动作功能已经进入官方固件。
 
 上游修复合并后，应更新本文件中的固定 SHA，重新运行脚本确认新基线，再删除不再需要的本地补丁应用步骤。
 
@@ -59,7 +66,15 @@ CONFIG_SR_MN_CN_MULTINET6_QUANT=y
 
 ```powershell
 git clone https://github.com/m5stack/StackChan.git firmware/stackchan/upstream
-git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e
+   git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e
+   ```
+
+项目补丁按以下顺序应用：
+
+```text
+0003-stackchan-control-adapter.patch
+0004-xiaozhi-mcp-reply-routing.patch
+0005-mcp-action-client.patch
 ```
 
 ### 上游固件的首次验证步骤
@@ -70,9 +85,12 @@ git -C firmware/stackchan/upstream checkout b72b3ede38b32d54f0b6ba51c62cfcef2ec3
 4. 使用本模块的一键脚本执行主机测试；它会自动完成版本检查、主机补丁应用、构建和 CTest。拉取依赖后，另行应用 Windows UTF-8 补丁：
 
    ```powershell
-   git -C upstream/firmware/xiaozhi-esp32 apply --check ..\..\..\patches\0002-xiaozhi-sdkconfig-utf8.patch
-   git -C upstream/firmware/xiaozhi-esp32 apply ..\..\..\patches\0002-xiaozhi-sdkconfig-utf8.patch
+   powershell -ExecutionPolicy Bypass -File .\firmware\stackchan\scripts\apply-patches.ps1 -SourceRoot .\firmware\stackchan\upstream
    ```
+
+`apply-patches.ps1` 会拒绝 StackChan 根目录的未提交修改；Xiaozhi 依赖只允许由已知依赖补丁产生修改，并拒绝 `main/mcp_server.*` 上的其他本地修改。`build-source.ps1` 会自动调用该脚本。
+
+动作客户端由 `CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL` 控制。留空时关闭；配置后，设备在 Xiaozhi 就绪后建立第二条 WebSocket，连接统一服务的 `/ws/device`。主语音连接仍负责唤醒、录音、TTS 和对话。
 
    手动主机测试命令仅用于排查脚本失败：
 
