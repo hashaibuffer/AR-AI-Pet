@@ -38,7 +38,7 @@ Scheme B：StackChan ── ws://电脑:8765 ──> stackchan-mcp Gateway
 
 本次探测只证明“StackChan 与底座的近端 BLE 已连上”，没有改变上表中 Agent/Robot Bridge 实体待验证状态。下一次联调应先让 StackChan 连接与动作网关同一局域网，再记录设备 IP、网关监听和设备会话后，才允许做短时头部动作；底座移动仍需在头部动作成功后单独进行。
 
-补充：当前刷入固件采用 Mooncake 应用结构，`AI.AGENT` 应用的 `onOpen()` 才会调用 `requestXiaozhiStart()`。因此“StackChan 已连 Wi‑Fi”只代表网络层已就绪；必须打开 `AI.AGENT`（或启用其开机启动配置）后，才会启动语音/Agent WebSocket 会话。未打开应用时，8765 网关没有设备会话是预期现象，不应误判为 Wi‑Fi 或 BLE 故障。
+补充：当前刷入固件采用 Mooncake 应用结构，`AI.AGENT` 应用的 `onOpen()` 才会调用 `requestXiaozhiStart()`。因此“StackChan 已连 Wi-Fi”只代表网络层已就绪；必须打开 `AI.AGENT`（或启用其开机启动配置）后，才会启动语音/Agent WebSocket 会话和动作 MCP WebSocket。未打开应用时，动作网关没有设备会话是预期现象，不应误判为 Wi-Fi、BLE 或端口故障。软件诊断发现固件配置的网关 URL（`ws://192.168.50.133:8765`）与当前统一服务端点（`ws://<PC_IP>:8090/ws/device`）不匹配，恢复步骤见 [`docs/13-动作网关会话恢复步骤.md`](13-动作网关会话恢复步骤.md)。
 
 ## 当前运行协议
 

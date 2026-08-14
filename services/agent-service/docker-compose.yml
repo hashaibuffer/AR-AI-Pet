@@ -17,6 +17,7 @@ services:
 
   data-service:
     build: .
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.server:app --host 0.0.0.0 --port 8080"]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
       WS_HOST: 0.0.0.0
@@ -43,7 +44,7 @@ services:
   ar-aipet-server:
     profiles: ["unified"]
     build: .
-    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8080"]
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8080"]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-araipet}:${POSTGRES_PASSWORD:-araipet}@postgres:5432/${POSTGRES_DB:-araipet}
       WS_HOST: 0.0.0.0

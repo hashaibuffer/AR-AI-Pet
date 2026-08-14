@@ -37,6 +37,9 @@ jobs:
           python -m unittest discover -s ../robot-bridge/tests -v
       - name: Start local stack
         run: docker compose up --build -d --wait --wait-timeout 120
+      - name: Show startup logs on failure
+        if: failure()
+        run: docker compose ps -a && docker compose logs --no-color
       - name: Run smoke tests
         run: |
           docker compose exec -T data-service python scripts/ws_smoke.py
@@ -46,6 +49,15 @@ jobs:
           docker compose exec -T agent-runtime python scripts/agent_experience_smoke.py
           docker compose exec -T robot-bridge python scripts/bridge_smoke.py
           docker compose exec -T memory-service env DATA_SERVICE_WS_URL=ws://data-service:8080/ws MEMORY_URL=ws://memory-service:8083/ws AGENT_URL=ws://agent-runtime:8082/ws python scripts/memory_smoke.py
+      - name: Start unified service
+        run: docker compose --profile unified up --build -d --wait --wait-timeout 120 ar-aipet-server
+      - name: Run unified smoke test
+        env:
+          UNIFIED_WS_BASE: ws://localhost:8090
+        run: python scripts/unified_smoke.py
+      - name: Show service logs on test failure
+        if: failure()
+        run: docker compose --profile unified ps -a && docker compose --profile unified logs --no-color
       - name: Stop local stack
         if: always()
         run: docker compose down -v
