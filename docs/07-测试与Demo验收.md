@@ -40,6 +40,8 @@
 | 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
 | 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
 | Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
+| voice-emoji 固件内置七场景播放器 | 通过（编译与注册） | ESP-IDF 5.5.4 构建通过，应用分区约 17% 空闲；COM7 启动日志出现 `Scene playback task ready`，并注册 `self.scene.play` / `self.scene.stop`。 |
+| 七个实体小剧场逐场执行 | 待验证 | 固件已刷入，仍需通过语音/Agent 实际触发并观察 Emoji、灯光、舵机和 NanoDrive 时间轴；工具注册不等于动作执行通过。 |
 | MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
 | MCP Hub 启动门槛 | 通过 | data-service 和 mcp-hub 均通过 WebSocket/MCP healthcheck 后进入 healthy。 |
 | 本地 Agent Runtime—MCP—数据服务 | 通过（Mock闭环） | `AGENT_SMOKE_OK` 已验证文字请求、日程读写、工具错误反馈和对话落库；真实模型与语音分别记录，本次不包含语音。 |

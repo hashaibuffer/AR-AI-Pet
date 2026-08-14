@@ -16,7 +16,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0006-nanodrive-ble-rate-limit.patch"),
     (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch"),
     (Join-Path $moduleRoot "patches/0008-voice-emoji-profile.patch"),
-    (Join-Path $moduleRoot "patches/0009-scene-emoji-tool.patch")
+    (Join-Path $moduleRoot "patches/0009-scene-emoji-tool.patch"),
+    (Join-Path $moduleRoot "patches/0010-scene-playback.patch")
 )
 
 function Stop-WithError {
@@ -70,6 +71,10 @@ function Test-PatchMarker {
         }
         "0009-scene-emoji-tool.patch" {
             return (Select-String -LiteralPath $stackchan -SimpleMatch '"self.display.set_emotion"' -Quiet)
+        }
+        "0010-scene-playback.patch" {
+            return ((Select-String -LiteralPath $stackchan -SimpleMatch '"self.scene.play"' -Quiet) -and
+                    (Select-String -LiteralPath $stackchan -SimpleMatch "SceneTaskLoop()" -Quiet))
         }
         default { return $false }
     }
