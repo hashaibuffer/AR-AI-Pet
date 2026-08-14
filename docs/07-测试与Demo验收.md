@@ -9,7 +9,8 @@
 | Unity PC Play Mode → Agent Gateway WebSocket | 通过（PC Mock） | `Project/Library/AgentPlayModeSmokeResult.json` 为 `passed=true`；覆盖订阅、聊天、ExperienceEvent、显示层 ActionResult。 |
 | Agent Gateway → Mock Robot Bridge | 通过（Mock） | `ROBOT_BRIDGE_SMOKE_OK`；覆盖语义动作执行、结果回传和数据服务查询。 |
 | Beam Pro Android 运行与 XREAL 实机显示 | 待验证 | Windows Editor 的 `XREALXRPlugin` 缺失警告属于预期限制，不替代 Android/眼镜实机验收。 |
-| Robot Bridge → StackChan / NanoDrive 实体动作 | 待验证 | 当前仍使用 MockRobotAdapter；实体适配器和底座安全链路另行验收。 |
+| Robot Bridge → StackChan 8080 直连 | 待验证 | `DirectStackChanAdapter` 已实现，未现场验证 |
+| Robot Bridge → 8765/8767 网关（Scheme B） | 待验证 | 设备未连网关；方向与 8080 不同，证据不互迁（见 [docs/02 §13.2](02-技术架构与可行性方案.md)） |
 
 状态和证据或问题为空，表示待验证；只记录实际运行结果。延迟和性能指标统一在实测后冻结。
 
@@ -30,7 +31,7 @@
 
 | 子项 | 状态 | 证据或边界 |
 | --- | --- | --- |
-| ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 本地源码构建目录为 `D:\sc\firmware`；上游固定提交 `b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e`。 |
+| ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 上游固定提交 `b72b3ede`（Mooncake 历史基线，仅硬件初始化验证）；当前产品固件构建见 [`firmware/stackchan-mcp`](../firmware/stackchan-mcp/)（21ab6636），CI 复现 57 Python + 17 主机测试。 |
 | COM7 烧录与串口启动 | 通过 | `idf.py -p COM7 flash` 和串口监控已完成。 |
 | 屏幕、摄像头、触摸、IMU、RTC、三麦、双舵机初始化 | 通过 | 启动日志中完成对应外设初始化。 |
 | 中文唤醒与 Xiaozhi 云端对话 | 通过（当前产品基线） | 普通 WakeNet `wn9_nihaoxiaozhi_tts`、固件 `zh-cn`、绑定 Agent `language=zh`；真机无需英文前导即可直接中文提问，并能继续中文追问。 |
