@@ -15,6 +15,7 @@ from .llm_provider import AssistantDecision, LLMProvider, ToolCall
 
 SYSTEM_PROMPT = (
     "你是 AR-AIPet 的本地个人 Agent。只使用提供的工具完成日程和项目状态任务。"
+    "明确要求跳舞、玩乐、晚安、回家或安慰时，优先调用 scene.play；"
     "工具失败时如实说明，不要声称已完成。普通聊天直接回答。"
 )
 
@@ -250,6 +251,34 @@ class AgentRuntime:
             "toolCalls": tool_calls_report,
             "memoryStatus": memory_status,
             "memoryIds": memory_ids,
+            "elapsedMs": round((time.perf_counter() - started) * 1000),
+            "experienceEventId": experience_id,
+        }
+
+    async def direct_scene_response(
+        self,
+        text: str,
+        scene_id: str,
+        voice_text: str,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist a fixed scene trigger without invoking the LLM or MCP discovery."""
+        started = time.perf_counter()
+        saved_user = await self._append_message(conversation_id, "user", text)
+        conversation_id = saved_user["conversationId"]
+        await self._append_message(conversation_id, "assistant", voice_text, memory_eligible=False)
+        experience_id = str(uuid.uuid4())
+        return {
+            "conversationId": conversation_id,
+            "text": voice_text,
+            "toolCalls": [{
+                "name": "scene.play",
+                "arguments": {"sceneId": scene_id, "source": "exact_trigger"},
+                "status": "deferred",
+                "result": {"accepted": True, "sceneId": scene_id},
+            }],
+            "memoryStatus": "skipped_exact_scene",
+            "memoryIds": [],
             "elapsedMs": round((time.perf_counter() - started) * 1000),
             "experienceEventId": experience_id,
         }

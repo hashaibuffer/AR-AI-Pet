@@ -48,6 +48,7 @@ class MockRobotAdapter:
         "nod",
         "wave",
         "dance",
+        "scene.play",
         "farm_tend",
         "stop",
     }
@@ -61,6 +62,11 @@ class MockRobotAdapter:
         delay = self.delay_ms / 1000
         if intent == "dance":
             delay = max(delay, 0.5)
+        if intent == "scene.play":
+            # Mock only models admission/completion. A physical adapter owns
+            # the timeline and safety stop for the named scene.
+            requested = int(parameters.get("durationMs", 0) or 0)
+            delay = max(delay, min(1.0, max(0, requested) / 1000))
         await asyncio.sleep(delay)
         return {
             "status": "completed",
@@ -68,6 +74,7 @@ class MockRobotAdapter:
             "measuredResult": {
                 "adapter": "mock",
                 "intent": intent,
+                "sceneId": parameters.get("sceneId"),
                 "parameters": parameters,
             },
         }

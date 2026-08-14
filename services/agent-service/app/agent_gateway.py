@@ -15,6 +15,7 @@ from .experience import ExperienceOrchestrator, ProactiveScheduler
 from .experience_protocol import validate_action_result
 from .memory_client import MemoryServiceClient
 from .llm_provider import create_provider
+from .scenes import ExactSceneRouter
 from .settings import (
     AGENT_HOST,
     AGENT_LLM_API_KEY,
@@ -160,6 +161,7 @@ runtime = AgentRuntime(mcp_url=MCP_URL, data_service=data_service, memory_servic
 orchestrator = ExperienceOrchestrator(PERSONA_ROOT)
 hub = ExperienceHub()
 scheduler = ProactiveScheduler(data_service, orchestrator)
+scene_router = ExactSceneRouter()
 app = FastAPI(title="AR-AIPet Local Agent", version="0.2")
 
 
@@ -268,10 +270,29 @@ async def websocket_endpoint(socket: WebSocket) -> None:
             await socket.send_json(response(request_id, "agent.accepted", "ok", {}))
             try:
                 text = str(payload.get("text", ""))
-                result = await runtime.chat(text, payload.get("conversationId"))
+                exact_scene = scene_router.match(text)
+                if exact_scene is not None:
+                    result = await runtime.direct_scene_response(
+                        text,
+                        exact_scene.scene_id,
+                        exact_scene.voice_before,
+                        payload.get("conversationId"),
+                    )
+                else:
+                    result = await runtime.chat(text, payload.get("conversationId"))
                 selected = await data_service.request("persona.get")
                 runtime.set_persona(orchestrator.select_persona(selected.get("personaId")))
-                turn, event = orchestrator.from_turn(result, text)
+                if exact_scene is not None:
+                    turn = orchestrator.scene_turn(result, text, exact_scene)
+                    event = orchestrator.scene_event(
+                        exact_scene,
+                        source_text=text,
+                        voice_text=exact_scene.voice_before,
+                        source_event_id=result.get("experienceEventId"),
+                        turn=turn,
+                    )
+                else:
+                    turn, event = orchestrator.from_turn(result, text)
                 accepted = await persist_and_publish(event)
                 result["agentTurn"] = turn
                 result["experienceEvent"] = event

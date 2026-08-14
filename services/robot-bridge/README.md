@@ -41,7 +41,9 @@ python -m app.main
 - `StackChanAdapter`：语音、表情、灯光、转头、舞蹈。
 - `BaseAdapter`：移动、停止、底座状态和距离结果。
 
-Adapter 只接收 `nod`、`wave`、`dance`、`farm_tend`、`stop` 等语义动作，不接收 PWM、电压或电机寄存器参数。
+Adapter 只接收 `nod`、`wave`、`dance`、`scene.play`、`farm_tend`、`stop` 等语义动作，不接收 PWM、电压或电机寄存器参数。
+
+`scene.play` 的参数是 `sceneId`、`durationMs` 和语义 `steps`。Mock 只验证场景被接收和完成；实体 `StackChanAdapter` 负责把这些步骤映射为表情、灯光、舵机和底座动作，并在取消或超时时发送 `base_stop`。
 
 ## Mock 阶段验证
 

@@ -9,6 +9,7 @@ from .data_service_client import DataServiceClient
 from .content_lines import ContentCatalog
 from .experience_protocol import validate_agent_turn_result, validate_experience_event
 from .persona import BehaviorRuleEngine, PersonaLoader
+from .scenes import SceneDefinition, get_scene
 
 
 def utc_now() -> datetime:
@@ -57,6 +58,7 @@ class ExperienceOrchestrator:
         inner_os: str | None = None,
         event_id: str | None = None,
         action_id: str | None = None,
+        robot_parameters: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         persona = self.personas.load(self.persona_id)
@@ -72,6 +74,8 @@ class ExperienceOrchestrator:
         emotion = str(behavior.get("emotion", turn.get("emotion", "calm")))
         face = str((persona.get("expressionMapping") or {}).get(emotion, "blink"))
         emoji = str((persona.get("emojiMapping") or {}).get(emotion, "🙂"))
+        action_parameters = {"emotion": emotion, "face": face}
+        action_parameters.update(robot_parameters or {})
         event = {
             "version": "0.1",
             "eventId": event_id or str(uuid.uuid4()),
@@ -82,7 +86,7 @@ class ExperienceOrchestrator:
             "expiresAt": (now + timedelta(seconds=30)).isoformat(),
             "speech": {"text": spoken, "emotion": emotion, "interruptible": True},
             "innerOs": {"text": thought, "durationMs": 4000, "anchor": "robot"},
-            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": {"emotion": emotion, "face": face}}]},
+            "robot": {"actions": [{"actionId": action_id or str(uuid.uuid4()), "intent": str(behavior.get("robotBehaviorIntent", "nod")), "parameters": action_parameters}]},
             "xr": {
                 "visible": True,
                 "mode": "inner-os",
@@ -94,7 +98,81 @@ class ExperienceOrchestrator:
         }
         return validate_experience_event(event)
 
+    def scene_turn(
+        self,
+        result: dict[str, Any],
+        text: str,
+        scene: SceneDefinition | str,
+    ) -> dict[str, Any]:
+        definition = get_scene(scene) if isinstance(scene, str) else scene
+        return validate_agent_turn_result({
+            "version": "0.1",
+            "turnId": str(uuid.uuid4()),
+            "conversationId": result["conversationId"],
+            "spokenText": result.get("text", definition.voice_before),
+            "innerOsText": f"我开始执行{definition.scene_id}场景。",
+            "emotion": definition.emotion,
+            "behaviorIntent": "scene.play",
+            "priority": definition.priority,
+            "interruptible": True,
+            "toolCallSummaries": result.get("toolCalls", []),
+            "sourceEventId": result.get("experienceEventId"),
+            "timestamp": utc_now().isoformat(),
+        })
+
+    def scene_event(
+        self,
+        scene: SceneDefinition | str,
+        *,
+        source_text: str = "",
+        source_event_id: str | None = None,
+        voice_text: str | None = None,
+        turn: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        definition = get_scene(scene) if isinstance(scene, str) else scene
+        turn = turn or {
+            "spokenText": source_text,
+            "innerOsText": f"我开始执行{definition.scene_id}场景。",
+            "emotion": definition.emotion,
+            "action": definition.scene_id,
+        }
+        behavior = {
+            "emotion": definition.emotion,
+            "priority": definition.priority,
+            "robotBehaviorIntent": "scene.play",
+        }
+        event = self._event(
+            turn=turn,
+            mode="scene",
+            behavior=behavior,
+            source_event_id=source_event_id,
+            speech=voice_text if voice_text is not None else definition.voice_before,
+            robot_parameters=definition.as_payload(),
+        )
+        event["scene"] = {
+            "sceneId": definition.scene_id,
+            "voiceBefore": definition.voice_before,
+            "voiceAfter": definition.voice_after,
+        }
+        return validate_experience_event(event)
+
     def from_turn(self, result: dict[str, Any], text: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        for call in result.get("toolCalls", []):
+            if call.get("name") != "scene.play" or call.get("status") != "ok":
+                continue
+            payload = call.get("result") if isinstance(call.get("result"), dict) else {}
+            arguments = call.get("arguments") if isinstance(call.get("arguments"), dict) else {}
+            scene_id = payload.get("sceneId") or arguments.get("sceneId")
+            if scene_id:
+                definition = get_scene(str(scene_id))
+                turn = self.scene_turn(result, text, definition)
+                return turn, self.scene_event(
+                    definition,
+                    source_text=text,
+                    source_event_id=result.get("experienceEventId"),
+                    voice_text=result.get("text") or definition.voice_before,
+                    turn=turn,
+                )
         context = {"requiresUserPresent": True, "requiresIdle": True, "capabilities": ["nod", "wave", "dance", "farm_tend", "blink"]}
         behavior = self.rules.select(trigger_type="text", text=text, context=context)
         if behavior is None:
@@ -120,6 +198,7 @@ class ExperienceOrchestrator:
         return self._event(
             turn={"spokenText": "", "innerOsText": "", "title": reminder.get("title", ""), "emotion": behavior.get("emotion")},
             mode="reminder", behavior=behavior, source_event_id=reminder.get("eventId"),
+            robot_parameters=get_scene("reminder").as_payload(),
         )
 
     def farm_event(self, farm: dict[str, Any]) -> dict[str, Any]:
