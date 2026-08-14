@@ -77,3 +77,7 @@ firmware/stackchan-mcp/artifacts/local-consistency/
 # Local development runtimes and helper binaries
 /.workbuddy/
 /tools/arduino-cli/
+.traz/
+
+# Claude Code worktree scratch space (settings.json may be committed separately)
+/.claude/worktrees/
