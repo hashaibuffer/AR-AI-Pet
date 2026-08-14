@@ -70,6 +70,18 @@ touch PTT   = enabled
 
 构建入口会先幂等应用 [`patches/0001-nanodrive-tx-only.patch`](patches/0001-nanodrive-tx-only.patch) 和网关工具映射补丁 [`patches/0002-nanodrive-gateway-tools.patch`](patches/0002-nanodrive-gateway-tools.patch)，再执行完整构建并在被忽略的 `artifacts/local-consistency/` 生成“配置—模型—固件”一致性报告，但不会调用 `flash`、`esptool` 或写入任何分区。
 
+### 主语音 + 官方 OTA/激活 + 内置 Emoji
+
+如果本轮需要恢复官方 Xiaozhi 主语音链路，同时保留 StackChan 本体的 Emoji、灯光、舵机和遥控能力，可执行：
+
+```powershell
+.\firmware\stackchan-mcp\scripts\build-voice-emoji.ps1
+```
+
+该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；本地 StackChan 动作工具仍注册给主会话，可调用 Emoji、灯光和舵机；但本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。ESP-NOW 遥控与 NanoDrive BLE 也不由该开关关闭。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
+
+这条配置只证明“主语音 + 本体动作工具 + Emoji”基线；它不启动独立动作网关。需要第二条动作 WebSocket 或 Avatar 覆盖层时，继续使用上面的 `xiaozhi-plus-action` 配置。
+
 ### NanoDrive 项目变体
 
 #### NanoDrive BLE 运行路径（2026-08-13）

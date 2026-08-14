@@ -56,6 +56,7 @@ pnpm-debug.log*
 /firmware/espnow-controller/build-host/
 # StackChan MCP build artifacts (not evaluation artifacts in firmware/stackchan-mcp/artifacts/)
 firmware/stackchan-mcp/artifacts/local-consistency/
+firmware/stackchan-mcp/artifacts/voice-emoji-consistency/
 /firmware/kimito-stackchan/upstream/
 
 # Existing local output

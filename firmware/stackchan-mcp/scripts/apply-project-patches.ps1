@@ -14,7 +14,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0004-nanodrive-ble-scanner.patch"),
     (Join-Path $moduleRoot "patches/0005-nanodrive-ble-runtime.patch"),
     (Join-Path $moduleRoot "patches/0006-nanodrive-ble-rate-limit.patch"),
-    (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch")
+    (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch"),
+    (Join-Path $moduleRoot "patches/0008-voice-emoji-profile.patch")
 )
 
 function Stop-WithError {
@@ -56,6 +57,16 @@ function Test-PatchMarker {
             return ((Select-String -LiteralPath $scanner -SimpleMatch "bool NanoDriveBleScanner::IsMotionEnabled" -Quiet) -and
                     (Select-String -LiteralPath $stackchan -SimpleMatch "controller_last_base_left_" -Quiet))
         }
+        "0008-voice-emoji-profile.patch" {
+            $kconfig = Join-Path $checkout "firmware/main/Kconfig.projbuild"
+            $config = Join-Path $checkout "firmware/configs/transport/xiaozhi-voice-only.defaults"
+            $script = Join-Path $checkout "firmware/scripts/configure_stackchan.py"
+            $report = Join-Path $checkout "firmware/scripts/build_consistency_report.py"
+            return ((Test-Path -LiteralPath $config -PathType Leaf) -and
+                    (Select-String -LiteralPath $kconfig -SimpleMatch "config STACKCHAN_AVATAR_OVERLAY" -Quiet) -and
+                    (Select-String -LiteralPath $script -SimpleMatch '"xiaozhi-voice-only"' -Quiet) -and
+                    (Select-String -LiteralPath $report -SimpleMatch "optional action gateway may be empty" -Quiet))
+        }
         default { return $false }
     }
 }
@@ -82,7 +93,15 @@ $allowedPaths = @(
     "firmware/main/boards/stackchan/nanodrive_ble_scanner.cc",
     "firmware/main/boards/stackchan/nanodrive_ble_scanner.h",
     "firmware/main/boards/stackchan/stackchan.cc",
-    "gateway/stackchan_mcp/stdio_server.py"
+    "gateway/stackchan_mcp/stdio_server.py",
+    "firmware/configs/transport/xiaozhi-voice-only.defaults",
+    "firmware/configs/transport/xiaozhi-plus-action.defaults",
+    "firmware/configs/transport/local-mcp.defaults",
+    "firmware/main/Kconfig.projbuild",
+    "firmware/main/application.cc",
+    "firmware/main/audio/wake_words/afe_wake_word.cc",
+    "firmware/scripts/configure_stackchan.py",
+    "firmware/scripts/build_consistency_report.py"
 )
 if ($dirty) {
     $unexpected = @(
