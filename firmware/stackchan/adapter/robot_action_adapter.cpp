@@ -1,9 +1,9 @@
 /*
  * AR-AIPet project actions for StackChan.
  *
- * Communication is handled by StackChan's official McpServer and WebSocket
- * control server. This file only maps a small, fixed action vocabulary to the
- * existing StackChan motion system.
+ * Communication is handled by StackChan's official McpServer and the
+ * project McpActionClient transport. This file only maps a small, fixed
+ * action vocabulary to the existing StackChan motion system.
  */
 #include "robot_action_adapter.h"
 

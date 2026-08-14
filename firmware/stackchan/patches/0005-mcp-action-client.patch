@@ -1,0 +1,461 @@
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+index 89592a0..09856b2 100644
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -9,6 +9,21 @@ config STACKCHAN_SERVER_URL
+         /stackChan/apps and /stackChan/ws from this base. Override in your
+         sdkconfig.defaults.local to point at a self-hosted deployment.
+ 
++config STACKCHAN_MCP_ACTION_GATEWAY_URL
++    string "AR-AIPet action MCP gateway WebSocket URL"
++    default ""
++    help
++        Optional second WebSocket for semantic robot actions. Leave empty to
++        keep the action client disabled. The primary Xiaozhi voice channel is
++        not changed by this setting.
++
++config STACKCHAN_MCP_ACTION_GATEWAY_TOKEN
++    string "AR-AIPet action MCP gateway token"
++    default ""
++    help
++        Optional bearer token for the action gateway. Do not commit real
++        tokens; set it in a local sdkconfig override.
++
+ endmenu
+ 
+ menu "Xiaozhi Assistant"
+diff --git a/firmware/main/hal/hal.cpp b/firmware/main/hal/hal.cpp
+index 3ca8a14..4af59d4 100644
+--- a/firmware/main/hal/hal.cpp
++++ b/firmware/main/hal/hal.cpp
+@@ -163,6 +163,8 @@ static void _stackchan_update_task(void* param)
+             continue;
+         }
+ 
++        GetHAL().startMcpActionClient();
++
+         if (!is_setup_done) {
+             // Setup when xiaozhi ready
+             GetHAL().startSntp();
+@@ -176,6 +178,15 @@ static void _stackchan_update_task(void* param)
+     }
+ }
+ 
++void Hal::startMcpActionClient()
++{
++    if (_mcp_action_client) {
++        return;
++    }
++    _mcp_action_client = std::make_unique<ar_aipet::McpActionClient>();
++    _mcp_action_client->start();
++}
++
+ void Hal::startXiaozhi()
+ {
+     mclog::tagInfo(_tag, "start xiaozhi");
+diff --git a/firmware/main/hal/hal.h b/firmware/main/hal/hal.h
+index b8d3c80..b0b0157 100644
+--- a/firmware/main/hal/hal.h
++++ b/firmware/main/hal/hal.h
+@@ -15,6 +15,7 @@
+ #include <array>
+ #include <lvgl_image.h>
+ #include <string_view>
++#include "mcp_action_client.h"
+ 
+ /**
+  * @brief
+@@ -277,6 +278,7 @@ public:
+     void startNetwork(std::function<void(std::string_view)> onLog);
+     WifiStatus getWifiStatus();
+     void startSntp();
++    void startMcpActionClient();
+ 
+     /* -------------------------------- App center ------------------------------- */
+     app_center::AppInfoList_t fetchAppList();
+@@ -303,6 +305,7 @@ public:
+ 
+ private:
+     bool _xiaozhi_start_requested = false;
++    std::unique_ptr<ar_aipet::McpActionClient> _mcp_action_client;
+ 
+     void xiaozhi_board_init();
+     void lvgl_init();
+diff --git a/firmware/main/hal/mcp_action_client.cpp b/firmware/main/hal/mcp_action_client.cpp
+new file mode 100644
+index 0000000..fccc0d9
+--- /dev/null
++++ b/firmware/main/hal/mcp_action_client.cpp
+@@ -0,0 +1,281 @@
++#include "mcp_action_client.h"
++
++#include <cJSON.h>
++#include <esp_log.h>
++
++#include "application.h"
++#include "board.h"
++#include "mcp_server.h"
++#include "system_info.h"
++
++#define TAG "AR-AIPET-MCP"
++
++namespace ar_aipet {
++
++namespace {
++constexpr uint32_t kHandshakeTimeoutMs = 10000;
++}
++
++McpActionClient::McpActionClient()
++{
++    esp_timer_create_args_t args = {
++        .callback = [](void* arg) {
++            auto* client = static_cast<McpActionClient*>(arg);
++            auto alive = client->alive_;
++            Application::GetInstance().Schedule([client, alive]() {
++                if (!alive->load()) {
++                    return;
++                }
++                client->timer_armed_.store(false);
++                const auto purpose = client->timer_purpose_.exchange(TimerPurpose::None);
++                if (purpose == TimerPurpose::Reconnect) {
++                    client->connectOnce();
++                } else if (purpose == TimerPurpose::HandshakeTimeout &&
++                           !client->connected_.load()) {
++                    ESP_LOGW(TAG, "action gateway hello timed out");
++                    client->resetSocket();
++                    client->scheduleReconnect();
++                }
++            });
++        },
++        .arg = this,
++        .dispatch_method = ESP_TIMER_TASK,
++        .name = "ar_aipet_mcp_retry",
++        .skip_unhandled_events = true,
++    };
++    if (esp_timer_create(&args, &timer_) != ESP_OK) {
++        ESP_LOGE(TAG, "failed to create reconnect timer");
++        timer_ = nullptr;
++    }
++}
++
++McpActionClient::~McpActionClient()
++{
++    shutdown();
++}
++
++bool McpActionClient::start()
++{
++#ifdef CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL
++    if (CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL[0] == '\0') {
++        ESP_LOGI(TAG, "action gateway disabled (empty URL)");
++        return false;
++    }
++    return connectOnce();
++#else
++    ESP_LOGI(TAG, "action gateway disabled (no URL configured)");
++    return false;
++#endif
++}
++
++bool McpActionClient::connectOnce()
++{
++#ifdef CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL
++    if (!alive_->load() || CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL[0] == '\0') {
++        return false;
++    }
++
++    auto network = Board::GetInstance().GetNetwork();
++    if (network == nullptr) {
++        scheduleReconnect();
++        return false;
++    }
++
++    stopTimer();
++    resetSocket();
++    websocket_ = network->CreateWebSocket(2);
++    if (websocket_ == nullptr) {
++        ESP_LOGW(TAG, "failed to create action websocket");
++        scheduleReconnect();
++        return false;
++    }
++
++#ifdef CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN
++    if (CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN[0] != '\0') {
++        std::string token = "Bearer ";
++        token += CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN;
++        websocket_->SetHeader("Authorization", token.c_str());
++    }
++#endif
++    websocket_->SetHeader("Protocol-Version", "1");
++    websocket_->SetHeader("Device-Id", SystemInfo::GetMacAddress().c_str());
++    websocket_->SetHeader("Client-Id", Board::GetInstance().GetUuid().c_str());
++    websocket_->OnData([this](const char* data, size_t len, bool binary) {
++        if (!binary) {
++            handleText(data, len);
++        }
++    });
++    auto notify = std::make_shared<std::atomic<bool>>(false);
++    notify_disconnect_ = notify;
++    websocket_->OnDisconnected([this, notify]() {
++        connected_.store(false);
++        if (!alive_->load() || !notify->exchange(false)) {
++            return;
++        }
++        auto alive = alive_;
++        Application::GetInstance().Schedule([this, alive]() {
++            if (alive->load()) {
++                resetSocket();
++                scheduleReconnect();
++            }
++        });
++    });
++
++    ESP_LOGI(TAG, "connecting action gateway: %s", CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL);
++    if (!websocket_->Connect(CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL) ||
++        !websocket_->Send(helloMessage())) {
++        resetSocket();
++        scheduleReconnect();
++        return false;
++    }
++    notify->store(true);
++    scheduleHandshakeTimeout();
++    return true;
++#else
++    return false;
++#endif
++}
++
++std::string McpActionClient::helloMessage() const
++{
++    cJSON* root = cJSON_CreateObject();
++    cJSON_AddStringToObject(root, "type", "hello");
++    cJSON_AddNumberToObject(root, "version", 1);
++    cJSON* features = cJSON_CreateObject();
++    cJSON_AddBoolToObject(features, "mcp", true);
++    cJSON_AddItemToObject(root, "features", features);
++    cJSON_AddStringToObject(root, "transport", "websocket");
++    char* text = cJSON_PrintUnformatted(root);
++    std::string result = text == nullptr ? "" : text;
++    if (text != nullptr) {
++        cJSON_free(text);
++    }
++    cJSON_Delete(root);
++    return result;
++}
++
++void McpActionClient::handleText(const char* data, size_t len)
++{
++    cJSON* root = cJSON_ParseWithLength(data, len);
++    if (root == nullptr) {
++        ESP_LOGW(TAG, "invalid action gateway JSON");
++        return;
++    }
++    auto type = cJSON_GetObjectItem(root, "type");
++    if (cJSON_IsString(type) && strcmp(type->valuestring, "hello") == 0) {
++        auto session = cJSON_GetObjectItem(root, "session_id");
++        if (cJSON_IsString(session) && session->valuestring[0] != '\0') {
++            session_id_ = session->valuestring;
++            connected_.store(true);
++            stopTimer();
++            reconnect_policy_.reset();
++            ESP_LOGI(TAG, "action gateway connected, session=%s", session_id_.c_str());
++        }
++    } else if (cJSON_IsString(type) && strcmp(type->valuestring, "mcp") == 0) {
++        auto payload = cJSON_GetObjectItem(root, "payload");
++        if (cJSON_IsObject(payload)) {
++            McpServer::GetInstance().ParseMessage(
++                payload, [this](const std::string& reply) { sendMcpReply(reply); });
++        }
++    } else if (cJSON_IsString(type) &&
++               (strcmp(type->valuestring, "tts") == 0 ||
++                strcmp(type->valuestring, "listen") == 0)) {
++        ESP_LOGW(TAG, "ignoring audio event on action channel");
++    }
++    cJSON_Delete(root);
++}
++
++void McpActionClient::sendMcpReply(const std::string& payload)
++{
++    auto alive = alive_;
++    Application::GetInstance().Schedule([this, alive, payload]() {
++        if (!alive->load() || !connected_.load() || websocket_ == nullptr) {
++            return;
++        }
++        cJSON* root = cJSON_CreateObject();
++        cJSON_AddStringToObject(root, "type", "mcp");
++        cJSON_AddStringToObject(root, "session_id", session_id_.c_str());
++        cJSON* jsonPayload = cJSON_Parse(payload.c_str());
++        if (jsonPayload == nullptr) {
++            cJSON_Delete(root);
++            return;
++        }
++        cJSON_AddItemToObject(root, "payload", jsonPayload);
++        char* text = cJSON_PrintUnformatted(root);
++        if (text != nullptr) {
++            websocket_->Send(std::string(text));
++            cJSON_free(text);
++        }
++        cJSON_Delete(root);
++    });
++}
++
++void McpActionClient::scheduleReconnect()
++{
++    if (!alive_->load() || timer_ == nullptr || timer_armed_.exchange(true)) {
++        return;
++    }
++    timer_purpose_.store(TimerPurpose::Reconnect);
++    const auto delay = reconnect_policy_.consumeDelayMs();
++    if (esp_timer_start_once(timer_, delay * 1000ULL) != ESP_OK) {
++        timer_armed_.store(false);
++        timer_purpose_.store(TimerPurpose::None);
++    }
++}
++
++void McpActionClient::scheduleHandshakeTimeout()
++{
++    armTimer(TimerPurpose::HandshakeTimeout, kHandshakeTimeoutMs);
++}
++
++bool McpActionClient::armTimer(TimerPurpose purpose, uint32_t delayMs)
++{
++    if (!alive_->load() || timer_ == nullptr) {
++        return false;
++    }
++    stopTimer();
++    timer_purpose_.store(purpose);
++    timer_armed_.store(true);
++    if (esp_timer_start_once(timer_, delayMs * 1000ULL) != ESP_OK) {
++        timer_armed_.store(false);
++        timer_purpose_.store(TimerPurpose::None);
++        return false;
++    }
++    return true;
++}
++
++void McpActionClient::stopTimer()
++{
++    timer_armed_.store(false);
++    timer_purpose_.store(TimerPurpose::None);
++    if (timer_ != nullptr) {
++        esp_timer_stop(timer_);
++    }
++}
++
++void McpActionClient::resetSocket()
++{
++    stopTimer();
++    connected_.store(false);
++    session_id_.clear();
++    if (notify_disconnect_) {
++        notify_disconnect_->store(false);
++        notify_disconnect_.reset();
++    }
++    if (websocket_ != nullptr) {
++        websocket_->Close();
++        websocket_.reset();
++    }
++}
++
++void McpActionClient::shutdown()
++{
++    alive_->store(false);
++    resetSocket();
++    if (timer_ != nullptr) {
++        esp_timer_delete(timer_);
++        timer_ = nullptr;
++    }
++}
++
++}  // namespace ar_aipet
+diff --git a/firmware/main/hal/mcp_action_client.h b/firmware/main/hal/mcp_action_client.h
+new file mode 100644
+index 0000000..2fe3baa
+--- /dev/null
++++ b/firmware/main/hal/mcp_action_client.h
+@@ -0,0 +1,51 @@
++#pragma once
++
++#include "mcp_action_reconnect_policy.h"
++
++#include <web_socket.h>
++#include <esp_timer.h>
++
++#include <atomic>
++#include <memory>
++#include <string>
++
++namespace ar_aipet {
++
++// A second, action-only MCP transport. The official Xiaozhi connection keeps
++// ownership of wake word, microphone, TTS and conversation state; this class
++// only carries JSON-RPC tools for the AR-AIPet gateway.
++class McpActionClient {
++public:
++    McpActionClient();
++    ~McpActionClient();
++
++    bool start();
++    bool isConnected() const { return connected_.load(); }
++
++private:
++    enum class TimerPurpose : int { None, Reconnect, HandshakeTimeout };
++
++    std::shared_ptr<std::atomic<bool>> alive_ =
++        std::make_shared<std::atomic<bool>>(true);
++    std::unique_ptr<WebSocket> websocket_;
++    std::shared_ptr<std::atomic<bool>> notify_disconnect_;
++    std::atomic<bool> connected_{false};
++    std::atomic<bool> timer_armed_{false};
++    std::atomic<TimerPurpose> timer_purpose_{TimerPurpose::None};
++    esp_timer_handle_t timer_ = nullptr;
++    McpActionReconnectPolicy reconnect_policy_;
++    std::string session_id_;
++
++    bool connectOnce();
++    std::string helloMessage() const;
++    void handleText(const char* data, size_t len);
++    void sendMcpReply(const std::string& payload);
++    void scheduleReconnect();
++    void scheduleHandshakeTimeout();
++    bool armTimer(TimerPurpose purpose, uint32_t delayMs);
++    void stopTimer();
++    void resetSocket();
++    void shutdown();
++};
++
++}  // namespace ar_aipet
+diff --git a/firmware/main/hal/mcp_action_reconnect_policy.h b/firmware/main/hal/mcp_action_reconnect_policy.h
+new file mode 100644
+index 0000000..1041392
+--- /dev/null
++++ b/firmware/main/hal/mcp_action_reconnect_policy.h
+@@ -0,0 +1,28 @@
++#pragma once
++
++#include <algorithm>
++#include <cstdint>
++
++namespace ar_aipet {
++
++// The action channel is optional. Backoff keeps a missing local server from
++// blocking the voice application or flooding the Wi-Fi task.
++class McpActionReconnectPolicy {
++public:
++    static constexpr uint32_t kInitialDelayMs = 5000;
++    static constexpr uint32_t kMaximumDelayMs = 60000;
++
++    uint32_t consumeDelayMs()
++    {
++        const auto delay = next_delay_ms_;
++        next_delay_ms_ = std::min(next_delay_ms_ * 2, kMaximumDelayMs);
++        return delay;
++    }
++
++    void reset() { next_delay_ms_ = kInitialDelayMs; }
++
++private:
++    uint32_t next_delay_ms_ = kInitialDelayMs;
++};
++
++}  // namespace ar_aipet

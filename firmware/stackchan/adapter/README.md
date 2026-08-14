@@ -1,26 +1,28 @@
-# StackChan 项目动作适配器
+# StackChan 项目动作适配
 
-适配器只提供项目新增的 MCP 动作，不替代 StackChan 官方 Agent、MCP 或 WebSocket 实现。
+这里保存项目动作客户端的源码参考。正式固件通过 `patches/0003` 和 `patches/0005` 将它们加入锁定的 Mooncake/Kimito 上游源码，不直接提交完整上游目录。
 
-## MCP 工具
+## 保留的动作语义
 
 ```text
 self.robot.play_motion(name)
 self.robot.stop_motion()
 ```
 
-`name` 只允许使用固件中已有的固定动作：`happy`、`robot`、`panic`、`look_around`。
+`name` 只允许固件中已有的固定动作：`happy`、`robot`、`panic`、`look_around`。
 
-## 通信链路
-
-电脑或 AI.Agent 均通过官方 MCP 调用动作：
+## 两条连接
 
 ```text
-电脑 → 官方 WebSocket /ws → McpServer → 本适配器
-AI.Agent → McpServer → 本适配器
+AI.AGENT / Xiaozhi 语音连接
+  负责唤醒、录音、TTS 和对话
+
+AR-AIPet 统一服务 /ws/device
+  负责动作 MCP 请求
+  ↓
+StackChan McpActionClient
+  ↓
+同一份本地 McpServer 工具
 ```
 
-官方 WebSocket 源码位于 StackChan 工程的 `xiaozhi-esp32/main/boards/otto-robot/`，
-项目只在 StackChan 的 CMake 和 HAL 启动流程中接入它，不另定义控制协议。
-
-NanoDrive 已移入当前产品固件模块 [`../../stackchan-mcp/`](../../stackchan-mcp/)，本历史适配器不再维护重复实现。
+动作连接是可选的第二条 WebSocket，由 `CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL` 控制；不配置时不影响原有 StackChan 功能。NanoDrive 和底座动作仍属于后续设备链路，不在本适配器中伪造完成。
