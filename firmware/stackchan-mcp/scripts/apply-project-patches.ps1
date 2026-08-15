@@ -17,7 +17,9 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0007-nanodrive-v09-ble-protocol.patch"),
     (Join-Path $moduleRoot "patches/0008-voice-emoji-profile.patch"),
     (Join-Path $moduleRoot "patches/0009-scene-emoji-tool.patch"),
-    (Join-Path $moduleRoot "patches/0010-scene-playback.patch")
+    (Join-Path $moduleRoot "patches/0010-scene-playback.patch"),
+    (Join-Path $moduleRoot "patches/0011-xiaozhi-action-emoji-profile.patch"),
+    (Join-Path $moduleRoot "patches/0012-action-profile-configure.patch")
 )
 
 function Stop-WithError {
@@ -76,6 +78,16 @@ function Test-PatchMarker {
             return ((Select-String -LiteralPath $stackchan -SimpleMatch '"self.scene.play"' -Quiet) -and
                     (Select-String -LiteralPath $stackchan -SimpleMatch "SceneTaskLoop()" -Quiet))
         }
+        "0011-xiaozhi-action-emoji-profile.patch" {
+            $config = Join-Path $checkout "firmware/configs/transport/xiaozhi-action-emoji.defaults"
+            return ((Test-Path -LiteralPath $config -PathType Leaf) -and
+                    (Select-String -LiteralPath $config -SimpleMatch "CONFIG_STACKCHAN_ACTION_GATEWAY=y" -Quiet) -and
+                    (Select-String -LiteralPath $config -SimpleMatch "CONFIG_STACKCHAN_AVATAR_OVERLAY is not set" -Quiet))
+        }
+        "0012-action-profile-configure.patch" {
+            $script = Join-Path $checkout "firmware/scripts/configure_stackchan.py"
+            return (Select-String -LiteralPath $script -SimpleMatch '"xiaozhi-action-emoji"' -Quiet)
+        }
         default { return $false }
     }
 }
@@ -105,6 +117,7 @@ $allowedPaths = @(
     "gateway/stackchan_mcp/stdio_server.py",
     "firmware/configs/transport/xiaozhi-voice-only.defaults",
     "firmware/configs/transport/xiaozhi-plus-action.defaults",
+    "firmware/configs/transport/xiaozhi-action-emoji.defaults",
     "firmware/configs/transport/local-mcp.defaults",
     "firmware/main/Kconfig.projbuild",
     "firmware/main/application.cc",

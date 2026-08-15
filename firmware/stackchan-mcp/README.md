@@ -80,7 +80,21 @@ touch PTT   = enabled
 
 该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；本地 StackChan 动作工具仍注册给主会话，可调用 `self.display.set_emotion`（内置 LVGL Emoji）、灯光、舵机，以及 `self.scene.play` / `self.scene.stop`（七个固定实体小剧场）；但本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。ESP-NOW 遥控与 NanoDrive BLE 也不由该开关关闭。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
 
-这条配置只证明“主语音 + 本体动作工具 + Emoji + 本地固定场景播放器”基线；它不启动独立动作网关。需要第二条动作 WebSocket 或 Avatar 覆盖层时，继续使用上面的 `xiaozhi-plus-action` 配置。`self.scene.play` 只负责本机时间轴，不代表已经完成 Agent/Beam Pro 的真实下发验收。
+这条配置只证明“主语音 + 本体动作工具 + Emoji + 本地固定场景播放器”基线；它不启动独立动作网关。需要第二条动作 WebSocket 时使用 `build-action-gateway.ps1`；`self.scene.play` 只负责本机时间轴，不代表已经完成 Agent/Beam Pro 的真实下发验收。
+
+## 独立动作网关固件配置
+
+现在需要让 Agent/Robot Bridge 直接调用实体动作时，使用：
+
+```powershell
+$env:STACKCHAN_ACTION_GATEWAY_URL = "ws://<运行 Robot Bridge 的电脑 IP>:8765"
+$env:STACKCHAN_ACTION_GATEWAY_TOKEN = "" # 可选
+.\scripts\build-action-gateway.ps1
+```
+
+该配置使用官方 Xiaozhi OTA/NVS 作为主语音连接，另开一条只承载 MCP 动作的 WebSocket；内置 Emoji、顶部触摸、灯光、舵机、ESP-NOW 遥控和 NanoDrive BLE 均保留，Avatar 覆盖层关闭。脚本只构建，不自动刷机。
+
+顶部 Si12T 触摸互动仍在固件中：轻触触发 `surprised` 与 `touch/tap`，滑动/长触发触发 `embarrassed`、头部摇摆与 `touch/stroke`；LCD 触摸 PTT 由 `CONFIG_STACKCHAN_TOUCH_PTT=y` 保留。
 
 ### NanoDrive 项目变体
 

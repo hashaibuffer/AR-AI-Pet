@@ -12,6 +12,8 @@ from typing import Any
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
+from .action_gateway import DeviceActionGateway
+from .adapters import RobotAdapter, StackChanAdapter
 from .scene_mapper import SceneStepMapper
 
 
@@ -85,7 +87,7 @@ class MockRobotAdapter:
 
 
 class RobotBridge:
-    def __init__(self, url: str, device_id: str, adapter: MockRobotAdapter) -> None:
+    def __init__(self, url: str, device_id: str, adapter: RobotAdapter) -> None:
         self.url = url
         self.device_id = device_id
         self.adapter = adapter
@@ -222,12 +224,33 @@ class RobotBridge:
 
 
 async def main() -> None:
+    device_id = os.getenv("ROBOT_DEVICE_ID", "mock-robot")
+    action_gateway = DeviceActionGateway(
+        host=os.getenv("ACTION_GATEWAY_HOST", "0.0.0.0"),
+        port=int(os.getenv("ACTION_GATEWAY_PORT", "8765")),
+        token=os.getenv("ACTION_GATEWAY_TOKEN", ""),
+    )
+    await action_gateway.start()
+    adapter_mode = os.getenv("ROBOT_ADAPTER", "mock").lower()
+    if adapter_mode in {"device", "stackchan", "real"}:
+        adapter: RobotAdapter = StackChanAdapter(
+            action_gateway,
+            device_id=device_id,
+            timeout_seconds=float(os.getenv("DEVICE_ACTION_TIMEOUT_SECONDS", "5")),
+        )
+        LOG.info("robot adapter: StackChan via independent action gateway")
+    else:
+        adapter = MockRobotAdapter(int(os.getenv("MOCK_ACTION_DELAY_MS", "50")))
+        LOG.info("robot adapter: mock")
     bridge = RobotBridge(
         os.getenv("AGENT_GATEWAY_WS_URL", "ws://127.0.0.1:8082/ws"),
-        os.getenv("ROBOT_DEVICE_ID", "mock-robot"),
-        MockRobotAdapter(int(os.getenv("MOCK_ACTION_DELAY_MS", "50"))),
+        device_id,
+        adapter,
     )
-    await bridge.run_forever()
+    try:
+        await bridge.run_forever()
+    finally:
+        await action_gateway.stop()
 
 
 if __name__ == "__main__":
