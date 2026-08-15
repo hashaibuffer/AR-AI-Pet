@@ -94,6 +94,24 @@ $env:STACKCHAN_ACTION_GATEWAY_TOKEN = "" # 可选
 
 该配置使用官方 Xiaozhi OTA/NVS 作为主语音连接，另开一条只承载 MCP 动作的 WebSocket；内置 Emoji、顶部触摸、灯光、舵机、ESP-NOW 遥控和 NanoDrive BLE 均保留，Avatar 覆盖层关闭。脚本只构建，不自动刷机。
 
+#### 当前烧录基线（2026-08-15）
+
+- 本次固件包含 `0014-richer-scene-timelines.patch`，已完成 ESP-IDF `v5.5.4` 构建；`xiaozhi.bin` 约 3.27 MiB，应用分区仍有约 17% 空间，SHA256 为 `8847583f89920580153141622f83d223365b955a9f3afa5e8228f1a5ae8be676`。
+- 动作网关必须填写运行 Robot Bridge 的电脑在同一局域网中的 IPv4 地址；固件里的 `127.0.0.1` 只代表机器人自身，不能用于连接电脑，烧录前必须替换。
+- 当前电脑 WLAN IPv4 已确认是 `192.168.50.133`，本轮目标地址为：
+
+  ```text
+  ws://192.168.50.133:8765
+  ```
+
+- 该地址只有在 Robot Bridge 监听 `0.0.0.0:8765` 且电脑与机器人处于同一局域网时有效。烧录前先确认端口：
+
+  ```powershell
+  Test-NetConnection 192.168.50.133 -Port 8765
+  ```
+
+- 如果电脑重新连网导致 IPv4 变化，必须重新确认地址、重建固件后再烧录；不要把旧地址或 `127.0.0.1` 带入实机。
+
 顶部 Si12T 触摸互动仍在固件中：轻触触发 `surprised` 与 `touch/tap`，滑动/长触发触发 `embarrassed`、头部摇摆与 `touch/stroke`；LCD 触摸 PTT 由 `CONFIG_STACKCHAN_TOUCH_PTT=y` 保留。
 
 ### NanoDrive 项目变体

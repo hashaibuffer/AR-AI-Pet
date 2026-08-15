@@ -65,16 +65,19 @@ if ($LASTEXITCODE -ne 0 -or $idfVersion -notmatch 'v5\.5\.4') {
 
 Push-Location $firmware
 try {
-    Invoke-Checked $python.Source @(
+    $configureArgs = @(
         "./scripts/configure_stackchan.py",
         "--voice-mode", "xiaozhi-conversational",
         "--audio-profile", "wakenet",
         "--transport-profile", "xiaozhi-action-emoji",
         "--language", "zh-cn",
         "--agent-language", $AgentLanguage,
-        "--local-gateway-url", $ActionGatewayUrl,
-        "--local-gateway-token", $ActionGatewayToken
-    ) "Xiaozhi plus independent action gateway profile configuration"
+        "--local-gateway-url", $ActionGatewayUrl
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ActionGatewayToken)) {
+        $configureArgs += @("--local-gateway-token", $ActionGatewayToken)
+    }
+    Invoke-Checked $python.Source $configureArgs "Xiaozhi plus independent action gateway profile configuration"
     Invoke-Checked $python.Source @(
         "./scripts/release.py", "stackchan"
     ) "ESP-IDF release build"
