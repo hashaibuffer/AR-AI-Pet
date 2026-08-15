@@ -1,0 +1,125 @@
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.h
+@@ -8,6 +8,7 @@ public:
+     static NanoDriveBleScanner& GetInstance();
+ 
+     void Start();
++    void RequestScan();
+     bool IsReady() const;
+     bool IsMotionEnabled() const;
+     bool SendCommand(const char* command);
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+@@ -17,8 +17,10 @@ namespace {
+ 
+ constexpr EventBits_t kScanParamsReady = BIT0;
+ constexpr EventBits_t kScanComplete = BIT1;
++constexpr EventBits_t kScanRequested = BIT2;
+ constexpr std::uint32_t kScanSeconds = 5;
++constexpr std::uint32_t kMaxScanCyclesPerRequest = 2;
+ constexpr std::size_t kMaxDevicesPerCycle = 12;
+@@ -203,9 +205,24 @@ void NanoDriveBleScanner::Start() {
+         return;
+     }
++    xEventGroupSetBits(event_group, kScanRequested);
+     ESP_LOGI(TAG, "BLE scanner initialized; target auto-connect and command transport enabled");
+ }
+ 
++void NanoDriveBleScanner::RequestScan() {
++    if (!started_) {
++        Start();
++        return;
++    }
++    if (connected_ || connecting_ || event_group_ == nullptr) return;
++    xEventGroupSetBits(static_cast<EventGroupHandle_t>(event_group_), kScanRequested);
++    ESP_LOGI(TAG, "BLE reconnect scan requested by a new base interaction");
++}
++
+ bool NanoDriveBleScanner::IsReady() const {
+@@ -344,14 +361,7 @@ void NanoDriveBleScanner::HandleGattcEvent(esp_gattc_cb_event_t event,
+         gattc_if_ = gattc_if;
+         gattc_registered_ = true;
+         ESP_LOGI(TAG, "GATTC app registered if=%u", static_cast<unsigned>(gattc_if));
+-        if (!target_seen_) {
+-            std::memcpy(target_address_, kTargetAddress, kAddressSize);
+-            target_address_type_ = BLE_ADDR_TYPE_PUBLIC;
+-            target_seen_ = true;
+-            ESP_LOGI(TAG, "attempting direct GATT open using previously observed address");
+-        }
+-        OpenTargetIfReady();
++        ESP_LOGI(TAG, "waiting for a fresh target advertisement before GATT open");
+         return;
+@@ -485,25 +495,30 @@ void NanoDriveBleScanner::ScanTask() {
+     auto event_group = static_cast<EventGroupHandle_t>(event_group_);
+     xEventGroupWaitBits(event_group, kScanParamsReady, pdFALSE, pdTRUE, portMAX_DELAY);
+     while (true) {
+-        if (connecting_ || connected_) {
+-            vTaskDelay(pdMS_TO_TICKS(1000));
+-            continue;
+-        }
+-        ++scan_cycle_;
+-        ResetCycle();
+-        xEventGroupClearBits(event_group, kScanComplete);
+-        ESP_LOGI(TAG, "scan cycle %lu start (%lu seconds)",
+-                 static_cast<unsigned long>(scan_cycle_),
+-                 static_cast<unsigned long>(kScanSeconds));
+-        const esp_err_t err = esp_ble_gap_start_scanning(kScanSeconds);
+-        if (err != ESP_OK) {
+-            ESP_LOGE(TAG, "scan start failed: %s", esp_err_to_name(err));
+-            vTaskDelay(pdMS_TO_TICKS(2000));
+-            continue;
++        xEventGroupWaitBits(event_group, kScanRequested, pdTRUE, pdTRUE, portMAX_DELAY);
++        for (std::uint32_t attempt = 0;
++             attempt < kMaxScanCyclesPerRequest && !connecting_ && !connected_;
++             ++attempt) {
++            ++scan_cycle_;
++            ResetCycle();
++            xEventGroupClearBits(event_group, kScanComplete);
++            ESP_LOGI(TAG, "scan cycle %lu start (%lu seconds; burst %lu/%lu)",
++                     static_cast<unsigned long>(scan_cycle_),
++                     static_cast<unsigned long>(kScanSeconds),
++                     static_cast<unsigned long>(attempt + 1),
++                     static_cast<unsigned long>(kMaxScanCyclesPerRequest));
++            const esp_err_t err = esp_ble_gap_start_scanning(kScanSeconds);
++            if (err != ESP_OK) {
++                ESP_LOGE(TAG, "scan start failed: %s", esp_err_to_name(err));
++                break;
++            }
++            xEventGroupWaitBits(event_group, kScanComplete, pdTRUE, pdTRUE,
++                                pdMS_TO_TICKS((kScanSeconds + 2) * 1000));
++            ESP_LOGI(TAG, "scan cycle %lu complete", static_cast<unsigned long>(scan_cycle_));
++            if (!connecting_ && !connected_ && attempt + 1 < kMaxScanCyclesPerRequest) {
++                vTaskDelay(pdMS_TO_TICKS(1000));
++            }
+         }
+-        xEventGroupWaitBits(event_group, kScanComplete, pdTRUE, pdTRUE,
+-                            pdMS_TO_TICKS((kScanSeconds + 2) * 1000));
+-        ESP_LOGI(TAG, "scan cycle %lu complete", static_cast<unsigned long>(scan_cycle_));
+-        vTaskDelay(pdMS_TO_TICKS(1000));
++        if (!connecting_ && !connected_) {
++            ESP_LOGW(TAG, "BLE target not connected; scanning paused until the next BASE-mode entry");
++        }
+     }
+ }
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -2337,6 +2337,11 @@ private:
+             ESP_LOGI(TAG, "ESP-NOW controller mode: %s",
+                      ar_controller_mode_name(packet.mode));
++            if (packet.mode == AR_MODE_BASE) {
++                auto& transport = NanoDriveBleScanner::GetInstance();
++                transport.Start();
++                transport.RequestScan();
++            }
+         }
+@@ -5819,6 +5824,9 @@ private:
+                 WriteHeadAngles(step.v1, step.v2, step.v3);
+                 break;
+             case SceneStepKind::BASE_MOVE: {
++                auto& transport = NanoDriveBleScanner::GetInstance();
++                transport.Start();
++                transport.RequestScan();
+                 const char* operation = nullptr;

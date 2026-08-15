@@ -1,0 +1,163 @@
+diff --git a/firmware/main/boards/common/board.h b/firmware/main/boards/common/board.h
+--- a/firmware/main/boards/common/board.h
++++ b/firmware/main/boards/common/board.h
+@@ -98,6 +98,10 @@ public:
+     virtual void OnAgentStateChanged(const char* state) { (void)state; }
+     virtual void OnAgentEmotion(const char* emotion) { (void)emotion; }
+ 
++    // Start optional board transports after the primary voice/Agent protocol
++    // has been initialized, avoiding a BLE/ESP-NOW peak during OTA/TLS.
++    virtual void OnApplicationReady() {}
++
+     // Phase 4.5 avatar (saiverse-stackchan-addon): dynamic avatar set fetch
+diff --git a/firmware/main/boards/common/wifi_board.cc b/firmware/main/boards/common/wifi_board.cc
+--- a/firmware/main/boards/common/wifi_board.cc
++++ b/firmware/main/boards/common/wifi_board.cc
+@@ -84,6 +84,8 @@ void WifiBoard::TryWifiConnect() {
+     auto& ssid_manager = SsidManager::GetInstance();
+     bool have_ssid = !ssid_manager.GetSsidList().empty();
+ 
++    ESP_LOGI(TAG, "WiFi boot path: saved_ssid_count=%u", static_cast<unsigned>(ssid_manager.GetSsidList().size()));
++
+     if (have_ssid) {
+         // Start connection attempt with timeout
+         ESP_LOGI(TAG, "Starting WiFi connection attempt");
+@@ -151,10 +153,19 @@ void WifiBoard::SetNetworkEventCallback(NetworkEventCallback callback) {
+ 
+ void WifiBoard::OnWifiConnectTimeout(void* arg) {
+     auto* board = static_cast<WifiBoard*>(arg);
++    auto& ssid_manager = SsidManager::GetInstance();
++    if (!ssid_manager.GetSsidList().empty()) {
++        // A saved credential means this is a reconnect failure, not a first
++        // provisioning request. Keep station mode alive and let the Wi-Fi
++        // component continue its scan/retry backoff.
++        ESP_LOGW(TAG, "WiFi connection timeout with saved credentials; retrying station (not config mode)");
++        esp_timer_start_once(board->connect_timer_, CONNECT_TIMEOUT_SEC * 1000000ULL);
++        return;
++    }
+ 
+-    ESP_LOGW(TAG, "WiFi connection timeout, entering config mode");
++    ESP_LOGW(TAG, "WiFi connection timeout with no saved credentials, entering config mode");
+     WifiManager::GetInstance().StopStation();
+     board->StartWifiConfigMode();
+ }
+diff --git a/firmware/main/main.cc b/firmware/main/main.cc
+--- a/firmware/main/main.cc
++++ b/firmware/main/main.cc
+@@ -16,7 +16,8 @@ extern "C" void app_main(void)
+     // Initialize NVS flash for WiFi configuration
+     esp_err_t ret = nvs_flash_init();
+     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+-        ESP_LOGW(TAG, "Erasing NVS flash to fix corruption");
++        ESP_LOGW(TAG, "NVS init returned %s (%d); erasing NVS flash and all saved WiFi/WebSocket settings",
++                 esp_err_to_name(ret), static_cast<int>(ret));
+         ESP_ERROR_CHECK(nvs_flash_erase());
+         ret = nvs_flash_init();
+     }
+diff --git a/firmware/main/application.cc b/firmware/main/application.cc
+--- a/firmware/main/application.cc
++++ b/firmware/main/application.cc
+@@ -379,4 +379,8 @@ void Application::HandleActivationDoneEvent() {
+     ota_.reset();
+     auto& board = Board::GetInstance();
+     board.SetPowerSaveLevel(PowerSaveLevel::LOW_POWER);
+ 
++    // Optional board transports start after the primary voice/Agent protocol
++    // has been initialized, keeping BLE/ESP-NOW out of the OTA/TLS peak.
++    board.OnApplicationReady();
++
+@@ -477,9 +481,9 @@ void Application::CheckNewVersion() {
+ 
+ void Application::CheckNewVersion() {
+-    const int MAX_RETRY = 10;
++    const int MAX_RETRY = 3;
+     int retry_count = 0;
+-    int retry_delay = 10; // Initial retry delay in seconds
++    int retry_delay = 3; // Keep failed OTA checks from blocking voice startup
+@@ -511,7 +515,7 @@ void Application::CheckNewVersion() {
+             continue;
+         }
+         retry_count = 0;
+-        retry_delay = 10; // Reset retry delay
++        retry_delay = 3; // Reset retry delay
+ 
+         if (ota_->HasNewVersion()) {
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -1,5 +1,6 @@
+ #include "wifi_board.h"
+ #include "cores3_audio_codec.h"
+ #include "display/lcd_display.h"
+ #include "application.h"
++#include "system_info.h"
+ #include "config.h"
+@@ -526,6 +526,7 @@ private:
+     std::uint32_t controller_last_base_attempt_ms_ = 0;
+     uint32_t controller_rx_count_ = 0;
+     uint32_t controller_raw_rx_count_ = 0;
++    bool companion_transports_started_ = false;
+     static inline StackChanBoard* controller_instance_ = nullptr;
+@@ -2128,7 +2129,11 @@ private:
+ 
+     void InitializePowerSaveTimer() {
+-        power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
++        // Keep the always-on Agent and physical remote alive. The display may
++        // dim after five minutes, but an idle companion must not power itself
++        // off and turn a transient network failure into a reboot/config loop.
++        power_save_timer_ = new PowerSaveTimer(-1, 300, -1);
+         power_save_timer_->OnEnterSleepMode([this]() {
+             GetDisplay()->SetPowerSaveMode(true);
+             GetBacklight()->SetBrightness(10);
+@@ -2522,15 +2526,26 @@ private:
+             int64_t touch_duration = now_ms - touch_start_time;
+             last_release_ms = now_ms;
+ 
+-            // 只有短触才触发
++            // 启动阶段不允许短触误进入配网。只有明确长按才保留
++            // 手动配网入口；正常运行阶段仍按原有 PTT 逻辑处理短触。
++            if (app.GetDeviceState() == kDeviceStateStarting) {
++                if (touch_duration >= 2000) {
++                    ESP_LOGI(TAG, "Startup long touch confirmed; entering WiFi config");
++                    EnterWifiConfigMode();
++                } else {
++                    ESP_LOGI(TAG, "Ignoring startup touch (%lld ms); hold the LCD for 2000 ms to enter WiFi config",
++                             static_cast<long long>(touch_duration));
++                }
++                return;
++            }
++
+             if (touch_duration < TOUCH_THRESHOLD_MS) {
+-                if (app.GetDeviceState() == kDeviceStateStarting) {
+-                    EnterWifiConfigMode();
+-                    return;
+-                }
+                 // kDeviceStateAudioTesting は WiFi config 完了直後の audio test
+@@ -7856,8 +7871,12 @@ public:
+         GetBacklight()->RestoreBrightness();
+         InitializeIOExpander();
+         InitializeServo();
+-        InitializeEspNowController();
+-        NanoDriveBleScanner::GetInstance().Start();
++        // Optional physical transports are started from OnApplicationReady()
++        // after the primary voice/Agent protocol has completed activation.
++        // This preserves remote control while removing the BLE/ESP-NOW memory
++        // peak from the first Wi-Fi/OTA/TLS handshake.
+         InitializeTouchSettings();
+@@ -7878,6 +7897,17 @@ public:
+ #endif
+     }
+ 
++    virtual void OnApplicationReady() override {
++        if (companion_transports_started_) {
++            return;
++        }
++        companion_transports_started_ = true;
++        ESP_LOGI(TAG, "Starting deferred ESP-NOW remote and NanoDrive BLE transports");
++        InitializeEspNowController();
++        NanoDriveBleScanner::GetInstance().Start();
++        SystemInfo::PrintHeapStats();
++    }
++
+     virtual AudioCodec* GetAudioCodec() override {
+ 

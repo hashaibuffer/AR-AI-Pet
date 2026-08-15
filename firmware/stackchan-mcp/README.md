@@ -78,9 +78,22 @@ touch PTT   = enabled
 .\firmware\stackchan-mcp\scripts\build-voice-emoji.ps1
 ```
 
-该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；本地 StackChan 动作工具仍注册给主会话，可调用 `self.display.set_emotion`（内置 LVGL Emoji）、灯光、舵机，以及 `self.scene.play` / `self.scene.stop`（七个固定实体小剧场）；但本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。ESP-NOW 遥控与 NanoDrive BLE 也不由该开关关闭。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
+该配置保留官方 OTA/NVS WebSocket、激活流程、唤醒词和语音会话；主会话只注册演示所需的本体工具，可调用 `self.display.set_emotion`（内置 LVGL Emoji）、灯光、舵机，以及 `self.scene.play` / `self.scene.stop`（七个固定实体小剧场）。诊断/维护工具、外部 I²C 和 Port B/C 工具在语音演示配置中关闭，以减少 MCP 工具列表和重连时的 SRAM 峰值；内置 Emoji、LED、头部舵机、顶部触摸、ESP-NOW 遥控和 NanoDrive BLE 保留。本地动作网关地址与令牌为空，不启动第二条动作 WebSocket。`Application::OnIncomingJson` 仍由内置 LVGL Emoji 渲染情绪，Avatar 覆盖层、口型动画和 Avatar MCP 工具在编译期关闭。脚本只配置和构建，不会刷机。
 
 这条配置只证明“主语音 + 本体动作工具 + Emoji + 本地固定场景播放器”基线；它不启动独立动作网关。需要第二条动作 WebSocket 时使用 `build-action-gateway.ps1`；`self.scene.play` 只负责本机时间轴，不代表已经完成 Agent/Beam Pro 的真实下发验收。
+
+#### 演示版方向与控制边界
+
+当前演示配置新增 `0015-demo-direction-and-base-calibration.patch`：
+
+- 语音 Agent 使用 `self.robot.head_pose` 处理抬头、低头、左右看；它把自然语言方向转换为物理方向，避免直接解释舵机正负角度。
+- `self.robot.set_head_angles` 保留为低层接口，提示 Agent 优先使用 `head_pose`。
+- 演示版不向语音 Agent 注册 `base_move`、`base_drive`、`base_stop`；底座只由实体遥控器控制，避免语音误触发移动。
+- 遥控脑袋 yaw 在 StackChan 接收端统一修正一次；舵机底层 `YawDegToPos`、`PitchDegToPos` 不修改。
+- 遥控底座降低转向增益，并保留左右轮 trim 参数；trim 初始为 1.000，需在实机直行测试后按偏转方向调整。
+- Agent 的固定剧本只调用 Emoji、灯光和脑袋动作，不再调用底座；底座只由实体遥控器控制，避免剧本或语音误触发移动。
+
+本次修改只完成代码和主机测试，方向、直行偏差、左右轮 trim 必须在烧录后按 `docs/07-测试与Demo验收.md` 的实机表格确认，不能把编译通过当作物理方向通过。
 
 ## 独立动作网关固件配置
 
@@ -94,10 +107,15 @@ $env:STACKCHAN_ACTION_GATEWAY_TOKEN = "" # 可选
 
 该配置使用官方 Xiaozhi OTA/NVS 作为主语音连接，另开一条只承载 MCP 动作的 WebSocket；内置 Emoji、顶部触摸、灯光、舵机、ESP-NOW 遥控和 NanoDrive BLE 均保留，Avatar 覆盖层关闭。脚本只构建，不自动刷机。
 
-#### 当前烧录基线（2026-08-15）
+#### 当前构建基线（2026-08-15）
 
-- 本次固件包含 `0014-richer-scene-timelines.patch`，已完成 ESP-IDF `v5.5.4` 构建；`xiaozhi.bin` 约 3.27 MiB，应用分区仍有约 17% 空间，SHA256 为 `8847583f89920580153141622f83d223365b955a9f3afa5e8228f1a5ae8be676`。
-- 动作网关必须填写运行 Robot Bridge 的电脑在同一局域网中的 IPv4 地址；固件里的 `127.0.0.1` 只代表机器人自身，不能用于连接电脑，烧录前必须替换。
+- 当前固件使用 `0014-richer-scene-timelines.patch` 的七场景时间轴（它覆盖了 `0013` 的中间版本）、`0015-demo-direction-and-base-calibration.patch`、`0016-lite-voice-tools-memory.patch`、`0017-boot-reliability-and-deferred-transports.patch` 和 `0018-sram-budget-and-lazy-ble.patch`；已完成 ESP-IDF `v5.5.4` 构建，`xiaozhi.bin` 为 3,360,480 字节，应用分区约 19% 空闲，SHA256 为 `833eed2c38fbbc04d566f66153d0a600fa031e70e67d9909bbf5e566ec47fc42`。
+- `0016` 将 `CONFIG_STACKCHAN_AGENT_DIAGNOSTIC_TOOLS` 与 `CONFIG_STACKCHAN_AGENT_PERIPHERAL_TOOLS` 在 `xiaozhi-voice-only` 中关闭；`CONFIG_STACKCHAN_AGENT_BASE_TOOLS` 同样关闭。内置 Emoji、LED、头部舵机、顶部触摸、ESP-NOW 遥控和 NanoDrive BLE 不受影响。这样可避免长时间运行或 WebSocket 重连时发送过大的 MCP 工具列表，降低 `esp-aes: Failed to allocate memory` 和 `SSL send failed` 的风险。
+- `0017` 保留已保存 Wi-Fi 凭据时的断线重试，不再因连接超时自动进入配网；启动阶段只有长按 2 秒才进入配网。官方 OTA/激活检查失败最多快速重试 3 次，避免长时间阻塞主语音启动；ESP-NOW 遥控和 NanoDrive BLE 延后到激活完成后启动，显示屏仍可按空闲策略变暗但不自动关机。
+- `0018` 将主语音 MCP 工具收敛为 `scene.play`、`scene.stop`、`display.set_emotion`、`robot.set_head_angles`、`led.set_color` 五项；关闭通用状态/摄像头/维护工具。NanoDrive BLE 改为首次底座动作时按需启动，扫描去重、缓存上限和扫描任务栈同步收缩，并增加内部 SRAM/PSRAM/最大连续块日志。
+- 本次已刷写 COM7 并完成分区校验。启动日志确认检测到 8MB Quad PSRAM；激活后内部 SRAM 约 81KB、PSRAM 约 8.0MB，语音与 ESP-NOW 运行约 45 秒后内部 SRAM 仍约 51.7KB，未再出现 `esp-aes: Failed to allocate memory` 或 `SSL send failed`。本次观察未触发底座动作，因此 NanoDrive BLE 尚未启动，需单独验证首次底座操作。
+- 已在 COM7 完成刷写和分区校验，设备自动重启；当前 `CONFIG_STACKCHAN_ACTION_GATEWAY` 未启用，`CONFIG_STACKCHAN_AGENT_BASE_TOOLS` 未启用，底座由实体遥控器控制。
+- 只有重新启用独立动作网关配置时，才需要填写运行 Robot Bridge 的电脑 IPv4；固件里的 `127.0.0.1` 只代表机器人自身，不能用于连接电脑，烧录前必须替换。
 - 当前电脑 WLAN IPv4 已确认是 `192.168.50.133`，本轮目标地址为：
 
   ```text

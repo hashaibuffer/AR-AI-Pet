@@ -15,6 +15,10 @@
 // values before differential mixing so a released stick cannot start a full
 // preset motion.
 #define BASE_INPUT_DEAD_ZONE 200
+// The left/right axis was too sensitive for a small desktop robot. Keep full
+// forward/reverse authority, but reduce the differential steering component.
+#define BASE_STEER_DEAD_ZONE 260
+#define BASE_TURN_GAIN_PERMILLE 550
 
 static int32_t clamp_i32(int32_t value, int32_t low, int32_t high) {
     return value < low ? low : (value > high ? high : value);
@@ -37,6 +41,17 @@ static int16_t apply_base_dead_zone(int32_t value) {
         return 0;
     }
     return clamp_axis(value);
+}
+
+static int16_t apply_base_steer_dead_zone(int32_t value) {
+    if (value >= -BASE_STEER_DEAD_ZONE && value <= BASE_STEER_DEAD_ZONE) {
+        return 0;
+    }
+    return clamp_axis(value);
+}
+
+static int32_t abs_i32(int32_t value) {
+    return value < 0 ? -value : value;
 }
 
 static bool is_game_mode(ar_controller_mode_t mode) {
@@ -147,10 +162,20 @@ bool ar_receiver_accept_input(ar_receiver_state_t* state,
     state->head_pitch = packet->head_pitch;
 
     if (packet->mode == AR_MODE_BASE && !(packet->flags & AR_FLAG_STOP)) {
-        const int16_t x = apply_base_dead_zone(packet->joystick_x);
+        const int16_t x = apply_base_steer_dead_zone(packet->joystick_x) *
+                          BASE_TURN_GAIN_PERMILLE / 1000;
         const int16_t y = apply_base_dead_zone(packet->joystick_y);
-        state->base_left = apply_base_dead_zone(y + x);
-        state->base_right = apply_base_dead_zone(y - x);
+        int32_t left = y + x;
+        int32_t right = y - x;
+        const int32_t max_output = abs_i32(left) > abs_i32(right)
+                                       ? abs_i32(left)
+                                       : abs_i32(right);
+        if (max_output > 1000) {
+            left = left * 1000 / max_output;
+            right = right * 1000 / max_output;
+        }
+        state->base_left = clamp_axis(left);
+        state->base_right = clamp_axis(right);
         state->stopped = state->base_left == 0 && state->base_right == 0;
     } else {
         state->base_left = 0;

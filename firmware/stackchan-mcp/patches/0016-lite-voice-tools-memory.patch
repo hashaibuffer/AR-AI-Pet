@@ -1,0 +1,75 @@
+diff --git a/firmware/configs/transport/xiaozhi-voice-only.defaults b/firmware/configs/transport/xiaozhi-voice-only.defaults
+--- a/firmware/configs/transport/xiaozhi-voice-only.defaults
++++ b/firmware/configs/transport/xiaozhi-voice-only.defaults
+@@ -16,6 +16,10 @@ CONFIG_STACKCHAN_ACTION_MCP=y
+ # The demo keeps base movement on the physical remote; voice still controls
+ # Emoji, LEDs and the head through the local MCP tools.
+ # CONFIG_STACKCHAN_AGENT_BASE_TOOLS is not set
++# Keep the voice session's MCP list small. Diagnostic and external-port tools
++# are build-time opt-in and are not needed for the demo interaction loop.
++# CONFIG_STACKCHAN_AGENT_DIAGNOSTIC_TOOLS is not set
++# CONFIG_STACKCHAN_AGENT_PERIPHERAL_TOOLS is not set
+ # CONFIG_STACKCHAN_ACTION_GATEWAY is not set
+ # CONFIG_STACKCHAN_AVATAR_OVERLAY is not set
+ CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL=y
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -56,6 +56,20 @@ config STACKCHAN_AGENT_BASE_TOOLS
+         Register base_move, base_drive and base_stop in the local MCP tool
+         list. Disable this for the demo voice profile when the physical
+         controller is the only supported base control path.
++
++config STACKCHAN_AGENT_DIAGNOSTIC_TOOLS
++    bool "Expose diagnostic and servo maintenance tools to the voice Agent"
++    default y
++    depends on STACKCHAN_ACTION_MCP
++    help
++        Register servo torque, raw UART/GPIO and servo power diagnostic tools.
++        Disable this for the voice demo to reduce the MCP tool list and SRAM
++        pressure. These tools remain available in the full engineering build.
++
++config STACKCHAN_AGENT_PERIPHERAL_TOOLS
++    bool "Expose external I2C and Port B/C tools to the voice Agent"
++    default y
++    depends on STACKCHAN_ACTION_MCP
++    help
++        Register external I2C and generic Port B/C WS2812 tools. Disable this
++        for the voice demo when only the built-in Emoji/LED output is needed.
+ 
+ choice STACKCHAN_VOICE_MODE
+     prompt "StackChan voice interaction mode"
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -6401,6 +6401,9 @@ private:
+             });
+ 
++        // Engineering-only servo and bus diagnostics are excluded from the
++        // voice demo MCP list to keep the handshake within the SRAM budget.
++#if CONFIG_STACKCHAN_AGENT_DIAGNOSTIC_TOOLS
+         mcp_server.AddTool(
+             "self.robot.set_servo_torque",
+@@ -6638,6 +6641,7 @@ private:
+                 return root;
+             });
++#endif
+ 
+ #if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         // Set the avatar face (one of: idle, happy, thinking, sad, surprised,
+@@ -7023,6 +7027,10 @@ private:
+ 
+         // ---- Generic I2C bus tools (Grove Port A) ----
++        // External I2C and generic Port B/C WS2812 tools are engineering
++        // extensions. Keep them out of the voice-demo MCP list unless the
++        // full peripheral profile is explicitly selected.
++#if CONFIG_STACKCHAN_AGENT_PERIPHERAL_TOOLS
+         // Expose the external Port A I2C bus to the MCP client so that
+         // attached M5Stack Unit modules (ENV III, ToF, gas sensor, PaHub,
+@@ -7762,6 +7770,7 @@ private:
+                 return root;
+             });
++#endif
+ 
+ #if CONFIG_STACKCHAN_AGENT_BASE_TOOLS
+         mcp_server.AddTool(
