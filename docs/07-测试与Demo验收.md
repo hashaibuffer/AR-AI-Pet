@@ -9,7 +9,8 @@
 | Unity PC Play Mode → Agent Gateway WebSocket | 通过（PC Mock） | `Project/Library/AgentPlayModeSmokeResult.json` 为 `passed=true`；覆盖订阅、聊天、ExperienceEvent、显示层 ActionResult。 |
 | Agent Gateway → Mock Robot Bridge | 通过（Mock） | `ROBOT_BRIDGE_SMOKE_OK`；覆盖语义动作执行、结果回传和数据服务查询。 |
 | Beam Pro Android 运行与 XREAL 实机显示 | 待验证 | Windows Editor 的 `XREALXRPlugin` 缺失警告属于预期限制，不替代 Android/眼镜实机验收。 |
-| Robot Bridge → StackChan / NanoDrive 实体动作 | 待验证 | 当前仍使用 MockRobotAdapter；实体适配器和底座安全链路另行验收。 |
+| Robot Bridge → StackChan 8080 直连 | 待验证 | `DirectStackChanAdapter` 已实现，未现场验证 |
+| Robot Bridge → 8765/8767 网关（Scheme B） | 待验证 | 设备未连网关；方向与 8080 不同，证据不互迁（见 [docs/02 §13.2](02-技术架构与可行性方案.md)） |
 
 状态和证据或问题为空，表示待验证；只记录实际运行结果。延迟和性能指标统一在实测后冻结。
 
@@ -19,7 +20,7 @@
 | 同一事件驱动 AR 宠物与 StackChan 表现 | A、B   | 同一事件 ID 可驱动两端对应表现；端到端延迟待实测后冻结     |     |       |
 | 快艇骰子完成一局                   | A、C   | 用户与宠物完成一局，合法操作和计分由游戏系统执行并正确结算     |     |       |
 | 种菜完成完整闭环                   | A、B、C | 用户与宠物共同完成播种、照料、成长和收获，状态正确推进并保存    |     |       |
-| 语音交互完整闭环                   | A、B、C | 完成语音输入、Agent 回答、字幕、播放和打断；延迟待实测后冻结 |     |       |
+| 语音交互完整闭环                   | A、B、C | Demo 语音通道 = StackChan 侧 Xiaozhi 语音：中文唤醒 + 连续追问 + 触摸 PTT（已按 docs/10 验收）；Unity 侧 PC 麦克风语音为 Demo 后降级路径 | 通过（Xiaozhi 子链路） | ASR/TTS 经 AI.AGENT/Xiaozhi 主语音 WebSocket；docs/10 已验收直接中文唤醒、连续中文追问、触摸 PTT。Unity 侧 VoiceClient.cs 骨架不计入 Demo 验收。 |
 | NanoDrive 基础移动与保护          | B     | 完成基础移动、停止、指令超时停止和断连保护             | 通过（实体） | StackChan—BLE—NanoDrive v0.9；前后左右、松手停止与超时停车由现场确认。 |
 | 服务或设备重启后的状态恢复              | A、B   | 重启后恢复约定的宠物、游戏、虚拟生活和设备状态，不产生重复事件   |     |       |
 | 完整 Demo 连续运行三次             | B     | 按冻结脚本连续完成三次，不出现阻塞演示的问题            |     |       |
@@ -30,7 +31,7 @@
 
 | 子项 | 状态 | 证据或边界 |
 | --- | --- | --- |
-| ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 本地源码构建目录为 `D:\sc\firmware`；上游固定提交 `b72b3ede38b32d54f0b6ba51c62cfcef2ec3ae1e`。 |
+| ESP-IDF 5.5.4 + ESP32-S3 全量构建 | 通过 | 上游固定提交 `b72b3ede`（Mooncake 历史基线，仅硬件初始化验证）；当前产品固件构建见 [`firmware/stackchan-mcp`](../firmware/stackchan-mcp/)（21ab6636），CI 复现 57 Python + 17 主机测试。 |
 | COM7 烧录与串口启动 | 通过 | `idf.py -p COM7 flash` 和串口监控已完成。 |
 | 屏幕、摄像头、触摸、IMU、RTC、三麦、双舵机初始化 | 通过 | 启动日志中完成对应外设初始化。 |
 | 中文唤醒与 Xiaozhi 云端对话 | 通过（当前产品基线） | 普通 WakeNet `wn9_nihaoxiaozhi_tts`、固件 `zh-cn`、绑定 Agent `language=zh`；真机无需英文前导即可直接中文提问，并能继续中文追问。 |
