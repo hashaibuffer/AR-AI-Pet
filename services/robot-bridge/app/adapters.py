@@ -66,6 +66,19 @@ async def execute_timeline(
 class StackChanAdapter:
     """Real semantic adapter backed by the independent StackChan MCP socket."""
 
+    # These scenes are compiled into StackChan firmware and should travel as
+    # one local timeline.  Sending their individual display/LED/head/base
+    # steps over MCP creates avoidable round trips and timestamp barriers.
+    FIRMWARE_SCENES = {
+        "wake_up",
+        "good_night",
+        "play",
+        "welcome_home",
+        "reminder",
+        "comfort",
+        "dance",
+    }
+
     supported = {
         "blink",
         "nod",
@@ -100,6 +113,24 @@ class StackChanAdapter:
             return {"status": "failed", "error": f"unsupported_intent:{intent}", "measuredResult": {}}
         try:
             if intent == "scene.play":
+                scene_id = str(parameters.get("sceneId") or parameters.get("scene_id") or "")
+                if scene_id in self.FIRMWARE_SCENES:
+                    result = await self._call("self.scene.play", {"scene_id": scene_id})
+                    return {
+                        "status": "completed",
+                        "error": None,
+                        "measuredResult": {
+                            "adapter": "stackchan-action-gateway",
+                            "deviceId": self.device_id,
+                            "execution": "firmware-local-scene",
+                            "sceneId": scene_id,
+                            "mappedCommands": [{
+                                "tool": "self.scene.play",
+                                "arguments": {"scene_id": scene_id},
+                            }],
+                            "deviceResults": [result],
+                        },
+                    }
                 commands = self.scene_mapper.map_scene(parameters)
                 results = await execute_timeline(commands, self._call)
                 return {

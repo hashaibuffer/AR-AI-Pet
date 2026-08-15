@@ -42,6 +42,14 @@ class SceneRouterTests(unittest.TestCase):
                 self.assertTrue(any(step["target"] == "base" and step["action"] == "stop" for step in scene.steps) or scene_id in {"good_night"})
             self.assertTrue(any(step["target"] == "display" for step in scene.steps))
 
+    def test_scenes_have_dense_multi_channel_beats(self) -> None:
+        for scene in SCENES.values():
+            targets = {step["target"] for step in scene.steps}
+            self.assertTrue({"display", "led", "head"}.issubset(targets), scene.scene_id)
+            times = sorted({int(step["atMs"]) for step in scene.steps})
+            gaps = [right - left for left, right in zip(times, times[1:])]
+            self.assertLessEqual(max(gaps, default=0), 1400, scene.scene_id)
+
 
 class SceneEventTests(unittest.TestCase):
     def test_scene_event_keeps_voice_and_physical_timeline_together(self) -> None:

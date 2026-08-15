@@ -20,7 +20,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0010-scene-playback.patch"),
     (Join-Path $moduleRoot "patches/0011-xiaozhi-action-emoji-profile.patch"),
     (Join-Path $moduleRoot "patches/0012-action-profile-configure.patch"),
-    (Join-Path $moduleRoot "patches/0013-longer-scene-timelines.patch")
+    (Join-Path $moduleRoot "patches/0013-longer-scene-timelines.patch"),
+    (Join-Path $moduleRoot "patches/0014-richer-scene-timelines.patch")
 )
 
 function Stop-WithError {
@@ -91,6 +92,10 @@ function Test-PatchMarker {
         }
         "0013-longer-scene-timelines.patch" {
             return (Select-String -LiteralPath $stackchan -SimpleMatch 'color_cycle_fast(8000)' -Quiet)
+        }
+        "0014-richer-scene-timelines.patch" {
+            return ((Select-String -LiteralPath $stackchan -SimpleMatch 'emotion(1900, "surprised")' -Quiet) -and
+                    (Select-String -LiteralPath $stackchan -SimpleMatch 'std::stable_sort(steps.begin()' -Quiet))
         }
         default { return $false }
     }
