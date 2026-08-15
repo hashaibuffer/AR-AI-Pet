@@ -145,8 +145,8 @@ class SceneStepMapper:
         if not isinstance(steps, list) or not steps:
             raise SceneMappingError("scene.play requires a non-empty steps array")
         duration_ms = int(parameters.get("durationMs", 0) or 0)
-        if duration_ms <= 0 or duration_ms > 30_000:
-            raise SceneMappingError("durationMs must be between 1 and 30000")
+        if duration_ms <= 0 or duration_ms > 60_000:
+            raise SceneMappingError("durationMs must be between 1 and 60000")
 
         commands: list[DeviceCommand] = []
         for index, raw_step in enumerate(steps):

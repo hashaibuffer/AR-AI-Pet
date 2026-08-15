@@ -18,19 +18,48 @@ async def execute_timeline(
 ) -> list[dict[str, Any]]:
     """Run semantic commands at their scene-relative timestamps.
 
-    This is intentionally a simple one-shot scheduler. It does not arbitrate
-    overlapping scenes or interruption priorities yet; the bridge's existing
-    stop path remains available for the next iteration.
+    Commands at the same timestamp are dispatched by independent device
+    lanes.  The base can therefore keep moving while the display/LED changes,
+    while commands within one lane remain ordered.  Voice is intentionally
+    not a lane here: the primary Xiaozhi audio path still owns speech and the
+    current MVP keeps voice before/after a scene.
     """
+
+    def lane(tool: str) -> str:
+        if tool in {"self.robot.base_move", "self.robot.base_stop"}:
+            return "base"
+        if tool in {"self.display.set_emotion"}:
+            return "display"
+        if tool in {"self.led.set_all", "self.led.clear"}:
+            return "led"
+        if tool == "self.robot.set_head_angles":
+            return "head"
+        return tool
+
+    async def run_lane(lane_commands: list[DeviceCommand]) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
+        for command in lane_commands:
+            result = await call_tool(command.tool, command.arguments)
+            results.append({"command": command.as_dict(), "result": result})
+        return results
 
     started = time.monotonic()
     results: list[dict[str, Any]] = []
+    by_time: dict[int, list[DeviceCommand]] = {}
     for command in commands:
-        wait_seconds = command.at_ms / 1000 - (time.monotonic() - started)
+        by_time.setdefault(command.at_ms, []).append(command)
+
+    for at_ms in sorted(by_time):
+        wait_seconds = at_ms / 1000 - (time.monotonic() - started)
         if wait_seconds > 0:
             await asyncio.sleep(wait_seconds)
-        result = await call_tool(command.tool, command.arguments)
-        results.append({"command": command.as_dict(), "result": result})
+
+        lanes: dict[str, list[DeviceCommand]] = {}
+        for command in by_time[at_ms]:
+            lanes.setdefault(lane(command.tool), []).append(command)
+        lane_results = await asyncio.gather(*(run_lane(items) for items in lanes.values()))
+        for items in lane_results:
+            results.extend(items)
     return results
 
 

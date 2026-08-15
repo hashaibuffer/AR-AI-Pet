@@ -54,11 +54,11 @@ ws://<运行 Robot Bridge 的电脑 IP>:8765
 
 适配器只发送 `self.display.set_emotion`、`self.led.set_all`、`self.robot.set_head_angles`、`self.robot.base_move`、`self.robot.base_stop` 和 `self.scene.stop` 等现有高层工具，不发送 PWM、电压或电机寄存器参数。设备执行结果会回到 `experience.action.result`。
 
-`scene.play` 由 Bridge 的时间轴执行器按 `atMs` 等待后逐条调用设备工具；当前不处理打断优先级，保留既有 `robot.command.stop` 路径。
+`scene.play` 由 Bridge 的时间轴执行器按 `atMs` 调度。相同时间点的底座、屏幕和灯光动作会并行下发；同一通道内仍保持顺序。当前不处理打断优先级，保留既有 `robot.command.stop` 路径。语音仍由主 Xiaozhi 链路在剧本前后播放，不与头部动作强行并行。
 
 Adapter 只接收 `nod`、`wave`、`dance`、`scene.play`、`farm_tend`、`stop` 等语义动作，不接收 PWM、电压或电机寄存器参数。
 
-`scene.play` 的参数是 `sceneId`、`durationMs` 和语义 `steps`。现在 `SceneStepMapper` 已把它编译成当前固件已有的高层工具调用：
+`scene.play` 的参数是 `sceneId`、`durationMs` 和语义 `steps`，首版最大时长为 60 秒，正式七个场景控制在 4—14 秒。现在 `SceneStepMapper` 已把它编译成当前固件已有的高层工具调用：
 
 | 场景目标 | 当前工具 |
 |---|---|

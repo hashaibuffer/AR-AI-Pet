@@ -25,9 +25,13 @@ class SceneRouterTests(unittest.TestCase):
         self.assertEqual(self.router.match("跳个舞").scene_id, "dance")
         self.assertEqual(self.router.match("宝贝，跳舞吧").scene_id, "dance")
         self.assertEqual(self.router.match("晚安啦").scene_id, "good_night")
+        self.assertEqual(self.router.match("请给我跳个舞").scene_id, "dance")
+        self.assertEqual(self.router.match("小陈，陪我玩会儿").scene_id, "play")
+        self.assertEqual(self.router.match("提醒我喝水").scene_id, "reminder")
 
     def test_non_exact_or_negated_text_goes_to_agent(self) -> None:
         self.assertIsNone(self.router.match("我不想跳舞"))
+        self.assertIsNone(self.router.match("不要提醒我喝水"))
         self.assertIsNone(self.router.match("今天很累，陪我聊聊天"))
 
     def test_all_mvp_scenes_have_safe_stop_and_display_steps(self) -> None:

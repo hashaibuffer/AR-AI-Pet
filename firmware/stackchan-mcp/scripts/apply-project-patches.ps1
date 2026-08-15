@@ -19,7 +19,8 @@ $patchPaths = @(
     (Join-Path $moduleRoot "patches/0009-scene-emoji-tool.patch"),
     (Join-Path $moduleRoot "patches/0010-scene-playback.patch"),
     (Join-Path $moduleRoot "patches/0011-xiaozhi-action-emoji-profile.patch"),
-    (Join-Path $moduleRoot "patches/0012-action-profile-configure.patch")
+    (Join-Path $moduleRoot "patches/0012-action-profile-configure.patch"),
+    (Join-Path $moduleRoot "patches/0013-longer-scene-timelines.patch")
 )
 
 function Stop-WithError {
@@ -87,6 +88,9 @@ function Test-PatchMarker {
         "0012-action-profile-configure.patch" {
             $script = Join-Path $checkout "firmware/scripts/configure_stackchan.py"
             return (Select-String -LiteralPath $script -SimpleMatch '"xiaozhi-action-emoji"' -Quiet)
+        }
+        "0013-longer-scene-timelines.patch" {
+            return (Select-String -LiteralPath $stackchan -SimpleMatch 'color_cycle_fast(8000)' -Quiet)
         }
         default { return $false }
     }
