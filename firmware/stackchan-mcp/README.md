@@ -10,11 +10,11 @@ AI.AGENT / Xiaozhi：语音、ASR、会话和自动轮次的唯一所有者
                     ▼
 StackChan 实体：麦克风、扬声器、触摸、屏幕、舵机和安全执行
                     ▲
-                    │ 独立动作 MCP WebSocket
+                    │ 本地 MCP 工具
 Kimito 行为层：表情、头部动作、陪伴反馈，不接管语音会话
 ```
 
-Beam Pro、Unity、AR 和其他 MCP 客户端仍是后续消费者；NanoDrive 蓝牙透传和遥控器 BASE 模式已经完成实机闭环，Agent/Beam Pro 链路仍待接入。
+Beam Pro、Unity、AR 和独立动作 MCP 网关仍是后续消费者；当前语音演示使用 StackChan 主语音、本地 Emoji/灯光/头部工具，NanoDrive 蓝牙透传和遥控器 BASE 模式已经完成实机闭环。固定剧本不驱动底座。
 
 ## 固定来源
 
@@ -109,7 +109,7 @@ $env:STACKCHAN_ACTION_GATEWAY_TOKEN = "" # 可选
 
 #### 当前构建基线（2026-08-15）
 
-- 当前固件使用 `0014-richer-scene-timelines.patch` 的七场景时间轴（它覆盖了 `0013` 的中间版本）、`0015-demo-direction-and-base-calibration.patch`、`0016-lite-voice-tools-memory.patch`、`0017-boot-reliability-and-deferred-transports.patch` 和 `0018-sram-budget-and-lazy-ble.patch`；已完成 ESP-IDF `v5.5.4` 构建，`xiaozhi.bin` 为 3,360,480 字节，应用分区约 19% 空闲，SHA256 为 `833eed2c38fbbc04d566f66153d0a600fa031e70e67d9909bbf5e566ec47fc42`。
+- 当前固件使用 `0014-richer-scene-timelines.patch` 的七场景时间轴（它覆盖了 `0013` 的中间版本）及 `0015`—`0022` 补丁；已完成 ESP-IDF `v5.5.4` 构建，`xiaozhi.bin` 为 3,285,808 字节，应用分区约 20% 空闲。当前烧录基线为 `xiaozhi-voice-only`，独立动作网关未启用。
 - `0016` 将 `CONFIG_STACKCHAN_AGENT_DIAGNOSTIC_TOOLS` 与 `CONFIG_STACKCHAN_AGENT_PERIPHERAL_TOOLS` 在 `xiaozhi-voice-only` 中关闭；`CONFIG_STACKCHAN_AGENT_BASE_TOOLS` 同样关闭。内置 Emoji、LED、头部舵机、顶部触摸、ESP-NOW 遥控和 NanoDrive BLE 不受影响。这样可避免长时间运行或 WebSocket 重连时发送过大的 MCP 工具列表，降低 `esp-aes: Failed to allocate memory` 和 `SSL send failed` 的风险。
 - `0017` 保留已保存 Wi-Fi 凭据时的断线重试，不再因连接超时自动进入配网；启动阶段只有长按 2 秒才进入配网。官方 OTA/激活检查失败最多快速重试 3 次，避免长时间阻塞主语音启动；ESP-NOW 遥控和 NanoDrive BLE 延后到激活完成后启动，显示屏仍可按空闲策略变暗但不自动关机。
 - `0018` 将主语音 MCP 工具收敛为 `scene.play`、`scene.stop`、`display.set_emotion`、`robot.set_head_angles`、`led.set_color` 五项；关闭通用状态/摄像头/维护工具。NanoDrive BLE 改为首次底座动作时按需启动，扫描去重、缓存上限和扫描任务栈同步收缩，并增加内部 SRAM/PSRAM/最大连续块日志。
@@ -172,7 +172,7 @@ Remove-Item Env:XIAOZHI_ACCESS_TOKEN
 - 分区表 SHA256：`4811619cacae08ef2e0e71b7220c6033a346ca5da7ca179082408c963ef530b5`
 - 烧录前完整 16 MiB 备份 SHA256：`906aedfcadd9244d6701d462e152e44ebc92b69afac280c23d8d80d12b14d3df`
 
-真机通过项目：直接中文唤醒与提问、连续中文追问、触摸 PTT、Agent → MCP → 实体头部动作。串口还确认了 WakeNet `wn9_nihaoxiaozhi_tts`、Xiaozhi 主会话、动作 MCP 独立连接以及默认 AFE AEC 路径。
+真机通过项目：直接中文唤醒与提问、连续中文追问、触摸 PTT、主语音 → 本地 MCP → 实体头部动作。串口还确认了 WakeNet `wn9_nihaoxiaozhi_tts`、Xiaozhi 主会话和默认 AFE AEC 路径；独立动作 MCP 只属于可选构建，不作为当前演示基线。
 
 完整备份和串口原始日志可能包含设备专属信息，只保存在验收机本地，不上传 Git。仓库只记录不可逆推出原始内容的哈希、结论和复现步骤。
 

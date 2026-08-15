@@ -32,11 +32,11 @@
 | 项目 | 状态 | 证据与边界 |
 | --- | --- | --- |
 | Robot Bridge 动作网关地址 | 通过（地址确认） | 本机 WLAN IPv4 为 `192.168.50.133`；动作网关监听 `0.0.0.0:8765`，`Test-NetConnection 192.168.50.133 -Port 8765` 通过。 |
-| 语音演示固件构建 | 通过 | 当前使用 `0014-richer-scene-timelines.patch`（覆盖 `0013` 中间版本）、`0015-demo-direction-and-base-calibration.patch`、`0016-lite-voice-tools-memory.patch`、`0017-boot-reliability-and-deferred-transports.patch` 和 `0018-sram-budget-and-lazy-ble.patch`；ESP-IDF `v5.5.4` 构建成功，`xiaozhi.bin` 为 `0x3346e0`，应用分区约 19% 空闲，SHA256 为 `833eed2c38fbbc04d566f66153d0a600fa031e70e67d9909bbf5e566ec47fc42`，已刷写 COM7。 |
+| 语音演示固件构建 | 通过 | 当前使用 `0014-richer-scene-timelines.patch`（覆盖 `0013` 中间版本）及 `0015`—`0022` 补丁；ESP-IDF `v5.5.4` 构建成功，`xiaozhi.bin` 为 `0x322330`，应用分区约 20% 空闲，已刷写 COM7。 |
 | 固件动作网关配置 | 不启用（当前演示边界） | 当前 `CONFIG_STACKCHAN_ACTION_GATEWAY` 未启用；主语音仍保留本地 Emoji、灯光和舵机工具，底座由实体遥控器控制。 |
 | COM7 烧录与校验 | 通过（当前语音演示版） | `idf.py -p COM7 flash` 完成，bootloader、应用、分区表、OTA 数据和 assets 均写入并通过 SHA 校验，设备已硬复位。 |
 | 烧录后设备启动 | 通过（启动子链路） | 串口确认检测到 8MB Quad PSRAM，Wi‑Fi 连接 `hashai` 并获取 `192.168.50.213`，语音 WebSocket 握手成功；激活后内部 SRAM 约 81KB，语音与 ESP-NOW 运行约 45 秒后仍约 51.7KB，未出现 `Failed to allocate memory` 或 `SSL send failed`。NanoDrive BLE 已改为首次底座动作时按需启动，本次启动观察未触发底座动作。 |
-| Robot Bridge—StackChan 动作调用 | 待验证 | 已观察到设备向 `192.168.50.133:8765` 发起连接；固定剧本、表情、灯光、舵机和底座动作的真实调用与结果回传仍需单独执行。 |
+| 独立动作网关—StackChan 动作调用 | 历史/可选 | 该链路曾完成地址和单动作验证；当前 `xiaozhi-voice-only` 不启用，不能作为当前演示通过依据。 |
 
 ## StackChan 实机子项
 
@@ -51,11 +51,11 @@
 | MultiNet / AEC 比较 | 不进入当前烧录门槛 | 普通 WakeNet A 已满足用户体验底线；MultiNet 和显式 AEC 配置保留为出现明确回归时的诊断变体。启动日志已观察到默认 AFE `AEC(SR_HIGH_PERF)` 路径。 |
 | Xiaozhi 联网、语音上传和服务器回答 | 通过（StackChan × Xiaozhi 子项） | 主语音 WebSocket 负责 ASR、会话和自动轮次；该结果仍不等于 AR、Unity、底座完整端到端闭环。 |
 | 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
-| 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
+| StackChan 本地动作工具 | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证本体表情、灯光和头部动作。 |
 | 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
-| Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
+| Xiaozhi Agent—本地动作工具—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，主语音会话调用 `self.robot.set_head_angles`，实机执行头部动作；不依赖独立动作网关。 |
 | voice-emoji 固件内置七场景播放器 | 通过（编译与注册） | ESP-IDF 5.5.4 构建通过，应用分区约 19% 空闲；COM7 启动日志出现 `Scene playback task ready`，并注册 `self.scene.play` / `self.scene.stop`。 |
-| 七个实体小剧场逐场执行 | 待验证 | 固件已刷入，仍需通过语音/Agent 实际触发并观察 Emoji、灯光、舵机和 NanoDrive 时间轴；工具注册不等于动作执行通过。 |
+| 七个实体小剧场逐场执行 | 待验证 | 固件已刷入，仍需通过语音实际触发并观察 Emoji、灯光和头部时间轴；当前剧本不包含 NanoDrive 动作。 |
 | MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
 | MCP Hub 启动门槛 | 通过 | data-service 和 mcp-hub 均通过 WebSocket/MCP healthcheck 后进入 healthy。 |
 | 本地 Agent Runtime—MCP—数据服务 | 通过（Mock闭环） | `AGENT_SMOKE_OK` 已验证文字请求、日程读写、工具错误反馈和对话落库；真实模型与语音分别记录，本次不包含语音。 |
