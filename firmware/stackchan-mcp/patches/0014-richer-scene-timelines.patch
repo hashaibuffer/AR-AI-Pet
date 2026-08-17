@@ -1,0 +1,58 @@
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -5748,28 +5748,43 @@
+         if (scene_id == "wake_up") {
+             emotion(0, "sleepy"); head(150, 0, 45); warm_fade(500);
+             head(700, -20, 45); head(1100, 20, 45); head(1500, 0, 45);
+-            emotion(2200, "happy"); head(3000, 0, 30); head(3160, 0, 45); led(3600, 0, 0, 0);
++            emotion(1900, "surprised"); emotion(2500, "happy"); nod(3200);
++            emotion(3900, "winking"); led(4400, 0, 0, 0);
+         } else if (scene_id == "good_night") {
+             emotion(0, "relaxed"); nod(300); emotion(900, "sleepy"); head(1200, -12, 40);
+             amber_breathe_2(1800); head(3000, 0, 25);
+-            emotion(5000, "sleepy"); led(7000, 0, 0, 0);
++            emotion(2700, "kissy"); head(3300, 0, 25); emotion(4300, "sleepy");
++            head(5000, 0, 25); emotion(6100, "relaxed"); led(6800, 0, 0, 0);
+         } else if (scene_id == "play") {
+             emotion(0, "silly"); color_cycle(0); head(300, -22, 45); head(700, 22, 45); nod(1100);
+-            move(1500, "left", 45); stop(3200); move(3700, "right", 45); stop(5400);
+-            nod_twice(6000); emotion(7800, "laughing"); led(9000, 0, 0, 0);
++            move(1300, "left", 45); stop(2400); emotion(2700, "happy");
++            move(3100, "right", 45); stop(4200); nod_twice(4500);
++            emotion(5400, "laughing"); emotion(6500, "winking"); led(7600, 0, 0, 0);
+         } else if (scene_id == "welcome_home") {
+             emotion(0, "surprised"); warm_fade(0); head(300, -20, 45); head(900, 0, 45);
+-            emotion(1200, "happy"); move(1500, "forward", 45); stop(2800); nod_twice(3600);
+-            emotion(5200, "loving"); led(7000, 0, 0, 0);
++            head(700, 20, 45); head(1100, 0, 45); emotion(1300, "happy");
++            move(1500, "forward", 45); stop(2500); nod_twice(2900);
++            emotion(3900, "loving"); head(4700, -12, 40); led(5700, 0, 0, 0);
+         } else if (scene_id == "reminder") {
+-            emotion(0, "thinking"); blue_pulse(0); head(400, 0, 45); nod_twice(2600);
+-            emotion(4500, "thinking"); led(5200, 0, 0, 0);
++            emotion(0, "thinking"); blue_pulse(0); head(400, 0, 45);
++            emotion(1700, "thinking"); nod_twice(2200); emotion(3300, "surprised");
++            head(4000, -12, 40); led(4700, 0, 0, 0);
+         } else if (scene_id == "comfort") {
+             emotion(0, "sad"); head(400, -12, 40); amber_breathe(1000);
+-            move(1700, "forward", 30); stop(3000); emotion(4000, "relaxed"); nod(5000);
+-            emotion(7000, "loving"); led(9000, 0, 0, 0);
++            move(1500, "forward", 30); stop(2400); emotion(2800, "relaxed"); nod(3500);
++            emotion(4300, "loving"); head(5200, 0, 45); led(6500, 0, 0, 0);
+         } else if (scene_id == "dance") {
+             emotion(0, "laughing"); color_cycle_fast(0); head(400, -22, 45); head(800, 22, 45); nod(1200);
+-            move(2000, "left", 45); stop(3600); move(4200, "right", 45); stop(5800);
+-            head(7000, -22, 45); head(7160, 22, 45); head(7320, -22, 45);
+-            color_cycle_fast(8000); emotion(11000, "laughing"); led(12500, 0, 0, 0);
++            move(1400, "left", 45); stop(2500); emotion(2700, "silly");
++            move(3000, "right", 45); stop(4100); head(4400, -22, 45);
++            head(4560, 22, 45); head(4720, -22, 45); nod_twice(5700);
++            emotion(6900, "laughing"); color_cycle_fast(8000); head(9400, 0, 45);
++            emotion(10100, "cool"); led(11200, 0, 0, 0);
+         }
++        std::stable_sort(steps.begin(), steps.end(), [](const SceneStep& left, const SceneStep& right) {
++            return left.at_ms < right.at_ms;
++        });
+         return steps;
+     }

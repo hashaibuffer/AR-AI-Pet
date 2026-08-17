@@ -1,0 +1,259 @@
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -5362,1 +5362,20 @@
+     std::atomic<bool> blink_desired_{false};
++
++    // Fixed physical scenes. The table mirrors the seven semantic scenes in
++    // services/agent-service/app/scenes.py and contains hardware steps only.
++    enum class SceneStepKind : uint8_t { EMOTION, LED, HEAD, BASE_MOVE, BASE_STOP };
++    struct SceneStep {
++        uint32_t at_ms;
++        SceneStepKind kind;
++        const char* text;
++        int v1;
++        int v2;
++        int v3;
++    };
++    TaskHandle_t scene_task_ = nullptr;
++    SemaphoreHandle_t scene_lock_ = nullptr;
++    SemaphoreHandle_t scene_signal_ = nullptr;
++    std::vector<SceneStep> scene_pending_;
++    std::atomic<bool> scene_active_{false};
++    std::atomic<bool> scene_cancel_requested_{false};
++    std::atomic<uint32_t> scene_generation_{0};
+@@ -5698,4 +5698,181 @@
+     }
+ 
++    std::vector<SceneStep> BuildSceneSteps(const std::string& scene_id) {
++        std::vector<SceneStep> steps;
++        auto emotion = [&](uint32_t at, const char* name) {
++            steps.push_back({at, SceneStepKind::EMOTION, name, 0, 0, 0});
++        };
++        auto led = [&](uint32_t at, int r, int g, int b) {
++            steps.push_back({at, SceneStepKind::LED, nullptr, r, g, b});
++        };
++        auto head = [&](uint32_t at, int yaw, int pitch) {
++            steps.push_back({at, SceneStepKind::HEAD, nullptr, yaw, pitch, 300});
++        };
++        auto move = [&](uint32_t at, const char* direction, int speed) {
++            steps.push_back({at, SceneStepKind::BASE_MOVE, direction, speed, 0, 0});
++        };
++        auto stop = [&](uint32_t at) {
++            steps.push_back({at, SceneStepKind::BASE_STOP, nullptr, 0, 0, 0});
++        };
++        auto warm_fade = [&](uint32_t at) {
++            led(at, 20, 8, 1); led(at + 250, 100, 35, 4); led(at + 500, 255, 110, 12);
++        };
++        auto amber_breathe = [&](uint32_t at) {
++            led(at, 160, 55, 5); led(at + 450, 30, 10, 1);
++            led(at + 900, 160, 55, 5); led(at + 1350, 30, 10, 1); led(at + 1800, 160, 55, 5);
++        };
++        auto amber_breathe_2 = [&](uint32_t at) {
++            led(at, 150, 50, 4); led(at + 600, 25, 8, 1);
++            led(at + 1200, 150, 50, 4); led(at + 1800, 25, 8, 1);
++        };
++        auto blue_pulse = [&](uint32_t at) {
++            led(at, 0, 0, 140); led(at + 450, 0, 0, 15);
++            led(at + 900, 0, 0, 140); led(at + 1350, 0, 0, 15);
++            led(at + 1800, 0, 0, 140); led(at + 2250, 0, 0, 15);
++        };
++        auto color_cycle = [&](uint32_t at) {
++            led(at, 255, 0, 0); led(at + 300, 255, 100, 0); led(at + 600, 0, 220, 40);
++            led(at + 900, 0, 150, 255); led(at + 1200, 40, 40, 255); led(at + 1500, 200, 0, 255);
++        };
++        auto color_cycle_fast = [&](uint32_t at) {
++            led(at, 255, 0, 0); led(at + 180, 255, 180, 0); led(at + 360, 0, 220, 50);
++            led(at + 540, 0, 160, 255); led(at + 720, 50, 40, 255);
++            led(at + 900, 220, 0, 220); led(at + 1080, 255, 0, 0);
++        };
++        auto nod = [&](uint32_t at) { head(at, 0, 30); head(at + 160, 0, 45); };
++        auto nod_twice = [&](uint32_t at) {
++            head(at, 0, 30); head(at + 160, 0, 45);
++            head(at + 320, 0, 30); head(at + 480, 0, 45);
++        };
++
++        if (scene_id == "wake_up") {
++            emotion(0, "sleepy"); head(150, 0, 45); warm_fade(500);
++            head(700, -20, 45); head(1100, 20, 45); head(1500, 0, 45); emotion(1700, "happy");
++        } else if (scene_id == "good_night") {
++            emotion(0, "relaxed"); nod(300); emotion(900, "sleepy"); head(1200, -12, 40);
++            amber_breathe_2(1800); head(3000, 0, 25); led(3800, 0, 0, 0);
++        } else if (scene_id == "play") {
++            emotion(0, "silly"); color_cycle(0); head(300, -22, 45); head(700, 22, 45); nod(1100);
++            move(1500, "left", 45); stop(2200); move(2400, "right", 45); stop(3100); emotion(4300, "laughing");
++        } else if (scene_id == "welcome_home") {
++            emotion(0, "surprised"); warm_fade(0); head(300, -20, 45); head(900, 0, 45);
++            emotion(1200, "happy"); move(1500, "forward", 45); stop(2100); nod_twice(2300); emotion(3200, "loving");
++        } else if (scene_id == "reminder") {
++            emotion(0, "thinking"); blue_pulse(0); head(300, 0, 45); nod_twice(2200);
++        } else if (scene_id == "comfort") {
++            emotion(0, "sad"); head(400, -12, 40); amber_breathe(1000);
++            move(1500, "forward", 30); stop(2100); emotion(2400, "relaxed"); nod(3000); emotion(3700, "loving");
++        } else if (scene_id == "dance") {
++            emotion(0, "laughing"); color_cycle_fast(0); head(400, -22, 45); head(800, 22, 45); nod(1200);
++            move(1700, "left", 45); stop(2500); move(2700, "right", 45); stop(3500);
++            head(5800, -22, 45); head(5960, 22, 45); head(6120, -22, 45); emotion(5800, "laughing");
++        }
++        return steps;
++    }
+ 
++    void ApplySceneStep(const SceneStep& step) {
++        switch (step.kind) {
++            case SceneStepKind::EMOTION:
++                if (display_ != nullptr) display_->SetEmotion(step.text);
++                break;
++            case SceneStepKind::LED:
++                SetAllRgbLeds(static_cast<uint8_t>(std::clamp(step.v1, 0, 255)),
++                              static_cast<uint8_t>(std::clamp(step.v2, 0, 255)),
++                              static_cast<uint8_t>(std::clamp(step.v3, 0, 255)));
++                break;
++            case SceneStepKind::HEAD:
++                WriteHeadAngles(step.v1, step.v2, step.v3);
++                break;
++            case SceneStepKind::BASE_MOVE: {
++                const char* operation = nullptr;
++                if (strcmp(step.text, "forward") == 0) operation = "FW";
++                else if (strcmp(step.text, "backward") == 0) operation = "BW";
++                else if (strcmp(step.text, "left") == 0) operation = "TL";
++                else if (strcmp(step.text, "right") == 0) operation = "TR";
++                if (operation != nullptr) {
++                    SendNanoDriveMotion(std::string(operation) + ":" + std::to_string(step.v1));
++                }
++                break;
++            }
++            case SceneStepKind::BASE_STOP:
++                WriteNanoDriveCommand("ST");
++                break;
++        }
++    }
++
++    static void SceneTaskTrampoline(void* arg) {
++        static_cast<StackChanBoard*>(arg)->SceneTaskLoop();
++    }
++
++    void SceneTaskLoop() {
++        for (;;) {
++            xSemaphoreTake(scene_signal_, portMAX_DELAY);
++            std::vector<SceneStep> steps;
++            uint32_t generation = 0;
++            if (xSemaphoreTake(scene_lock_, portMAX_DELAY) == pdTRUE) {
++                steps = std::move(scene_pending_);
++                scene_pending_.clear();
++                scene_cancel_requested_.store(false, std::memory_order_release);
++                scene_active_.store(!steps.empty(), std::memory_order_release);
++                generation = scene_generation_.load(std::memory_order_acquire);
++                xSemaphoreGive(scene_lock_);
++            }
++            if (steps.empty()) continue;
++
++            const uint32_t start_ms = static_cast<uint32_t>(esp_timer_get_time() / 1000ULL);
++            for (const auto& step : steps) {
++                while (!scene_cancel_requested_.load(std::memory_order_acquire) &&
++                       scene_generation_.load(std::memory_order_acquire) == generation) {
++                    const uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000ULL);
++                    const uint32_t elapsed = now - start_ms;
++                    if (elapsed >= step.at_ms) break;
++                    vTaskDelay(pdMS_TO_TICKS(std::min<uint32_t>(step.at_ms - elapsed, 20)));
++                }
++                if (scene_cancel_requested_.load(std::memory_order_acquire) ||
++                    scene_generation_.load(std::memory_order_acquire) != generation) break;
++                ApplySceneStep(step);
++            }
++            WriteNanoDriveCommand("ST");
++            scene_active_.store(false, std::memory_order_release);
++            bool has_more = false;
++            if (xSemaphoreTake(scene_lock_, portMAX_DELAY) == pdTRUE) {
++                has_more = !scene_pending_.empty();
++                xSemaphoreGive(scene_lock_);
++            }
++            if (has_more) xSemaphoreGive(scene_signal_);
++        }
++    }
++
++    void CancelScenePlayback(const char* reason) {
++        if (scene_lock_ == nullptr) return;
++        if (xSemaphoreTake(scene_lock_, portMAX_DELAY) == pdTRUE) {
++            scene_pending_.clear();
++            scene_cancel_requested_.store(true, std::memory_order_release);
++            scene_generation_.fetch_add(1, std::memory_order_release);
++            xSemaphoreGive(scene_lock_);
++        }
++        WriteNanoDriveCommand("ST");
++        ESP_LOGI(TAG, "scene playback cancelled: %s", reason != nullptr ? reason : "unknown");
++    }
++
++    void InitializeSceneTask() {
++        if (scene_task_ != nullptr) return;
++        scene_lock_ = xSemaphoreCreateMutex();
++        scene_signal_ = xSemaphoreCreateBinary();
++        if (scene_lock_ == nullptr || scene_signal_ == nullptr) {
++            ESP_LOGE(TAG, "Failed to create scene sync primitives");
++            return;
++        }
++        if (xTaskCreate(&StackChanBoard::SceneTaskTrampoline, "scene_play", 4096, this,
++                        tskIDLE_PRIORITY + 2, &scene_task_) != pdPASS) {
++            ESP_LOGE(TAG, "Failed to create scene_play task");
++            vSemaphoreDelete(scene_lock_);
++            vSemaphoreDelete(scene_signal_);
++            scene_lock_ = nullptr;
++            scene_signal_ = nullptr;
++        } else {
++            ESP_LOGI(TAG, "Scene playback task ready");
++        }
++    }
++
+     void RegisterMcpTools() {
+@@ -6032,3 +6032,48 @@
+             });
++        mcp_server.AddTool(
++            "self.scene.play",
++            "Play one fixed StackChan physical scene. scene_id must be one of "
++            "wake_up, good_night, play, welcome_home, reminder, comfort, dance. "
++            "The scene runs locally and returns immediately; a newer scene or "
++            "self.scene.stop cancels the current one and stops the base.",
++            PropertyList({Property("scene_id", kPropertyTypeString)}),
++            [this](const PropertyList& properties) -> ReturnValue {
++                const std::string scene_id = properties["scene_id"].value<std::string>();
++                auto steps = BuildSceneSteps(scene_id);
++                cJSON* root = cJSON_CreateObject();
++                cJSON_AddStringToObject(root, "scene_id", scene_id.c_str());
++                if (steps.empty()) {
++                    cJSON_AddBoolToObject(root, "ok", false);
++                    cJSON_AddStringToObject(root, "error", "Unknown scene_id");
++                    return root;
++                }
++                if (scene_lock_ == nullptr || scene_signal_ == nullptr) {
++                    cJSON_AddBoolToObject(root, "ok", false);
++                    cJSON_AddStringToObject(root, "error", "Scene playback unavailable");
++                    return root;
++                }
++                if (xSemaphoreTake(scene_lock_, portMAX_DELAY) == pdTRUE) {
++                    scene_pending_ = std::move(steps);
++                    scene_cancel_requested_.store(true, std::memory_order_release);
++                    scene_generation_.fetch_add(1, std::memory_order_release);
++                    xSemaphoreGive(scene_lock_);
++                }
++                xSemaphoreGive(scene_signal_);
++                cJSON_AddBoolToObject(root, "ok", true);
++                cJSON_AddStringToObject(root, "status", "started");
++                return root;
++            });
+ 
++        mcp_server.AddTool(
++            "self.scene.stop",
++            "Cancel the current fixed scene and immediately stop the NanoDrive base.",
++            PropertyList(),
++            [this](const PropertyList&) -> ReturnValue {
++                CancelScenePlayback("mcp");
++                cJSON* root = cJSON_CreateObject();
++                cJSON_AddBoolToObject(root, "ok", true);
++                cJSON_AddStringToObject(root, "status", "stopped");
++                return root;
++            });
++
+         // Expose the existing LVGL/Twemoji renderer to the semantic scene
+@@ -7798,2 +7798,3 @@
+ #if CONFIG_STACKCHAN_ACTION_MCP
++        InitializeSceneTask();
+         RegisterMcpTools();

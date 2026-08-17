@@ -1,0 +1,170 @@
+diff --git a/firmware/configs/transport/xiaozhi-action-emoji.defaults b/firmware/configs/transport/xiaozhi-action-emoji.defaults
+--- a/firmware/configs/transport/xiaozhi-action-emoji.defaults
++++ b/firmware/configs/transport/xiaozhi-action-emoji.defaults
+@@ -6,6 +6,7 @@ CONFIG_DEFAULT_WEBSOCKET_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
+ CONFIG_STACKCHAN_ACTION_MCP=y
++CONFIG_STACKCHAN_AGENT_BASE_TOOLS=y
+ CONFIG_STACKCHAN_ACTION_GATEWAY=y
+ # Keep the built-in LVGL/Twemoji Emoji renderer visible on the LCD.
+ # CONFIG_STACKCHAN_AVATAR_OVERLAY is not set
+diff --git a/firmware/configs/transport/xiaozhi-plus-action.defaults b/firmware/configs/transport/xiaozhi-plus-action.defaults
+--- a/firmware/configs/transport/xiaozhi-plus-action.defaults
++++ b/firmware/configs/transport/xiaozhi-plus-action.defaults
+@@ -6,6 +6,7 @@ CONFIG_DEFAULT_WEBSOCKET_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
+ CONFIG_STACKCHAN_ACTION_MCP=y
++CONFIG_STACKCHAN_AGENT_BASE_TOOLS=y
+ CONFIG_STACKCHAN_ACTION_GATEWAY=y
+ CONFIG_STACKCHAN_AVATAR_OVERLAY=y
+diff --git a/firmware/configs/transport/xiaozhi-voice-only.defaults b/firmware/configs/transport/xiaozhi-voice-only.defaults
+--- a/firmware/configs/transport/xiaozhi-voice-only.defaults
++++ b/firmware/configs/transport/xiaozhi-voice-only.defaults
+@@ -10,6 +10,9 @@ CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
+ # Local robot tools stay available to the primary Xiaozhi session. The
+ # separate action gateway socket remains disabled in this profile.
+ CONFIG_STACKCHAN_ACTION_MCP=y
++# The demo keeps base movement on the physical remote; voice still controls
++# Emoji, LEDs and the head through the local MCP tools.
++# CONFIG_STACKCHAN_AGENT_BASE_TOOLS is not set
+ # CONFIG_STACKCHAN_ACTION_GATEWAY is not set
+ # CONFIG_STACKCHAN_AVATAR_OVERLAY is not set
+ CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL=y
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -46,6 +46,15 @@ config STACKCHAN_ACTION_MCP
+         retained independently. The separate action WebSocket is controlled
+             by STACKCHAN_ACTION_GATEWAY.
+ 
++config STACKCHAN_AGENT_BASE_TOOLS
++    bool "Expose NanoDrive movement tools to the voice Agent"
++    default y
++    depends on BOARD_TYPE_STACKCHAN
++    depends on STACKCHAN_ACTION_MCP
++    help
++        Register base_move, base_drive and base_stop in the local MCP tool
++        list. Disable this for the demo voice profile when the physical
++        controller is the only supported base control path.
++
+ choice STACKCHAN_VOICE_MODE
+     prompt "StackChan voice interaction mode"
+     default STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -536,6 +536,11 @@ class StackChanBoard : public WifiBoard {
+     static constexpr int CONTROLLER_HEAD_PITCH_MAX_DEG = 70;
+     static constexpr int CONTROLLER_HEAD_SPEED_DPS = 200;
+     static constexpr int CONTROLLER_HEAD_UPDATE_THRESHOLD_DEG = 2;
++    // Wheel trims are deliberately explicit so the single robot can be
++    // calibrated without changing the ESP-NOW protocol. Start at unity and
++    // adjust only the faster wheel after a straight-line test.
++    static constexpr int CONTROLLER_BASE_LEFT_TRIM_PERMILLE = 1000;
++    static constexpr int CONTROLLER_BASE_RIGHT_TRIM_PERMILLE = 1000;
+     int controller_last_head_yaw_deg_ = std::numeric_limits<int>::min();
+     int controller_last_head_pitch_deg_ = std::numeric_limits<int>::min();
+@@ -2343,7 +2348,7 @@ class StackChanBoard : public WifiBoard {
+         if (packet.mode == AR_MODE_HEAD) {
+             StopControllerBase();
+-            const int yaw = std::clamp(-static_cast<int>(packet.head_yaw) *
++            const int yaw = std::clamp(static_cast<int>(packet.head_yaw) *
+                                            CONTROLLER_HEAD_YAW_LIMIT_DEG / 1280,
+                                        -CONTROLLER_HEAD_YAW_LIMIT_DEG,
+                                        CONTROLLER_HEAD_YAW_LIMIT_DEG);
+@@ -2369,11 +2374,15 @@ class StackChanBoard : public WifiBoard {
+                 StopControllerBase();
+                 return;
+             }
+             const int left = std::clamp(static_cast<int>(controller_state_.base_left) *
+-                                            NANODRIVE_MAX_SPEED / 1000,
++                                            NANODRIVE_MAX_SPEED *
++                                            CONTROLLER_BASE_LEFT_TRIM_PERMILLE / 1000 / 1000,
+                                         -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
+             const int right = std::clamp(static_cast<int>(controller_state_.base_right) *
+-                                             NANODRIVE_MAX_SPEED / 1000,
++                                             NANODRIVE_MAX_SPEED *
++                                             CONTROLLER_BASE_RIGHT_TRIM_PERMILLE / 1000 / 1000,
+                                           -NANODRIVE_MAX_SPEED, NANODRIVE_MAX_SPEED);
+             // Keep the 30 ms ESP-NOW input rate away from the BLE queue while
+@@ -5799,8 +5808,8 @@ class StackChanBoard : public WifiBoard {
+             case SceneStepKind::BASE_MOVE: {
+                 const char* operation = nullptr;
+-                if (strcmp(step.text, "forward") == 0) operation = "FW";
+-                else if (strcmp(step.text, "backward") == 0) operation = "BW";
++                if (strcmp(step.text, "forward") == 0) operation = "BW";
++                else if (strcmp(step.text, "backward") == 0) operation = "FW";
+                 else if (strcmp(step.text, "left") == 0) operation = "TL";
+                 else if (strcmp(step.text, "right") == 0) operation = "TR";
+@@ -6145,7 +6154,7 @@ class StackChanBoard : public WifiBoard {
+         mcp_server.AddTool(
+             "self.robot.set_head_angles",
+-            "Set the head angles of the robot. yaw: horizontal (-90 to 90). pitch: vertical. M5Stack-recommended operating range is 5 to 85 degrees per https://docs.m5stack.com/en/StackChan (\"Motion Angle Notice\"). The firmware also accepts values up to 88 degrees (the hard clamp guards against the audible sub-stall observed at pitch=89 on real hardware), but values outside 5-85 degrees are not officially endorsed and may stress the servo over time. Requests below 0 degrees or above 88 degrees are silently clamped with an ESP_LOGW. Optional speed_dps: angular speed in degrees per second. If omitted or zero, the existing duration-based default applies; positive values below 15 dps are clamped to the step-safe floor. See README \"Hardware safety notes\".",
++            "Low-level head angle control. Prefer self.robot.head_pose for natural-language actions so up/down keep their physical meaning. yaw: horizontal (-90 to 90). pitch: vertical. M5Stack-recommended operating range is 5 to 85 degrees per https://docs.m5stack.com/en/StackChan (\"Motion Angle Notice\"). The firmware also accepts values up to 88 degrees (the hard clamp guards against the audible sub-stall observed at pitch=89 on real hardware), but values outside 5-85 degrees are not officially endorsed and may stress the servo over time. Requests below 0 degrees or above 88 degrees are silently clamped with an ESP_LOGW. Optional speed_dps: angular speed in degrees per second. If omitted or zero, the existing duration-based default applies; positive values below 15 dps are clamped to the step-safe floor. See README \"Hardware safety notes\".",
+@@ -6223,6 +6232,39 @@ class StackChanBoard : public WifiBoard {
+                  return root;
+              });
+ 
++        // Semantic head poses keep the Agent out of raw servo-angle sign
++        // conventions. On this hardware the smaller pitch angle is the
++        // physical "look up" direction; keep that conversion here and leave
++        // PitchDegToPos/YawDegToPos shared by the existing tools untouched.
++        mcp_server.AddTool(
++            "self.robot.head_pose",
++            "Move the head using physical directions. pose must be one of: "
++            "center, up, down, left, right. Use this tool for natural-language "
++            "requests; up means the robot physically raises its face and down "
++            "means it lowers its face.",
++            PropertyList({Property("pose", kPropertyTypeString)}),
++            [this](const PropertyList& properties) -> ReturnValue {
++                const std::string pose = properties["pose"].value<std::string>();
++                int yaw = 0;
++                int pitch = 45;
++                if (pose == "up") pitch = CONTROLLER_HEAD_PITCH_MIN_DEG;
++                else if (pose == "down") pitch = CONTROLLER_HEAD_PITCH_MAX_DEG;
++                else if (pose == "left") yaw = 30;
++                else if (pose == "right") yaw = -30;
++                else if (pose != "center") {
++                    cJSON* root = cJSON_CreateObject();
++                    cJSON_AddBoolToObject(root, "ok", false);
++                    cJSON_AddStringToObject(root, "error",
++                                            "pose must be center, up, down, left, or right");
++                    return root;
++                }
++                WriteHeadAngles(yaw, pitch, CONTROLLER_HEAD_SPEED_DPS);
++                cJSON* root = cJSON_CreateObject();
++                cJSON_AddBoolToObject(root, "ok", servo_ok_);
++                cJSON_AddStringToObject(root, "pose", pose.c_str());
++                cJSON_AddNumberToObject(root, "yaw", yaw);
++                cJSON_AddNumberToObject(root, "pitch", pitch);
++                return root;
++            });
++
+         mcp_server.AddTool(
+             "self.wifi.set_power_save",
+             "Set the ESP32 WiFi power-save mode at runtime. Mode \"none\" disables modem sleep so high-rate command streams (for example, the pose-stream follower) avoid the ~800 ms TCP send jitter caused by the DTIM beacon cycle, at the cost of higher idle WiFi power consumption. Mode \"min_modem\" restores the xiaozhi-esp32 default light modem sleep for normal interactive use. Returns {ok, previous, current}.",
+@@ -7716,6 +7758,7 @@ class StackChanBoard : public WifiBoard {
+                 return root;
+             });
+ 
++#if CONFIG_STACKCHAN_AGENT_BASE_TOOLS
+         mcp_server.AddTool(
+             "self.robot.base_move",
+@@ -7729,8 +7772,8 @@ class StackChanBoard : public WifiBoard {
+                 const int speed = std::clamp(properties["speed"].value<int>(),
+                                              0, NANODRIVE_MAX_SPEED);
+                 const char* operation = nullptr;
+-                if (direction == "forward") operation = "FW";
+-                else if (direction == "backward") operation = "BW";
++                if (direction == "forward") operation = "BW";
++                else if (direction == "backward") operation = "FW";
+                 else if (direction == "left") operation = "TL";
+                 else if (direction == "right") operation = "TR";
+@@ -7760,6 +7803,7 @@ class StackChanBoard : public WifiBoard {
+                  return WriteNanoDriveCommand("ST");
+              });
++#endif
+ 
+         ESP_LOGI(TAG, "StackChan MCP tools registered");

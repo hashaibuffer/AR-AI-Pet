@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 
 from .data_service_client import DataServiceClient
 from .persona import PersonaLoader
+from .scenes import get_scene
 from .settings import MCP_HOST, MCP_PORT, PERSONA_ROOT
 from .settings import DATA_SERVICE_TIMEOUT_SECONDS, DATA_SERVICE_WS_URL
 
@@ -186,13 +187,26 @@ async def sensor_query_recent(sensor_type: str | None = None, limit: int = 10) -
 @mcp.tool(name="device.capabilities", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})
 async def device_capabilities(device_id: str = "mock-robot") -> dict[str, Any]:
     """Read semantic device capabilities without exposing motor parameters."""
-    return {"deviceId": device_id, "capabilities": ["nod", "wave", "dance", "farm_tend", "stop"]}
+    return {"deviceId": device_id, "capabilities": ["nod", "wave", "dance", "scene.play", "farm_tend", "stop"]}
 
 
 @mcp.tool(name="robot.react", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
 async def robot_react(action_type: str, parameters: dict[str, Any] | None = None, source_event_id: str | None = None, action_id: str | None = None) -> dict[str, Any]:
     """Describe one semantic reaction; the accepted ExperienceEvent creates the device action."""
     return {"status": "deferred", "actionId": action_id, "actionType": action_type, "parameters": parameters or {}, "sourceEventId": source_event_id}
+
+
+@mcp.tool(name="scene.play", annotations={"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False})
+async def scene_play(scene_id: str, source_event_id: str | None = None) -> dict[str, Any]:
+    """Select one predefined robot scene; the accepted ExperienceEvent owns execution."""
+    scene = get_scene(scene_id)
+    return {
+        "status": "deferred",
+        "sceneId": scene.scene_id,
+        "durationMs": scene.duration_ms,
+        "steps": [dict(step) for step in scene.steps],
+        "sourceEventId": source_event_id,
+    }
 
 
 @mcp.tool(name="robot.stop", annotations={"readOnlyHint": False, "destructiveHint": True, "openWorldHint": False})
@@ -208,7 +222,7 @@ async def robot_get_status(device_id: str = "mock-robot") -> dict[str, Any]:
     """Read the mock robot semantic status."""
     latest = await data_service.request("action.latest", {"deviceId": device_id})
     status = latest.get("status", "idle") if latest else "idle"
-    return {"deviceId": device_id, "status": status, "connected": True, "capabilities": ["nod", "wave", "dance", "farm_tend", "stop"], "latestAction": latest}
+    return {"deviceId": device_id, "status": status, "connected": True, "capabilities": ["nod", "wave", "dance", "scene.play", "farm_tend", "stop"], "latestAction": latest}
 
 
 @mcp.tool(name="action.latest", annotations={"readOnlyHint": True, "idempotentHint": True, "openWorldHint": False})

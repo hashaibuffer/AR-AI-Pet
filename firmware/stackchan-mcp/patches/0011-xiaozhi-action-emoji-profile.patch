@@ -1,0 +1,17 @@
+diff --git a/firmware/configs/transport/xiaozhi-action-emoji.defaults b/firmware/configs/transport/xiaozhi-action-emoji.defaults
+new file mode 100644
+index 0000000..b9d7b31
+--- /dev/null
++++ b/firmware/configs/transport/xiaozhi-action-emoji.defaults
+@@ -0,0 +1,11 @@
++# Official Xiaozhi remains the primary voice/session transport. The second
++# WebSocket is action-only and is populated by configure_stackchan.py.
++# CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG is not set
++# CONFIG_FORCE_DEFAULT_WEBSOCKET_URL is not set
++CONFIG_DEFAULT_WEBSOCKET_URL=""
++CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL=""
++CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
++CONFIG_STACKCHAN_ACTION_MCP=y
++CONFIG_STACKCHAN_ACTION_GATEWAY=y
++# Keep the built-in LVGL/Twemoji Emoji renderer visible on the LCD.
++# CONFIG_STACKCHAN_AVATAR_OVERLAY is not set

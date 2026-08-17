@@ -10,3 +10,4 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.mov filter=lfs diff=lfs merge=lfs -text
 *.mkv filter=lfs diff=lfs merge=lfs -text
+firmware/stackchan-mcp/patches/*.patch whitespace=-trailing-space

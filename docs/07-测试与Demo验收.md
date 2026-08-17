@@ -25,6 +25,19 @@
 | 服务或设备重启后的状态恢复              | A、B   | 重启后恢复约定的宠物、游戏、虚拟生活和设备状态，不产生重复事件   |     |       |
 | 完整 Demo 连续运行三次             | B     | 按冻结脚本连续完成三次，不出现阻塞演示的问题            |     |       |
 
+## 动作网关固件烧录记录（历史/可选配置，2026-08-15）
+
+以下记录保留此前独立动作网关链路的验证结果；当前语音演示固件未启用该配置，当前基线见上方“语音演示固件构建”和“固件动作网关配置”。
+
+| 项目 | 状态 | 证据与边界 |
+| --- | --- | --- |
+| Robot Bridge 动作网关地址 | 通过（地址确认） | 本机 WLAN IPv4 为 `192.168.50.133`；动作网关监听 `0.0.0.0:8765`，`Test-NetConnection 192.168.50.133 -Port 8765` 通过。 |
+| 语音演示固件构建 | 通过 | 当前使用 `0014-richer-scene-timelines.patch`（覆盖 `0013` 中间版本）及 `0015`—`0022` 补丁；ESP-IDF `v5.5.4` 构建成功，`xiaozhi.bin` 为 `0x322330`，应用分区约 20% 空闲，已刷写 COM7。 |
+| 固件动作网关配置 | 不启用（当前演示边界） | 当前 `CONFIG_STACKCHAN_ACTION_GATEWAY` 未启用；主语音仍保留本地 Emoji、灯光和舵机工具，底座由实体遥控器控制。 |
+| COM7 烧录与校验 | 通过（当前语音演示版） | `idf.py -p COM7 flash` 完成，bootloader、应用、分区表、OTA 数据和 assets 均写入并通过 SHA 校验，设备已硬复位。 |
+| 烧录后设备启动 | 通过（启动子链路） | 串口确认检测到 8MB Quad PSRAM，Wi‑Fi 连接 `hashai` 并获取 `192.168.50.213`，语音 WebSocket 握手成功；激活后内部 SRAM 约 81KB，语音与 ESP-NOW 运行约 45 秒后仍约 51.7KB，未出现 `Failed to allocate memory` 或 `SSL send failed`。NanoDrive BLE 已改为首次底座动作时按需启动，本次启动观察未触发底座动作。 |
+| 独立动作网关—StackChan 动作调用 | 历史/可选 | 该链路曾完成地址和单动作验证；当前 `xiaozhi-voice-only` 不启用，不能作为当前演示通过依据。 |
+
 ## StackChan 实机子项
 
 以下只记录 StackChan 自身及其当前语音链路的实机结果，不代表完整 AR、Agent 或底座闭环通过。
@@ -38,9 +51,11 @@
 | MultiNet / AEC 比较 | 不进入当前烧录门槛 | 普通 WakeNet A 已满足用户体验底线；MultiNet 和显式 AEC 配置保留为出现明确回归时的诊断变体。启动日志已观察到默认 AFE `AEC(SR_HIGH_PERF)` 路径。 |
 | Xiaozhi 联网、语音上传和服务器回答 | 通过（StackChan × Xiaozhi 子项） | 主语音 WebSocket 负责 ASR、会话和自动轮次；该结果仍不等于 AR、Unity、底座完整端到端闭环。 |
 | 当前 4 MB assets 分区 | 通过 | 当前应用分区约 27% 空闲，assets 分区约 45% 空闲；早期 8 MB assets 方案仅作历史记录。 |
-| 项目 Robot Adapter | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证 `play_motion`、`stop_motion`、`set_head_angles`。 |
+| StackChan 本地动作工具 | 通过（控制动作子集） | 固件 1.4.5、ESP-IDF 5.5.4、COM7；实机验证本体表情、灯光和头部动作。 |
 | 电脑—StackChan 控制 | 通过（StackChan 子链路） | AI.AGENT 启动后，电脑经官方 `ws://192.168.50.213:8080/ws` 发送两轮 MCP 调用，动作与串口日志一致；Beam Pro 接入仍待验证。 |
-| Xiaozhi Agent—独立动作 MCP—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，Agent 调用 `self.robot.set_head_angles`，实机先后执行左右头部动作；动作通道不接管语音会话。 |
+| Xiaozhi Agent—本地动作工具—StackChan | 通过（当前产品子链路） | 用户中文要求摇头后，主语音会话调用 `self.robot.set_head_angles`，实机执行头部动作；不依赖独立动作网关。 |
+| voice-emoji 固件内置七场景播放器 | 通过（编译与注册） | ESP-IDF 5.5.4 构建通过，应用分区约 19% 空闲；COM7 启动日志出现 `Scene playback task ready`，并注册 `self.scene.play` / `self.scene.stop`。 |
+| 七个实体小剧场逐场执行 | 待验证 | 固件已刷入，仍需通过语音实际触发并观察 Emoji、灯光和头部时间轴；当前剧本不包含 NanoDrive 动作。 |
 | MCP Hub—PostgreSQL | 通过（数据工具子链路） | `system.health`、`pet.state.get`、`schedule.list`、`schedule.upsert` 经真实 MCP 客户端通过，输出 `MCP_SMOKE_OK`。 |
 | MCP Hub 启动门槛 | 通过 | data-service 和 mcp-hub 均通过 WebSocket/MCP healthcheck 后进入 healthy。 |
 | 本地 Agent Runtime—MCP—数据服务 | 通过（Mock闭环） | `AGENT_SMOKE_OK` 已验证文字请求、日程读写、工具错误反馈和对话落库；真实模型与语音分别记录，本次不包含语音。 |
@@ -60,3 +75,13 @@
 | StackChan—NanoDrive BLE 透明串口 v0.9 | 通过（实体） | StackChan 连接 `FFE0/FFE1`，遥控器 BASE 模式驱动底座前后左右；松手停止与底座超时停车已现场确认。BLE 暂无设备状态回传。 |
 | 完整 AR—Agent—机器人端到端闭环 | 待验证 | 当前只通过 StackChan 子链路，不得据此宣称完整闭环通过。 |
 | 完整 Demo 连续运行三次 | 待验证 | 尚未按冻结 Demo 脚本完成三次连续验收。 |
+
+## 演示版方向修正验收（代码已完成，实机待确认）
+
+| 项目 | 状态 | 通过标准 |
+| --- | --- | --- |
+| 语音 Emoji / 灯光 / 脑袋 | 待实机 | 语音触发 `self.display.set_emotion`、灯光工具和 `self.robot.head_pose`；抬头、低头、左右看均符合机器人自身视角。 |
+| 语音底座工具边界 | 已配置 | `xiaozhi-voice-only` 不注册 `base_move`、`base_drive`、`base_stop`；底座仅由实体遥控器控制。 |
+| 遥控脑袋左右 | 待实机 | 摇杆左/右与机器人自身左/右一致；不修改公共舵机角度换算。 |
+| 遥控底座前后与转向 | 待实机 | 前进、后退、停止正确；左右转灵敏度明显降低且可控。 |
+| 底座直行 | 待实机 | 固定速度直行约1米，偏差记录后再调整左右轮 trim；未实测前不标记通过。 |

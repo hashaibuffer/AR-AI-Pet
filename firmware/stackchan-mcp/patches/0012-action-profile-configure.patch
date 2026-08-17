@@ -1,0 +1,8 @@
+diff --git a/firmware/scripts/configure_stackchan.py b/firmware/scripts/configure_stackchan.py
+--- a/firmware/scripts/configure_stackchan.py
++++ b/firmware/scripts/configure_stackchan.py
+@@ -219,3 +219,3 @@ def bind_transport_values(
+-    if transport_profile == "xiaozhi-plus-action":
++    if transport_profile in {"xiaozhi-plus-action", "xiaozhi-action-emoji"}:
+         values[ACTION_URL] = quoted(local_gateway_url)
+         values[ACTION_TOKEN] = quoted(local_gateway_token)

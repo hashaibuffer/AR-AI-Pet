@@ -1,0 +1,386 @@
+diff --git a/firmware/configs/transport/local-mcp.defaults b/firmware/configs/transport/local-mcp.defaults
+index 53821ee..89551de 100644
+--- a/firmware/configs/transport/local-mcp.defaults
++++ b/firmware/configs/transport/local-mcp.defaults
+@@ -6,3 +6,6 @@ CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG=y
+ CONFIG_FORCE_DEFAULT_WEBSOCKET_URL=y
+ CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL=""
+ CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN=""
++CONFIG_STACKCHAN_ACTION_MCP=y
++CONFIG_STACKCHAN_ACTION_GATEWAY=y
++CONFIG_STACKCHAN_AVATAR_OVERLAY=y
+diff --git a/firmware/configs/transport/xiaozhi-plus-action.defaults b/firmware/configs/transport/xiaozhi-plus-action.defaults
+index a46ab80..9bfe915 100644
+--- a/firmware/configs/transport/xiaozhi-plus-action.defaults
++++ b/firmware/configs/transport/xiaozhi-plus-action.defaults
+@@ -6,3 +6,6 @@
+ CONFIG_DEFAULT_WEBSOCKET_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL=""
+ CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
++CONFIG_STACKCHAN_ACTION_MCP=y
++CONFIG_STACKCHAN_ACTION_GATEWAY=y
++CONFIG_STACKCHAN_AVATAR_OVERLAY=y
+diff --git a/firmware/configs/transport/xiaozhi-voice-only.defaults b/firmware/configs/transport/xiaozhi-voice-only.defaults
+new file mode 100644
+index 0000000..6c3a192
+--- /dev/null
++++ b/firmware/configs/transport/xiaozhi-voice-only.defaults
+@@ -0,0 +1,18 @@
++# Official Xiaozhi owns the primary voice/session connection. No local action
++# MCP socket is started in this profile, leaving the SRAM budget to voice,
++# OTA/activation and the built-in Emoji renderer.
++# CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG is not set
++# CONFIG_FORCE_DEFAULT_WEBSOCKET_URL is not set
++CONFIG_DEFAULT_WEBSOCKET_URL=""
++CONFIG_DEFAULT_WEBSOCKET_FALLBACK_URL=""
++CONFIG_DEFAULT_WEBSOCKET_TOKEN=""
++CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL=""
++CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN=""
++# Local robot tools stay available to the primary Xiaozhi session. The
++# separate action gateway socket remains disabled in this profile.
++CONFIG_STACKCHAN_ACTION_MCP=y
++# CONFIG_STACKCHAN_ACTION_GATEWAY is not set
++# CONFIG_STACKCHAN_AVATAR_OVERLAY is not set
++CONFIG_STACKCHAN_VOICE_MODE_XIAOZHI_CONVERSATIONAL=y
++# CONFIG_STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT is not set
++CONFIG_STACKCHAN_TOUCH_PTT=y
+diff --git a/firmware/main/Kconfig.projbuild b/firmware/main/Kconfig.projbuild
+index 0d8e7de..4572909 100644
+--- a/firmware/main/Kconfig.projbuild
++++ b/firmware/main/Kconfig.projbuild
+@@ -18,6 +18,35 @@ config STACKCHAN_MCP_ACTION_GATEWAY_TOKEN
+     help
+         Optional bearer token for the Kimito action MCP gateway.
+
++config STACKCHAN_ACTION_GATEWAY
++    bool "Enable separate Kimito action gateway client"
++    default n
++    depends on BOARD_TYPE_STACKCHAN
++    help
++        Start the optional second WebSocket client used by Kimito's external
++        action gateway. This is independent from the local StackChan MCP
++        tool registry, so the robot can expose local actions without opening
++        a second socket.
++
++config STACKCHAN_AVATAR_OVERLAY
++    bool "Enable Kimito avatar overlay"
++    default n
++    depends on BOARD_TYPE_STACKCHAN
++    help
++        Enable the optional full-screen Kimito avatar and mouth-animation
++        layer. When disabled, the official Xiaozhi/LVGL emoji renderer stays
++        visible and the avatar MCP tools are not registered.
++
++config STACKCHAN_ACTION_MCP
++    bool "Enable local action MCP and robot tool transport"
++    default n
++    depends on BOARD_TYPE_STACKCHAN
++    help
++        Enable the local StackChan robot-tool registry (head, Emoji, LED,
++        sensor and NanoDrive actions). ESP-NOW remote and NanoDrive BLE are
++        retained independently. The separate action WebSocket is controlled
++        by STACKCHAN_ACTION_GATEWAY.
++
+ choice STACKCHAN_VOICE_MODE
+     prompt "StackChan voice interaction mode"
+     default STACKCHAN_VOICE_MODE_MCP_SINGLE_SHOT
+diff --git a/firmware/main/application.cc b/firmware/main/application.cc
+index 4f18421..f1971b4 100644
+--- a/firmware/main/application.cc
++++ b/firmware/main/application.cc
+@@ -750,9 +750,12 @@ void Application::InitializeProtocol() {
+
+     // Keep the AI.AGENT/Xiaozhi voice transport as the primary connection.
+     // Kimito action tools use a separate MCP WebSocket so the two servers do
+-    // not compete for audio/session state.
++    // not compete for audio/session state. Voice-only builds omit the action
++    // client entirely so official activation has enough internal SRAM.
++#if CONFIG_STACKCHAN_ACTION_GATEWAY
+     action_mcp_client_ = std::make_unique<McpActionClient>();
+     action_mcp_client_->Start();
++#endif
+ }
+
+ void Application::ShowActivationCode(const std::string& code, const std::string& message) {
+diff --git a/firmware/main/audio/wake_words/afe_wake_word.cc b/firmware/main/audio/wake_words/afe_wake_word.cc
+index 8fc5fef..dc75e50 100644
+--- a/firmware/main/audio/wake_words/afe_wake_word.cc
++++ b/firmware/main/audio/wake_words/afe_wake_word.cc
+@@ -1,6 +1,8 @@
+ #include "afe_wake_word.h"
+ #include "audio_service.h"
+ #include <esp_log.h>
++#include <esp_heap_caps.h>
++#include <freertos/idf_additions.h>
+ #include <sstream>
+
+ #define DETECTION_RUNNING_EVENT 1
+@@ -80,11 +82,15 @@ bool AfeWakeWord::Initialize(AudioCodec* codec, srmodel_list_t* models_list) {
+     afe_iface_ = esp_afe_handle_from_config(afe_config);
+     afe_data_ = afe_iface_->create_from_config(afe_config);
+
+-    xTaskCreate([](void* arg) {
++    const BaseType_t task_result = xTaskCreateWithCaps([](void* arg) {
+         auto this_ = (AfeWakeWord*)arg;
+         this_->AudioDetectionTask();
+         vTaskDelete(NULL);
+-    }, "audio_detection", 4096, this, 3, nullptr);
++    }, "audio_detection", 16384, this, 3, nullptr,
++       MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
++    if (task_result != pdPASS) {
++        ESP_LOGE(TAG, "Audio detection task creation failed; wake word cannot run");
++    }
+
+     return true;
+ }
+diff --git a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+index 008cc75..4a50b1a 100644
+--- a/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
++++ b/firmware/main/boards/stackchan/nanodrive_ble_scanner.cc
+@@ -11,8 +11,10 @@
+ #include <esp_gap_ble_api.h>
+ #include <esp_gatt_common_api.h>
+ #include <esp_log.h>
++#include <esp_heap_caps.h>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/event_groups.h>
++#include <freertos/idf_additions.h>
+ #include <freertos/task.h>
+
+ namespace {
+@@ -193,8 +195,8 @@ void NanoDriveBleScanner::Start() {
+     }
+
+     started_ = true;
+-    if (xTaskCreate(ScanTaskTrampoline, "nanodrive_ble_scan", 4096, this, 4, nullptr) !=
+-        pdPASS) {
++    if (xTaskCreateWithCaps(ScanTaskTrampoline, "nanodrive_ble_scan", 16384, this, 4,
++                             nullptr, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+         ESP_LOGE(TAG, "scan task creation failed");
+         started_ = false;
+         return;
+diff --git a/firmware/main/boards/stackchan/stackchan.cc b/firmware/main/boards/stackchan/stackchan.cc
+index 4b6c2f3..4a6d94a 100644
+--- a/firmware/main/boards/stackchan/stackchan.cc
++++ b/firmware/main/boards/stackchan/stackchan.cc
+@@ -48,8 +48,10 @@ static inline bool ServoWritePosOk(int r) { return r > 0; }
+ #include <esp_random.h>
+ #include <freertos/FreeRTOS.h>
+ #include <freertos/task.h>
++#include <freertos/idf_additions.h>
+ #include <freertos/semphr.h>
+ #include <freertos/queue.h>
++#include <esp_heap_caps.h>
+ #include "controller_protocol.h"
+ #include "controller_state.h"
+ #include "esp_video.h"
+@@ -2479,8 +2481,8 @@ private:
+             return;
+         }
+         controller_instance_ = this;
+-        if (xTaskCreate(ControllerTaskTrampoline, "controller_rx", 6144, this, 5,
+-                        &controller_task_) != pdPASS) {
++        if (xTaskCreateWithCaps(ControllerTaskTrampoline, "controller_rx", 24576, this, 5,
++                                &controller_task_, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) != pdPASS) {
+             ESP_LOGE(TAG, "ESP-NOW controller task creation failed");
+             vQueueDelete(controller_rx_queue_);
+             controller_rx_queue_ = nullptr;
+@@ -4925,11 +4927,16 @@ private:
+     // the user-requested "off" state, so the underlying xiaozhi-esp32
+     // screens remain visible. Returns true if the face was applied.
+     bool SetAvatarExpressionIfActive(const char* face) {
++#if !CONFIG_STACKCHAN_AVATAR_OVERLAY
++        (void)face;
++        return false;
++#else
+         if (current_avatar_face_ == "off") {
+             ESP_LOGD(TAG, "SetAvatarExpressionIfActive('%s') skipped: avatar is OFF", face);
+             return false;
+         }
+         return SetAvatarExpression(face);
++#endif
+     }
+
+     // Schedule a one-shot/periodic timer that keeps trying to install the
+@@ -6286,6 +6293,7 @@ private:
+                 return root;
+             });
+
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         // Set the avatar face (one of: idle, happy, thinking, sad, surprised,
+         // embarrassed, off).
+         // The image is rendered as a 320x240 overlay on top of the chat UI's
+@@ -6466,6 +6474,8 @@ private:
+                 return root;
+             });
+
++#endif
++
+         // Phase 7: head-touch (Si12T). Returns the latest debounced zone
+         // states plus the most recent gesture event. Polled by the MCP client
+         // to notice TAP/STROKE on the head without holding open a stream.
+@@ -7483,19 +7493,26 @@ public:
+         GetBacklight()->RestoreBrightness();
+         InitializeIOExpander();
+         InitializeServo();
++        // Keep the physical ESP-NOW remote and NanoDrive BLE bridge available
++        // in voice-only mode. Only the local MCP tool registration is gated
++        // by CONFIG_STACKCHAN_ACTION_MCP.
+         InitializeEspNowController();
+         NanoDriveBleScanner::GetInstance().Start();
+         InitializeTouchSettings();
+         InitializeSi12tTouch();
+         I2cDetect();
+-        // Kimito is the single Agent UI. The deferred initializer waits until
+-        // activation reaches idle, so first-boot Wi-Fi configuration remains
+-        // usable before the avatar overlay is installed.
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
++        // Kimito is the optional Agent UI. The deferred initializer waits
++        // until activation reaches idle, so first-boot Wi-Fi configuration
++        // remains usable before the avatar overlay is installed.
+         InitializeAvatar();
+         InitializeMouthSequenceTask();
++#endif
+         // NanoDrive transport is owned by the BLE scanner.  Do not claim
+         // Port C GPIO17 as a direct UART in the Bluetooth configuration.
++#if CONFIG_STACKCHAN_ACTION_MCP
+         RegisterMcpTools();
++#endif
+     }
+
+     virtual AudioCodec* GetAudioCodec() override {
+@@ -7545,11 +7562,15 @@ public:
+     // playback. The gateway's tts.start / tts.stop notifications reach this
+     // board via Application::OnIncomingJson() -> Board::OnTtsStart/Stop().
+     virtual void OnTtsStart() override {
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         StartTtsLipSync();
++#endif
+     }
+
+     virtual void OnTtsStop() override {
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         StopTtsLipSync();
++#endif
+     }
+
+     // AI.AGENT state-to-Kimito presentation bridge. The application still
+@@ -7558,6 +7579,7 @@ public:
+     // mapping is deliberately small and deterministic so an LLM cannot send
+     // arbitrary servo commands through an emotion string.
+     virtual void OnAgentStateChanged(const char* state) override {
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         if (state == nullptr) return;
+         if (strcmp(state, "idle") == 0) {
+             SetAvatarExpressionIfActive("idle");
+@@ -7568,9 +7590,16 @@ public:
+             SetAvatarExpressionIfActive("happy");
+             WriteHeadAngles(8, 45, 300);
+         }
++#else
++        // Application::OnIncomingJson() renders the semantic emotion through
++        // Display::SetEmotion(). Do not let the optional avatar bridge mask
++        // that Emoji layer in the voice-emoji profile.
++        (void)state;
++#endif
+     }
+
+     virtual void OnAgentEmotion(const char* emotion) override {
++#if CONFIG_STACKCHAN_AVATAR_OVERLAY
+         if (emotion == nullptr) return;
+         // Start from a safe idle pose, then override it for known labels.
+         // Unknown labels are rendered as idle instead of being interpreted as
+@@ -7602,6 +7631,12 @@ public:
+         }
+         SetAvatarExpressionIfActive(face);
+         WriteHeadAngles(yaw, pitch, 300);
++#else
++        // The base Display implementation already consumes this event and
++        // renders the selected Twemoji image. No Avatar or servo side effect
++        // is needed in the voice-emoji profile.
++        (void)emotion;
++#endif
+     }
+
+     // Phase 4.5 avatar (saiverse-stackchan-addon): handle the gateway's
+@@ -7612,6 +7647,11 @@ public:
+     // is delegated to a FreeRTOS task to avoid blocking the receive loop
+     // while the LCD-sized payload flows in.
+     virtual void OnAvatarSetFetch(const cJSON* root) override {
++#if !CONFIG_STACKCHAN_AVATAR_OVERLAY
++        (void)root;
++        ESP_LOGW(TAG, "Ignoring avatar_set_fetch: avatar overlay is disabled");
++        return;
++#else
+         if (root == nullptr) {
+             ESP_LOGW(TAG, "OnAvatarSetFetch: root is null");
+             return;
+@@ -7756,6 +7796,7 @@ public:
+         // restoration happens last so a successful fetch doesn't restart
+         // blink if the user disabled it mid-fetch.
+         ApplyPendingAvatarAfterFetch();
++#endif
+     }
+
+     static void SendAvatarSetLoaded(
+diff --git a/firmware/scripts/build_consistency_report.py b/firmware/scripts/build_consistency_report.py
+index af34ccc..d1e2924 100644
+--- a/firmware/scripts/build_consistency_report.py
++++ b/firmware/scripts/build_consistency_report.py
+@@ -48,6 +48,9 @@ REPORT_KEYS = [
+     "CONFIG_DEFAULT_WEBSOCKET_TOKEN",
+     "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_URL",
+     "CONFIG_STACKCHAN_MCP_ACTION_GATEWAY_TOKEN",
++    "CONFIG_STACKCHAN_ACTION_MCP",
++    "CONFIG_STACKCHAN_ACTION_GATEWAY",
++    "CONFIG_STACKCHAN_AVATAR_OVERLAY",
+     "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL",
+     "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG",
+ ]
+@@ -482,14 +485,12 @@ def build_report(firmware_root: Path, serial_log: Path | None) -> dict[str, Any]
+     force_primary = normalized_enabled(
+         effective.get("CONFIG_FORCE_DEFAULT_WEBSOCKET_URL")
+     )
+-    if xiaozhi_mode and (
+-        ota_ws_disabled or force_primary or primary_url or not action_url
+-    ):
++    if xiaozhi_mode and (ota_ws_disabled or force_primary or primary_url):
+         add_finding(
+             findings,
+             "error",
+             "xiaozhi_transport_ownership_mismatch",
+-            "Xiaozhi mode must use OTA/NVS for the primary voice transport and a separate non-empty action gateway.",
++            "Xiaozhi mode must use OTA/NVS for the primary voice transport; the optional action gateway may be empty in the voice-only profile.",
+         )
+     if mcp_mode and (
+         not ota_ws_disabled or not force_primary or not primary_url or action_url
+diff --git a/firmware/scripts/configure_stackchan.py b/firmware/scripts/configure_stackchan.py
+index 3abbb94..6b49465 100644
+--- a/firmware/scripts/configure_stackchan.py
++++ b/firmware/scripts/configure_stackchan.py
+@@ -205,6 +205,12 @@ def bind_transport_values(
+     local_gateway_url: str,
+     local_gateway_token: str,
+ ) -> None:
++    if transport_profile == "xiaozhi-voice-only":
++        # The official OTA/NVS-owned WebSocket remains the only transport.
++        # Do not carry a stale local action URL into this profile.
++        values[ACTION_URL] = quoted("")
++        values[ACTION_TOKEN] = quoted("")
++        return
+     if not local_gateway_url:
+         raise ValueError(
+             "a local StackChan gateway URL is required; pass --local-gateway-url "
+@@ -254,10 +260,10 @@ def validate(values: OrderedDict[str, str | None]) -> list[str]:
+     ota_ws_disabled = enabled(values, "CONFIG_DISABLE_OTA_WEBSOCKET_CONFIG")
+     force_primary = enabled(values, "CONFIG_FORCE_DEFAULT_WEBSOCKET_URL")
+     if xiaozhi:
+-        if ota_ws_disabled or force_primary or primary_url or not action_url:
++        if ota_ws_disabled or force_primary or primary_url:
+             errors.append(
+                 "Xiaozhi conversational mode requires OTA/NVS primary voice "
+-                "transport and a non-empty action-only gateway"
++                "transport"
+             )
+     if mcp:
+         if not ota_ws_disabled or not force_primary or not primary_url or action_url:
