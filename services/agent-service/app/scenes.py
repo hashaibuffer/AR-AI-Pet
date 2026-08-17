@@ -154,6 +154,22 @@ def normalize_text(text: str) -> str:
     return value
 
 
+_SCHEDULE_TIME_PATTERN = re.compile(
+    r"(?:今天|明天|后天|今晚|明早|上午|中午|下午|晚上|凌晨|"
+    r"周[一二三四五六日天]|星期[一二三四五六日天]|"
+    r"每天|每日|每周|每月|稍后|一会儿|"
+    r"(?:\d{1,2}|[一二三四五六七八九十两]+)(?:点|时)|\d{1,2}[:：]|"
+    r"(?:\d+|半|[一二三四五六七八九十两]+)(?:分钟|小时|天)后|"
+    r"\d{4}(?:年|[-/])\d{1,2})"
+)
+
+
+def _looks_like_schedule_request(text: str) -> bool:
+    """Keep time-bearing reminder requests on the Agent scheduling path."""
+
+    return bool(_SCHEDULE_TIME_PATTERN.search(unicodedata.normalize("NFKC", str(text))))
+
+
 class ExactSceneRouter:
     """Match only an allow-listed phrase; everything else goes to the Agent."""
 
@@ -172,6 +188,8 @@ class ExactSceneRouter:
             for scene in sorted(SCENES.values(), key=lambda item: item.priority, reverse=True):
                 aliases = sorted((normalize_text(alias) for alias in scene.aliases), key=len, reverse=True)
                 if any(alias and alias in candidate for alias in aliases):
+                    if scene.scene_id == "reminder" and _looks_like_schedule_request(text):
+                        continue
                     return scene
         return None
 

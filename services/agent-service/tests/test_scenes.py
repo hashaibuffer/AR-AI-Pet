@@ -34,6 +34,12 @@ class SceneRouterTests(unittest.TestCase):
         self.assertIsNone(self.router.match("不要提醒我喝水"))
         self.assertIsNone(self.router.match("今天很累，陪我聊聊天"))
 
+    def test_time_bearing_reminder_goes_to_agent_scheduler(self) -> None:
+        self.assertIsNone(self.router.match("明天下午三点提醒我开会"))
+        self.assertIsNone(self.router.match("每天九点提醒我喝水"))
+        self.assertIsNone(self.router.match("半小时后提醒我休息"))
+        self.assertEqual(self.router.match("提醒我喝水").scene_id, "reminder")
+
     def test_all_mvp_scenes_have_safe_stop_and_display_steps(self) -> None:
         for scene_id in ("wake_up", "good_night", "play", "welcome_home", "reminder", "comfort", "dance"):
             scene = SCENES[scene_id]
