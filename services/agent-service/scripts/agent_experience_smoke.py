@@ -64,12 +64,18 @@ async def main() -> None:
         unity_event, robot_event = await asyncio.gather(unity.next_event(), robot.next_event())
         assert unity_event["eventId"] == robot_event["eventId"], (unity_event, robot_event)
         assert unity_event["xr"]["displayActionId"] != robot_event["robot"]["actions"][0]["actionId"], (unity_event, robot_event)
-        assert unity_event["mode"] == "conversation", unity_event
-        assert unity_event["robot"]["actions"][0]["intent"] == "dance", unity_event
-        await asyncio.gather(unity.acknowledge(unity_event, "display"), robot.acknowledge(robot_event, "dance"))
+        assert unity_event["mode"] == "scene", unity_event
+        assert unity_event["scene"]["sceneId"] == "dance", unity_event
+        assert unity_event["robot"]["actions"][0]["intent"] == "scene.play", unity_event
+        await asyncio.gather(unity.acknowledge(unity_event, "display"), robot.acknowledge(robot_event, "scene.play"))
         result = await chat_task
-        assert result["agentTurn"]["behaviorIntent"] == "dance", result
-        assert any(call["name"] == "robot.react" and call["status"] == "ok" for call in result["toolCalls"]), result
+        assert result["agentTurn"]["behaviorIntent"] == "scene.play", result
+        assert any(
+            call["name"] == "scene.play"
+            and call["status"] == "deferred"
+            and call["arguments"].get("sceneId") == "dance"
+            for call in result["toolCalls"]
+        ), result
         assert result["experienceEventId"] == unity_event["eventId"], result
 
         reminder_unity, reminder_robot = await asyncio.gather(unity.next_event(), robot.next_event())
