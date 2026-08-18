@@ -1,9 +1,0 @@
-{
-  "variant": "e-wakenet-server-aec",
-  "voice_profile": "xiaozhi-conversational",
-  "audio_profile": "wakenet-server-aec",
-  "firmware_sha256": "34583da6fae669d112e48ef187c982e800a369916b76c071d3ed8395ed876e12",
-  "firmware_size": 3051968,
-  "technical_ready_for_flash_review": true,
-  "flash_authorized_by_user": false
-}

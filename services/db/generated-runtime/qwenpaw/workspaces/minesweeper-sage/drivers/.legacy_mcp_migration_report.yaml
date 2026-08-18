@@ -1,6 +1,0 @@
-migrated:
-- client_key: tavily_search
-  card_path: D:\projects\AR-AIPet\services\agent-service\runtime\qwenpaw\workspaces\minesweeper-sage\drivers\mcp\tavily_search.yaml
-  credential_ref: mcp/tavily_search
-skipped: []
-warnings: []

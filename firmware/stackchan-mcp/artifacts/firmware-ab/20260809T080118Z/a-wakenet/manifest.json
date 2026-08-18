@@ -1,9 +1,0 @@
-{
-  "variant": "a-wakenet",
-  "voice_profile": "xiaozhi-conversational",
-  "audio_profile": "wakenet",
-  "firmware_sha256": "7a7a1e7216e1a7b664d1c264f37c50b53a63b4546bd4546b96ef81b364caa268",
-  "firmware_size": 3051568,
-  "technical_ready_for_flash_review": true,
-  "flash_authorized_by_user": false
-}

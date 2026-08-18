@@ -1,9 +1,0 @@
-{
-  "variant": "f-mcp-single-shot",
-  "voice_profile": "mcp-single-shot",
-  "audio_profile": "wakenet",
-  "firmware_sha256": "3d0f71b5b91d7893851b8f1c2a9f12238e451bfeec2696ff8debe86f34d70fd3",
-  "firmware_size": 3051568,
-  "technical_ready_for_flash_review": true,
-  "flash_authorized_by_user": false
-}
