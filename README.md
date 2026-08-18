@@ -1,64 +1,70 @@
-# AR&AIPet
+# 屿见 YUSEE
 
-AR&AIPet 是由 AgentOS、StackChan、XREAL 和 Beam Pro 组成的虚实融合 AI 宠物项目。
+**连接智能眼镜与智能硬件的开放式 Agent 系统。**
 
-## 当前分工
+屿见以智能眼镜作为第一视角入口，让 Agent 持续理解用户、调用数字服务，并通过桌宠机器人、智能家居与其他智能设备进入现实世界。它不是单一眼镜应用或单一机器人产品，而是位于终端、云服务与具身设备之间的 **Agent 大脑层与生态层**。
 
-| 负责人 | 职责 |
-|---|---|
-| B | 项目主要负责人，同时负责 AgentOS、数据、StackChan 和 NanoDrive。 |
-| C | 游戏与交互体验主要负责人，同时负责人格、规则、内容、美术和比赛材料。 |
-| A | XR 客户端负责人，负责 Beam Pro、XREAL、Unity、AR 和游戏实现。 |
+> 让眼镜看见，让 Agent 理解，让硬件行动。
 
-## 项目目录
+## 为什么是屿见
 
-```text
-apps/
-├─ deck-site/      已归档展示 Deck
-└─ xr-client/      A 负责的正式 Unity/XREAL 客户端
-services/
-└─ agent-service/  B 负责
-firmware/
-├─ stackchan/      B 负责
-├─ espnow-controller/  B 负责的实体遥控器
-└─ nanodrive/      B 负责
-content/           C 负责
-competition/       C 负责
-packages/protocol/ 按模块主责定义，受影响人员确认
+- **完整 Agent 闭环**：从感知和理解出发，完成规划、工具调用、执行、反馈与记忆沉淀。
+- **可插拔模块**：感知、记忆、工具、体验和硬件适配器可以按需安装、组合、升级或替换。
+- **跨终端协同**：同一个 Agent 可以连接智能眼镜、App、机器人和智能设备，并保持一致的人格与用户上下文。
+- **开放硬件边界**：设备差异由适配器处理，Agent 核心不绑定特定眼镜或机器人型号。
+
+```mermaid
+flowchart LR
+  U["用户与环境"] --> I["智能眼镜与多端入口"]
+  I --> A["YUSEE Agent Runtime<br/>理解 · 规划 · 记忆 · 主动交互"]
+  A --> C["模块与能力中心"]
+  C --> S["数字服务"]
+  C --> E["体验模块"]
+  C --> H["硬件适配器"]
+  H --> D["机器人 · 智能家居 · 具身设备"]
+  S --> A
+  E --> A
+  D --> A
+  A --> I
 ```
 
-## 从哪里开始
+## 开放模块生态
 
-| 需要确认什么 | 先读哪里 |
+| 模块类型 | 作用 | 示例 |
+|---|---|---|
+| 感知模块 | 为 Agent 提供用户与环境上下文 | 语音、视觉、通知、位置、设备传感器 |
+| Agent 能力模块 | 扩展理解、记忆和主动行为 | 长期记忆、人格、提醒策略、任务规划 |
+| 工具模块 | 连接软件与外部服务 | 日程、待办、天气、内容服务、智能家居 |
+| 体验模块 | 组织完整的交互场景 | 陪伴、虚拟生活、农场、游戏、工作模式 |
+| 硬件适配器 | 将统一语义动作映射到具体设备 | 表情、灯光、姿态、移动、显示、传感器 |
+
+模块通过标准能力描述向系统注册。Agent 可以发现可用工具、检查权限、执行任务并根据真实结果继续决策；开发者无需修改 Agent 核心，即可接入新的服务、界面或硬件。
+
+## 参考应用：屿见 Companion
+
+屿见 Companion 展示了框架如何把个人 Agent 的数字世界与实体陪伴结合起来：用户通过眼镜和 App 看见 Agent 的状态、内心 OS 与虚拟生活，桌宠机器人则以语音、表情、灯光和动作提供现实反馈。
+
+参考体验包括：
+
+- 日程、待办与主动提醒；
+- 个性化陪伴、状态记录与长期记忆；
+- 农场、虚拟生活和轻量游戏；
+- 工作、学习与生活场景中的情境协助；
+- 智能家居和第三方服务联动。
+
+当前参考实现采用智能眼镜和开源桌宠机器人验证跨端协同；框架面向主流智能眼镜、不同桌宠机器人及更多具身设备开放。
+
+## 开源与商业模式
+
+屿见采用 **Open Core** 模式：开放 Agent 基础框架、模块规范、协议、参考客户端与示例适配器，帮助开发者和硬件厂商快速接入；通过托管 Agent 云服务、跨设备记忆、高级功能模块、官方硬件适配、企业私有部署与 OEM 授权提供商业服务。
+
+## 从这里开始
+
+| 想了解 | 文档 |
 |---|---|
-| 产品范围、什么不做 | [项目 PRD](docs/01-项目PRD.md) |
-| 已确定的技术决策、硬件边界 | [技术架构与可行性方案](docs/02-技术架构与可行性方案.md)、[硬件与底座方案](docs/05-硬件与底座方案.md) |
-| 当前阶段、谁做什么、产出什么 | [两周开发计划](docs/03-两周开发计划.md) |
-| 当前比赛版本实现边界与执行顺序 | [首版实现边界与技术决策](docs/08-首版实现边界与技术决策.md) |
-| 跨端状态、消息和 Mock | [接口协议](docs/04-A-B接口协议.md)、[`packages/protocol/`](packages/protocol/) |
-| 开源项目是否已验证 | [开源验证清单](docs/06-开源项目验证清单.md) |
-| 当前真实运行结果和 Demo 问题 | [测试与 Demo 验收](docs/07-测试与Demo验收.md) |
-| 某个模块如何运行 | 对应模块 README（见下方） |
+| 产品定位、用户价值与长期愿景 | [产品与愿景](docs/01-产品与愿景.md) |
+| Agent 架构、模块体系与部署形态 | [Agent 架构与模块生态](docs/02-Agent架构与模块生态.md) |
+| 开发工具、体验模块或硬件适配器 | [开发者接入指南](docs/03-开发者接入指南.md) |
+| 查看陪伴、提醒、游戏和智能生活案例 | [参考应用与体验](docs/04-参考应用与体验.md) |
 
-> 范围以 PRD 为准；技术决策以技术架构和硬件方案为准；当前执行以开发计划为准；字段与版本以 `packages/protocol/` 为准；实际状态以验证清单和验收表为准。
-
-协作与 PR 规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 正式开发入口
-
-- 正式 XR 客户端：[apps/xr-client/](apps/xr-client/)
-- Agent 服务：[services/agent-service/](services/agent-service/)
-- StackChan 固件：[firmware/stackchan/](firmware/stackchan/)
-- ESP-NOW 遥控器：[firmware/espnow-controller/](firmware/espnow-controller/)
-- NanoDrive 固件：[firmware/nanodrive/](firmware/nanodrive/)
-- 跨端协议：[packages/protocol/](packages/protocol/)
-
-## 归档与参考
-
-- 已归档展示 Deck：[apps/deck-site/](apps/deck-site/)。保留源代码、构建说明和 CI；后续仅修复展示故障，不扩展产品功能。
-
-## 当前状态
-
-StackChan 基础固件和实体子链路已有独立验证记录；PostgreSQL、Alembic、WebSocket 数据服务和 MCP Hub 已完成独立验收。当前项目自有本地 Agent Runtime 的 Mock 文字输入与 MCP 工具调用闭环已通过。QwenPaw 已废弃，当前 Agent 运行时与机器人固件的验证边界见开源验证清单。
-
-本地 Agent 的 Mock 记忆链路已通过。Unity 已完成官方 XREAL SDK 3.1.0 安装、Unity 脚本编译，以及 PC Play Mode 的 Agent Gateway WebSocket、`ExperienceEvent`、人格表情/Emoji/内心 OS 和显示结果回传闭环。StackChan—BLE—NanoDrive v0.9 的基础移动、停止和超时保护已完成实体验收；Beam Pro/XREAL 实机、真实模型、真实 Mem0、语音协议网关，以及完整 AR—Agent—机器人闭环仍待验证。具体证据和边界见 [XR 客户端 README](apps/xr-client/README.md)、[NanoDrive 联调记录](docs/11-NanoDrive联调记录.md) 和 [测试与 Demo 验收](docs/07-测试与Demo验收.md)。
+欢迎开发者通过 Issues 与 Pull Requests 参与模块、适配器和参考应用共建。
